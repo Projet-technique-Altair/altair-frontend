@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "target": "esnext",
+    "moduleResolution": "node16",
+    "strict": true,
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/components/*": ["src/components/*"],
+      "@/layouts/*": ["src/layouts/*"],
+      "@/pages/*": ["src/pages/*"],
+      "@/context/*": ["src/context/*"],
+      "@/data/*": ["src/data/*"],
+      "@/assets/*": ["src/assets/*"]
+    },
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}
