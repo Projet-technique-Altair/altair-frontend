@@ -1,0 +1,104 @@
+##############################################
+# Altair Project — Full .gitignore
+##############################################
+
+###############
+# Node / Frontend
+###############
+node_modules/
+dist/
+build/
+*.local
+*.cache
+
+# Vite
+.vite/
+
+# Environment files
+.env
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+###############
+# Rust Backend
+###############
+target/
+Cargo.lock
+*.rs.bk
+
+# Rust TLS keys
+*.pem
+*.key
+
+# Axum artifacts
+*.rmeta
+
+
+###############
+# Docker
+###############
+/docker-data/
+/volumes/
+/data/
+*.pid
+*.tar
+*.img
+
+# Docker Compose override files
+docker-compose.override.yml
+
+
+###############
+# Keycloak
+###############
+/keycloak-data/
+/keycloak-imports/
+
+# If you keep realm exports local
+realm-export.json
+
+
+###############
+# JetBrains IDEs
+###############
+.idea/
+*.iml
+*.iws
+
+
+###############
+# VSCode
+###############
+.vscode/
+.history/
+
+
+###############
+# OS / System files
+###############
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*.lock
+
+
+###############
+# Python virtual env (si besoin)
+###############
+venv/
+__pycache__/
+
+
+###############
+# Temporary local sandbox
+###############
+tmp/
+sandbox/
+local/
