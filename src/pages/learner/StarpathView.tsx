@@ -8,6 +8,9 @@ import StarpathWorldCanvas, {
 import StarpathWorldBackground from "@/components/starpath/StarpathWorldBackground";
 import StarpathStarLayer from "@/components/starpath/StarpathStarLayer";
 
+// ✅ ton nouveau layer (default export)
+import StarpathLabLayer from "@/components/starpath/StarpathPanZoomCanvas";
+
 function useMockEnabled() {
   const { search } = useLocation();
   return useMemo(() => new URLSearchParams(search).get("mock") === "1", [search]);
@@ -54,13 +57,9 @@ export default function StarpathView() {
     };
   }, []);
 
-  // ✅ Le canvas commence juste sous la navbar
   const TOP_OFFSET = headerH;
+  const HUD_TOP = TOP_OFFSET + 26;
 
-  // ✅ Le HUD (titre + boutons) est encore un peu plus bas (sinon c'est collé)
-  const HUD_TOP = TOP_OFFSET + 26; // ajuste ici si tu veux encore + bas
-
-  // Disable browser scroll while in this view
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -71,11 +70,8 @@ export default function StarpathView() {
 
   return (
     <div className="fixed inset-0 z-40 bg-black">
-      {/* ZONE PAN/ZOOM: commence sous la navbar */}
-      <div
-        className="absolute left-0 right-0 bottom-0"
-        style={{ top: TOP_OFFSET }}
-      >
+      {/* ZONE PAN/ZOOM */}
+      <div className="absolute left-0 right-0 bottom-0" style={{ top: TOP_OFFSET }}>
         <StarpathWorldCanvas
           ref={canvasRef}
           className="absolute inset-0"
@@ -84,15 +80,19 @@ export default function StarpathView() {
           maxScale={3}
         >
           <StarpathWorldBackground />
-          <StarpathStarLayer />
+
+          {/* déco */}
+          <StarpathStarLayer seed={id ?? "unknown"} density={3} />
+
+          {/* ✅ labs mock */}
+          {mock && <StarpathLabLayer seed={id ?? "unknown"} completedCount={5} />}
         </StarpathWorldCanvas>
       </div>
 
-      {/* TITRE + ACTIONS */}
+      {/* HUD */}
       <div className="absolute left-0 right-0" style={{ top: HUD_TOP }}>
         <div className="mx-auto w-full max-w-7xl px-6">
           <div className="pointer-events-none flex items-start justify-between gap-6">
-            {/* TEXT */}
             <div className="select-none">
               <div className="text-[10px] tracking-[0.35em] text-white/40">
                 STARPATH
@@ -117,7 +117,6 @@ export default function StarpathView() {
               )}
             </div>
 
-            {/* ACTIONS */}
             <div className="pointer-events-auto flex items-center gap-2">
               <button
                 onClick={() => navigate("/learner/dashboard")}
@@ -142,7 +141,6 @@ export default function StarpathView() {
         </div>
       </div>
 
-      {/* hint discret */}
       <div className="pointer-events-none absolute left-6 bottom-5 text-[11px] text-white/35">
         Drag to pan • Scroll to zoom (under cursor)
       </div>

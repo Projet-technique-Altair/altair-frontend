@@ -43,7 +43,8 @@ export default forwardRef<StarpathWorldCanvasHandle, Props>(
     const isPanning = useRef(false);
     const last = useRef({ x: 0, y: 0 });
 
-    const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+    const clamp = (v: number, a: number, b: number) =>
+      Math.max(a, Math.min(b, v));
 
     const computeCentered = (s: number) => {
       const el = containerRef.current;
@@ -85,7 +86,7 @@ export default forwardRef<StarpathWorldCanvasHandle, Props>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // prevent browser scroll + implement zoom under cursor
+    // zoom under cursor
     useEffect(() => {
       const el = containerRef.current;
       if (!el) return;
@@ -101,7 +102,6 @@ export default forwardRef<StarpathWorldCanvasHandle, Props>(
         const worldX = (px - tx) / scale;
         const worldY = (py - ty) / scale;
 
-        // smooth zoom
         const zoomFactor = Math.exp(-e.deltaY * 0.0012);
         const nextScale = clamp(scale * zoomFactor, minScale, maxScale);
 

@@ -1,211 +1,484 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Crosshair } from "lucide-react";
+// src/components/starpath/StarpathPanZoomCanvas.tsx
+//
+// NOTE: fichier réutilisé comme "nouveau layer" (contrainte repo: pas de nouveaux fichiers).
+// Export default: StarpathLabLayer
 
-import StarpathWorldBackground, { WORLD_H, WORLD_W } from "./StarpathWorldBackground";
-import StarpathStar from "./StarpathStarLayer";
-import StarpathTitle from "./StarpathTitle";
+import React, { useMemo } from "react";
+import { Check, Lock } from "lucide-react";
+
+import starPng from "@/assets/star.png";
+import { WORLD_H, WORLD_W } from "./StarpathWorldBackground";
+
+type LabType = "course" | "guided" | "challenge" | "unguided";
 
 type Props = {
-  title: string;
-  subtitle?: string;
-  mock?: boolean;
+  seed: string;
+  /** ex: 5 => terminé jusqu’au lab 2 du chapitre 2 (ordre global) */
+  completedCount?: number;
 };
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
+type MockLab = {
+  order: number; // 1..9
+  chapterIndex: 1 | 2 | 3;
+  chapterName: string;
+  chapterRgb: string; // "r,g,b"
+  title: string;
+  type: LabType;
+  description: string;
+};
+
+type PlacedLab = MockLab & {
+  x: number;
+  y: number;
+  size: number;
+  status: "completed" | "current" | "locked";
+};
+
+function hashStringToUint32(str: string) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
 }
 
-export default function StarpathPanZoomCanvas({ title, subtitle, mock }: Props) {
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-
-  const [headerH, setHeaderH] = useState(0);
-  const [scale, setScale] = useState(1);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-
-  const dragRef = useRef<{
-    dragging: boolean;
-    startX: number;
-    startY: number;
-    startOffX: number;
-    startOffY: number;
-  } | null>(null);
-
-  // Mesure navbar pour démarrer sous la navbar
-  useLayoutEffect(() => {
-    const header = document.querySelector("header");
-    if (!header) return;
-
-    const update = () => {
-      const rect = header.getBoundingClientRect();
-      setHeaderH(Math.round(rect.height));
-    };
-
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(header);
-
-    window.addEventListener("resize", update);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, []);
-
-  // Désactiver scroll navigateur
-  useEffect(() => {
-    const prevHtml = document.documentElement.style.overflow;
-    const prevBody = document.body.style.overflow;
-
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.documentElement.style.overflow = prevHtml;
-      document.body.style.overflow = prevBody;
-    };
-  }, []);
-
-  const recenter = () => {
-    const vp = viewportRef.current;
-    if (!vp) return;
-
-    const rect = vp.getBoundingClientRect();
-    const nextScale = 1;
-
-    const cx = rect.width / 2;
-    const cy = rect.height / 2;
-
-    const nextX = cx - (WORLD_W / 2) * nextScale;
-    const nextY = cy - (WORLD_H / 2) * nextScale;
-
-    setScale(nextScale);
-    setOffset({ x: nextX, y: nextY });
+function mulberry32(a: number) {
+  return function () {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
 
-  useEffect(() => {
-    if (!viewportRef.current) return;
-    recenter();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [headerH]);
+function clamp(n: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, n));
+}
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    const vp = viewportRef.current;
-    if (!vp) return;
+function randBetween(rng: () => number, a: number, b: number) {
+  return a + (b - a) * rng();
+}
 
-    e.preventDefault();
-    vp.setPointerCapture(e.pointerId);
+function roman(n: number) {
+  return n === 1 ? "I" : n === 2 ? "II" : "III";
+}
 
-    dragRef.current = {
-      dragging: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      startOffX: offset.x,
-      startOffY: offset.y,
-    };
-  };
+function typeLabel(t: LabType) {
+  switch (t) {
+    case "course":
+      return "Course";
+    case "guided":
+      return "Guided";
+    case "challenge":
+      return "Challenge";
+    case "unguided":
+      return "Unguided";
+  }
+}
 
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = dragRef.current;
-    if (!d?.dragging) return;
+function maskStarStyle(color: string) {
+  return {
+    backgroundColor: color,
+    WebkitMaskImage: `url(${starPng})`,
+    WebkitMaskRepeat: "no-repeat",
+    WebkitMaskPosition: "center",
+    WebkitMaskSize: "contain",
+    maskImage: `url(${starPng})`,
+    maskRepeat: "no-repeat",
+    maskPosition: "center",
+    maskSize: "contain",
+  } as const;
+}
 
-    const dx = e.clientX - d.startX;
-    const dy = e.clientY - d.startY;
+function buildMockLabs(): MockLab[] {
+  const chapters = [
+    {
+      idx: 1 as const,
+      name: "Foundations",
+      rgb: "56,189,248",
+      labs: [
+        {
+          title: "Course — Orion Basics",
+          type: "course" as const,
+          description: "Concepts clés, objectifs du chapitre, vocabulaire et workflow.",
+        },
+        {
+          title: "Guided — Linux Navigation",
+          type: "guided" as const,
+          description: "Commandes essentielles, arborescence, fichiers, permissions (warmup).",
+        },
+        {
+          title: "Challenge — Shell Patterns",
+          type: "challenge" as const,
+          description: "Objectifs à atteindre (indices limités), pipes, parsing, itérations.",
+        },
+      ],
+    },
+    {
+      idx: 2 as const,
+      name: "Web & Systems",
+      rgb: "122,44,243",
+      labs: [
+        {
+          title: "Course — Web Fundamentals",
+          type: "course" as const,
+          description: "HTTP, cookies, sessions, auth, threat model, bonnes pratiques.",
+        },
+        {
+          title: "Guided — Requests & Auth",
+          type: "guided" as const,
+          description: "Requêtes, headers, auth, erreurs fréquentes et debug.",
+        },
+      ],
+    },
+    {
+      idx: 3 as const,
+      name: "Operations",
+      rgb: "236,72,153",
+      labs: [
+        {
+          title: "Course — Exploitation Primer",
+          type: "course" as const,
+          description: "Primitives, méthodo, scope, règles de sécurité, approche structurée.",
+        },
+        {
+          title: "Guided — SQLi Warmup",
+          type: "guided" as const,
+          description: "Reconnaître une injection, payloads basiques, lecture d’indices.",
+        },
+        {
+          title: "Challenge — PrivEsc Path",
+          type: "challenge" as const,
+          description: "Trouver un chemin de privilèges (résolution libre).",
+        },
+        {
+          title: "Unguided — Orion Gauntlet",
+          type: "unguided" as const,
+          description: "Lab final sans guide : combine les acquis, full autonomie.",
+        },
+      ],
+    },
+  ];
 
-    setOffset({ x: d.startOffX + dx, y: d.startOffY + dy });
-  };
+  const out: MockLab[] = [];
+  let order = 1;
 
-  const onPointerUp = (e: React.PointerEvent) => {
-    const vp = viewportRef.current;
-    if (!vp) return;
-
-    dragRef.current = null;
-    try {
-      vp.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
+  for (const ch of chapters) {
+    for (const l of ch.labs) {
+      out.push({
+        order,
+        chapterIndex: ch.idx,
+        chapterName: ch.name,
+        chapterRgb: ch.rgb,
+        title: l.title,
+        type: l.type,
+        description: l.description,
+      });
+      order++;
     }
-  };
+  }
 
-  // Zoom sous le curseur
-  const onWheel = (e: React.WheelEvent) => {
-    const vp = viewportRef.current;
-    if (!vp) return;
+  return out;
+}
 
-    e.preventDefault();
+export default function StarpathLabLayer({ seed, completedCount = 5 }: Props) {
+  const { placed, chapterLabels } = useMemo(() => {
+    const rng = mulberry32(hashStringToUint32(seed + "|labs-layer"));
+    const labs = buildMockLabs();
 
-    const rect = vp.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
+    const baseCenters = [
+      { x: WORLD_W * 0.40, y: WORLD_H * 0.58 },
+      { x: WORLD_W * 0.53, y: WORLD_H * 0.44 },
+      { x: WORLD_W * 0.66, y: WORLD_H * 0.60 },
+    ].map((c) => ({
+      x: c.x + randBetween(rng, -110, 110),
+      y: c.y + randBetween(rng, -110, 110),
+    }));
 
-    const zoomIntensity = 0.0016;
-    const nextScale = clamp(scale * Math.exp(-e.deltaY * zoomIntensity), 0.55, 3.2);
+    const baseAngles = [-18, 18, 52].map(
+      (a) => (a + randBetween(rng, -12, 12)) * (Math.PI / 180)
+    );
 
-    const wx = (cx - offset.x) / scale;
-    const wy = (cy - offset.y) / scale;
+    const placedAll: PlacedLab[] = [];
 
-    const nextX = cx - wx * nextScale;
-    const nextY = cy - wy * nextScale;
+    const overlaps = (x: number, y: number, r: number) => {
+      for (const p of placedAll) {
+        const pr = p.size * 0.55;
+        const dx = x - p.x;
+        const dy = y - p.y;
+        const min = r + pr + 46;
+        if (dx * dx + dy * dy < min * min) return true;
+      }
+      return false;
+    };
 
-    setScale(nextScale);
-    setOffset({ x: nextX, y: nextY });
-  };
+    const placeChapter = (chapterIndex: 1 | 2 | 3) => {
+      const center = baseCenters[chapterIndex - 1];
+      const angle = baseAngles[chapterIndex - 1];
+
+      const dir = { x: Math.cos(angle), y: Math.sin(angle) };
+      const perp = { x: -dir.y, y: dir.x };
+
+      const list = labs.filter((l) => l.chapterIndex === chapterIndex);
+      const spacing = 310;
+
+      for (let i = 0; i < list.length; i++) {
+        const lab = list[i];
+        const t = i - (list.length - 1) / 2;
+
+        const size =
+          lab.type === "course"
+            ? Math.round(270 + randBetween(rng, -12, 12))
+            : lab.type === "unguided"
+            ? Math.round(285 + randBetween(rng, -10, 10))
+            : Math.round(250 + randBetween(rng, -12, 12));
+
+        const status: PlacedLab["status"] =
+          lab.order <= completedCount
+            ? "completed"
+            : lab.order === completedCount + 1
+            ? "current"
+            : "locked";
+
+        let px = 0;
+        let py = 0;
+        let ok = false;
+
+        for (let tries = 0; tries < 80; tries++) {
+          const jitterAlong = randBetween(rng, -22, 22);
+          const jitterPerp = randBetween(rng, -130, 130);
+          const jitterFineX = randBetween(rng, -24, 24);
+          const jitterFineY = randBetween(rng, -24, 24);
+
+          px =
+            center.x +
+            dir.x * (t * spacing + jitterAlong) +
+            perp.x * jitterPerp +
+            jitterFineX;
+          py =
+            center.y +
+            dir.y * (t * spacing + jitterAlong) +
+            perp.y * jitterPerp +
+            jitterFineY;
+
+          px = clamp(px, 260, WORLD_W - 260);
+          py = clamp(py, 260, WORLD_H - 260);
+
+          const r = size * 0.55;
+          if (!overlaps(px, py, r)) {
+            ok = true;
+            break;
+          }
+        }
+
+        if (!ok) {
+          px = clamp(center.x + t * spacing, 260, WORLD_W - 260);
+          py = clamp(center.y, 260, WORLD_H - 260);
+        }
+
+        placedAll.push({
+          ...lab,
+          x: Math.round(px * 2) / 2,
+          y: Math.round(py * 2) / 2,
+          size,
+          status,
+        });
+      }
+    };
+
+    placeChapter(1);
+    placeChapter(2);
+    placeChapter(3);
+
+    placedAll.sort((a, b) => a.order - b.order);
+
+    const chapters = [
+      { idx: 1 as const, name: "Foundations", rgb: "56,189,248" },
+      { idx: 2 as const, name: "Web & Systems", rgb: "122,44,243" },
+      { idx: 3 as const, name: "Operations", rgb: "236,72,153" },
+    ];
+
+    const labels = chapters.map((ch) => {
+      const list = placedAll.filter((l) => l.chapterIndex === ch.idx);
+      const ax = list.reduce((s, l) => s + l.x, 0) / Math.max(1, list.length);
+      const ay = list.reduce((s, l) => s + l.y, 0) / Math.max(1, list.length);
+      return { ...ch, x: ax, y: ay - 300 };
+    });
+
+    return { placed: placedAll, chapterLabels: labels };
+  }, [seed, completedCount]);
 
   return (
-    <div
-      className="fixed left-0 right-0 bottom-0 z-0 bg-black"
-      style={{
-        top: headerH,
-        height: `calc(100vh - ${headerH}px)`,
-      }}
-    >
-      <div
-        ref={viewportRef}
-        className="absolute inset-0 overflow-hidden select-none"
-        style={{ touchAction: "none" }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onWheel={onWheel}
-      >
-        {/* WORLD (moveable) */}
+    <div className="absolute left-0 top-0" style={{ width: WORLD_W, height: WORLD_H }}>
+      <style>{`
+        @keyframes spPulse {
+          0% { transform: translate(-50%,-50%) scale(1); opacity: .55; }
+          60% { transform: translate(-50%,-50%) scale(1.18); opacity: .18; }
+          100% { transform: translate(-50%,-50%) scale(1.28); opacity: 0; }
+        }
+      `}</style>
+
+      <svg className="absolute left-0 top-0 pointer-events-none" width={WORLD_W} height={WORLD_H}>
+        {placed.slice(0, -1).map((a, i) => {
+          const b = placed[i + 1];
+          const completed = b.status === "completed";
+          const active = b.status === "current";
+
+          const stroke = completed
+            ? "rgba(255,255,255,0.38)"
+            : active
+            ? "rgba(255,255,255,0.24)"
+            : "rgba(255,255,255,0.10)";
+
+          return (
+            <line
+              key={`${a.order}-${b.order}`}
+              x1={a.x}
+              y1={a.y}
+              x2={b.x}
+              y2={b.y}
+              stroke={stroke}
+              strokeWidth={completed ? 3 : 2}
+              strokeLinecap="round"
+              strokeDasharray={active ? "7 8" : "0"}
+            />
+          );
+        })}
+      </svg>
+
+      {chapterLabels.map((ch) => (
         <div
-          className="absolute left-0 top-0"
-          style={{
-            width: WORLD_W,
-            height: WORLD_H,
-            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-            transformOrigin: "0 0",
-          }}
+          key={ch.idx}
+          className="absolute pointer-events-none"
+          style={{ left: ch.x, top: ch.y, transform: "translate(-50%,-50%)" }}
         >
-          <StarpathWorldBackground />
-
-          {/* ✅ Une seule étoile blanche par défaut */}
-          <StarpathStar x={WORLD_W / 2 - 90} y={WORLD_H / 2 - 90} size={180} />
-        </div>
-
-        {/* OVERLAY (static) */}
-        <div className="absolute inset-0 pointer-events-none">
-          {/* Title lowered to avoid navbar overlap */}
-          <div className="absolute left-8 top-10">
-            <StarpathTitle title={title} subtitle={subtitle} mock={mock} />
-          </div>
-
-          {/* Recenter */}
-          <div className="pointer-events-auto absolute left-8 bottom-8">
-            <button
-              type="button"
-              onClick={recenter}
-              className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm text-white/80 backdrop-blur hover:bg-white/10 transition"
-              aria-label="Recenter"
-              title="Recenter"
+          <div
+            className="rounded-full border border-white/12 bg-black/35 backdrop-blur-md px-4 py-2"
+            style={{ boxShadow: `0 0 44px rgba(${ch.rgb}, 0.16)` }}
+          >
+            <div className="text-[10px] tracking-[0.35em] text-white/50">
+              CHAPTER {roman(ch.idx)}
+            </div>
+            <div
+              className="mt-1 text-sm font-semibold"
+              style={{
+                background: `linear-gradient(90deg, rgba(${ch.rgb},1) 0%, rgba(255,255,255,0.85) 100%)`,
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
             >
-              <Crosshair className="h-4 w-4" />
-              Recenter
-            </button>
+              {ch.name}
+            </div>
           </div>
         </div>
-      </div>
+      ))}
+
+      {placed.map((lab) => {
+        const rgb = lab.chapterRgb;
+        const completed = lab.status === "completed";
+        const current = lab.status === "current";
+        const locked = lab.status === "locked";
+
+        const alpha = locked ? 0.16 : completed ? 0.92 : 0.88;
+
+        const glow =
+          locked
+            ? "none"
+            : `drop-shadow(0 0 ${Math.round(lab.size * 0.22)}px rgba(${rgb}, ${
+                current ? 0.55 : 0.40
+              }))`;
+
+        return (
+          <div
+            key={lab.order}
+            className="absolute group"
+            style={{
+              left: lab.x,
+              top: lab.y,
+              width: lab.size,
+              height: lab.size,
+              transform: "translate(-50%,-50%)",
+              pointerEvents: locked ? "none" : "auto",
+            }}
+            title={locked ? "Locked" : lab.title}
+          >
+            {current && (
+              <div
+                className="absolute left-1/2 top-1/2 rounded-full border border-white/25"
+                style={{
+                  width: lab.size * 1.06,
+                  height: lab.size * 1.06,
+                  animation: "spPulse 1.8s ease-out infinite",
+                }}
+              />
+            )}
+
+            <div
+              className="absolute inset-0"
+              style={{
+                ...maskStarStyle(`rgba(${rgb}, ${alpha})`),
+                mixBlendMode: "screen",
+                filter: glow,
+              }}
+            />
+
+            {!locked && (
+              <div
+                className="absolute inset-[18%]"
+                style={{
+                  ...maskStarStyle(`rgba(255,255,255, ${current ? 0.18 : 0.12})`),
+                  mixBlendMode: "screen",
+                }}
+              />
+            )}
+
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none text-center">
+              <div className="text-[11px] tracking-[0.28em] text-white/70">
+                LAB {lab.order}
+              </div>
+              <div className="mt-2 inline-flex items-center gap-2">
+                <span className="rounded-full border border-white/12 bg-black/35 px-3 py-1 text-[11px] text-white/85 backdrop-blur">
+                  {typeLabel(lab.type)}
+                </span>
+                {completed && <Check className="h-4 w-4 text-white/75" />}
+                {locked && <Lock className="h-4 w-4 text-white/55" />}
+              </div>
+            </div>
+
+            <div className="pointer-events-none absolute left-1/2 top-[112%] -translate-x-1/2 opacity-0 group-hover:opacity-100 transition">
+              <div className="w-[360px] rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+                <div className="text-[10px] tracking-[0.35em] text-white/45">
+                  CHAPTER {roman(lab.chapterIndex)} • {typeLabel(lab.type).toUpperCase()}
+                </div>
+                <div className="mt-2 text-sm font-semibold text-white/90">
+                  {lab.title}
+                </div>
+                <div className="mt-2 text-sm text-white/65 leading-relaxed">
+                  {lab.description}
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: `rgba(${rgb}, 1)` }}
+                  />
+                  <span className="text-[11px] text-white/55">
+                    {lab.status === "completed"
+                      ? "Completed"
+                      : lab.status === "current"
+                      ? "Current"
+                      : "Locked"}
+                  </span>
+                  <span className="text-[11px] text-white/35">•</span>
+                  <span className="text-[11px] text-white/55">
+                    {lab.chapterName}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
