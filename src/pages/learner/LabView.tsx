@@ -39,7 +39,7 @@ function mockLabFromId(id: string): LabViewModel {
     name: isCompleted
       ? "Mock Lab — Completed"
       : isInProgress
-        ? "Mock Lab — In Progress"
+        ? "Lab — In Progress"
         : "Mock Lab — Preview",
     description:
       "This is mock data to validate UI. Backend is bypassed when ?mock=1 is present.",

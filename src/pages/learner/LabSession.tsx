@@ -53,7 +53,7 @@ function buildMockLab(id: string): MockLabVM {
     case "mock-in-progress":
       return {
         lab_id: id,
-        name: "Mock Lab — In Progress",
+        name: "Lab — In Progress",
         description: "Fake lab used to validate the LabSession UI (mock mode).",
         difficulty: "INTERMEDIATE",
       };

@@ -8,6 +8,8 @@
  * - Right-side "porthole" image (visual proof), no CTA / link
  */
 
+import labView from "@/assets/lab-view.png";
+
 type LabCardProps = {
   label: string;
   title: string;
@@ -77,11 +79,10 @@ export default function LabShowcaseSection() {
               className="pointer-events-none absolute -inset-24 bg-gradient-to-br from-sky-400/10 via-violet-400/10 to-transparent"
             />
 
-            {/* Replace src with your lab image */}
             <img
-              src="/assets/lab-preview.png"
+              src={labView}
               alt="Preview of a lab in progress on Altaïr"
-              className="relative z-10 h-[320px] w-full object-cover md:h-[420px]"
+              className="relative z-10 h-[320px] w-full object-contain bg-[#070B18]/35 md:h-[420px]"
               loading="lazy"
             />
 

@@ -12,9 +12,37 @@
  * (e.g., learner dashboard) without making the text unreadable.
  */
 
+import learnerDashboard from "@/assets/learner-dashboard.png";
+
 export default function ExplorerSection() {
   return (
     <section id="explorer" className="relative overflow-hidden px-8 py-32">
+      {/* Background image (futuristic / dashboard) */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-35 saturate-150 contrast-125 brightness-75"
+        style={{ backgroundImage: `url(${learnerDashboard})` }}
+      />
+      {/* Subtle futuristic tints */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{
+          backgroundImage:
+            "radial-gradient(ellipse at top, rgba(56,189,248,0.18), transparent 55%), radial-gradient(ellipse at bottom, rgba(139,92,246,0.20), transparent 60%)",
+        }}
+      />
+      {/* Soft scanlines (very subtle) */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.07] mix-blend-overlay"
+        style={{
+          backgroundImage:
+            "linear-gradient(to bottom, rgba(255,255,255,0.7) 1px, transparent 1px)",
+          backgroundSize: "100% 7px",
+        }}
+      />
+
       {/* Veil / overlay (does not affect content opacity) */}
       <div
         aria-hidden
@@ -191,7 +219,9 @@ function Pillar({
 
       <h3 className="text-lg font-semibold text-white">{title}</h3>
 
-      <p className="mt-4 text-sm leading-relaxed text-slate-400">{description}</p>
+      <p className="mt-4 text-sm leading-relaxed text-slate-400">
+        {description}
+      </p>
     </div>
   );
 }

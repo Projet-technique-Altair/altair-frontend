@@ -8,6 +8,8 @@
  * - BG filter: observatory spotlight + vignette (no flat opacity veil)
  */
 
+import starpathView from "@/assets/starpath-view.png";
+
 type PrincipleProps = {
   index: string;
   title: string;
@@ -58,11 +60,10 @@ export default function StarpathSection() {
                 className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-transparent"
               />
 
-              {/* Replace with your real preview */}
               <img
-                src="/assets/starpath-preview.png"
+                src={starpathView}
                 alt="Starpath preview: learning path"
-                className="relative z-10 h-[360px] w-full object-cover md:h-[500px]"
+                className="relative z-10 h-[360px] w-full object-contain bg-[#070B18]/35 md:h-[500px]"
                 loading="lazy"
               />
             </div>
