@@ -11,6 +11,8 @@ import LearnerLayout from "@/layouts/LearnerLayout";
 import CreatorLayout from "@/layouts/CreatorLayout";
 
 import LearnerDashboard from "@/pages/learner/LearnerDashboard";
+import GroupsView from "@/pages/learner/GroupsView";
+import StarpathView from "@/pages/learner/StarpathView";
 import LabView from "@/pages/learner/LabView";
 import LabSession from "@/pages/learner/LabSession";
 
@@ -26,11 +28,6 @@ import AppEntry from "@/pages/AppEntry";
 
 // ===== TOKEN-ONLY GUARD =====
 // Redirige vers la landing si non authentifié
-/*function AuthGuard() {
-  const { isAuthenticated } = useAuth();
-  if (!isAuthenticated) return <Navigate to="/" replace />;
-  return <Outlet />;
-}*/
 function AuthGuard() {
   const { token } = useAuth();
   const storedToken = sessionStorage.getItem("altair_token");
@@ -39,7 +36,6 @@ function AuthGuard() {
   if (!effectiveToken) return <Navigate to="/" replace />;
   return <Outlet />;
 }
-
 
 export const router = createBrowserRouter([
   {
@@ -80,8 +76,18 @@ export const router = createBrowserRouter([
             errorElement: <RouteError />,
             children: [
               { path: "dashboard", element: <LearnerDashboard /> },
+
+              // ✅ Groups (list + detail)
+              { path: "groups", element: <GroupsView /> },
+              { path: "groups/:id", element: <GroupsView /> },
+
+              // ✅ Starpaths (optional list + detail)
+              { path: "starpaths", element: <StarpathView /> },
+              { path: "starpaths/:id", element: <StarpathView /> },
+
               { path: "labs/:id", element: <LabView /> },
               { path: "labs/:id/session", element: <LabSession /> },
+
               { index: true, element: <Navigate to="dashboard" replace /> },
             ],
           },

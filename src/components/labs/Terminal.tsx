@@ -1,63 +1,42 @@
-// src/components/labs/Terminal.tsx
 /**
  * @file UI component providing an interactive terminal simulation
  * for executing lab commands within an Altair lab step.
  *
- * @remarks
- * The `Terminal` component emulates a simplified terminal environment
- * where learners can type and execute commands corresponding to the current {@link LabStep}.
- * It provides visual feedback for valid and invalid inputs and logs command history dynamically.
- *
- * This component enhances interactivity within lab sessions by reinforcing
- * the command-line workflow in a sandboxed, client-side environment.
- *
  * @packageDocumentation
  */
-import { useState } from "react";
-import { LabStep } from "@/api/mockLab";
 
+import { useMemo, useState } from "react";
+import { Play } from "lucide-react";
 
 /**
- * Props for the {@link Terminal} component.
- *
- * @property step - The current {@link LabStep} whose `expected` value defines the valid command.
- *
- * @public
+ * Keep the step type local to avoid import/type coupling issues.
  */
+export type LabStep = {
+  title: string;
+  instruction: string;
+  expected?: string;
+  hint?: string;
+  solution?: string;
+};
+
 interface TerminalProps {
   step: LabStep;
 }
 
-
-/**
- * Interactive terminal component used in lab sessions.
- *
- * @remarks
- * This component displays:
- * - A simulated terminal header with window controls
- * - A scrollable output area for executed commands and responses
- * - A command-line input field with real-time validation
- *
- * When the learner submits a command:
- * - It compares the input to the `step.expected` command
- * - Displays contextual feedback (success or error)
- * - Updates the command history displayed on screen
- *
- * @param props - {@link TerminalProps} defining the current lab step context.
- * @returns A React JSX element rendering an interactive command-line interface.
- *
- * @public
- */
 export default function Terminal({ step }: TerminalProps) {
   const [output, setOutput] = useState<string[]>([]);
   const [command, setCommand] = useState("");
+
+  const expected = useMemo(() => (step.expected ?? "").trim(), [step.expected]);
 
   const handleRun = () => {
     const trimmed = command.trim();
     if (!trimmed) return;
 
     let result = "";
-    if (trimmed === step.expected?.trim()) {
+    if (!expected) {
+      result = "⚠️ No expected command defined for this step.";
+    } else if (trimmed === expected) {
       result = "✅ Command executed successfully.";
     } else {
       result = "❌ Unknown command or invalid syntax.";
@@ -68,37 +47,82 @@ export default function Terminal({ step }: TerminalProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0B0F19] rounded-xl overflow-hidden border border-white/10">
-      <div className="flex items-center gap-2 bg-[#111827] px-4 py-2 text-xs text-slate-400 border-b border-white/10">
-        <div className="flex gap-1">
-          <div className="w-3 h-3 bg-red-500/80 rounded-full"></div>
-          <div className="w-3 h-3 bg-yellow-400/80 rounded-full"></div>
-          <div className="w-3 h-3 bg-green-500/80 rounded-full"></div>
+    <div className="h-full rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_18px_60px_rgba(0,0,0,0.45)] overflow-hidden flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/20">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
+            <span className="h-2.5 w-2.5 rounded-full bg-yellow-300/70" />
+            <span className="h-2.5 w-2.5 rounded-full bg-green-400/70" />
+          </div>
+          <span className="ml-2 text-xs text-white/70 tracking-wide">
+            INTERACTIVE TERMINAL
+          </span>
         </div>
-        <span className="ml-2 text-white/60 font-medium">
-          Interactive Terminal
-        </span>
+
+        <div className="text-[11px] text-white/45">
+          {expected ? "Signal: locked" : "Signal: undefined"}
+        </div>
       </div>
 
-      {/* Zone d’affichage */}
-      <div className="flex-1 overflow-y-auto p-4 font-mono text-sm text-gray-200">
+      {/* Output */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 font-mono text-sm text-white/80">
         {output.length === 0 ? (
-          <p className="text-gray-500 italic">No commands executed yet...</p>
+          <p className="text-white/35 italic">No commands executed yet…</p>
         ) : (
-          output.map((line, i) => <div key={i}>{line}</div>)
+          <div className="space-y-1.5">
+            {output.map((line, i) => {
+              const isPrompt = line.startsWith("$ ");
+              const isOk = line.startsWith("✅");
+              const isErr = line.startsWith("❌");
+              const isWarn = line.startsWith("⚠️");
+
+              return (
+                <div
+                  key={i}
+                  className={[
+                    "whitespace-pre-wrap break-words",
+                    isPrompt && "text-white/70",
+                    isOk && "text-green-200",
+                    isErr && "text-red-200",
+                    isWarn && "text-yellow-200",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  {line}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* Ligne de commande */}
-      <div className="border-t border-white/10 p-3 flex items-center gap-2 bg-[#0E1323]">
-        <span className="text-sky-400 font-mono">$</span>
-        <input
-          value={command}
-          onChange={(e) => setCommand(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleRun()}
-          placeholder="Type a command..."
-          className="flex-1 bg-transparent focus:outline-none text-gray-200 text-sm"
-        />
+      {/* Input */}
+      <div className="border-t border-white/10 bg-black/20 p-3">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+          <span className="font-mono text-sky-300">$</span>
+
+          <input
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleRun()}
+            placeholder="Type a command…"
+            className="flex-1 bg-transparent outline-none text-sm font-mono text-white/85 placeholder:text-white/35"
+          />
+
+          <button
+            onClick={handleRun}
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-white/80 border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/15 transition"
+            aria-label="Run command"
+            title="Run"
+          >
+            <Play className="h-3.5 w-3.5" />
+            Run
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,54 +1,75 @@
 // src/pages/learner/sections/ProgressSection.tsx
 
-/**
- * @file ProgressSection — displays the learner’s progress across all active Starpaths.
- *
- * @remarks
- * This section lists all Starpaths the learner has started.
- * Each entry shows:
- *  - The Starpath name
- *  - The learner’s completion percentage
- *  - A gradient progress bar
- *  - Quick metadata (number of chapters, labs, and domain)
- *
- * Used within the Learner Dashboard to provide at-a-glance Starpath progression.
- *
- * @packageDocumentation
- */
-import React from "react";
 import { useNavigate } from "react-router-dom";
-import type { Starpath } from "@/api/mock"; //Correct type source
-
+import { Orbit, ChevronRight } from "lucide-react";
 import Progress from "@/components/ui/progress";
-import DashboardCard from "@/components/ui/DashboardCard";
-import SectionTitle from "@/components/ui/SectionTitle";
-import { ALT_COLORS } from "@/lib/theme";
 
-/**
- * Props for the {@link ProgressSection} component.
- */
+// keep the same shape you already use in mocks
+export type StarpathLike = {
+  id: string;
+  name: string;
+  chaptersCompleted: number;
+  totalChapters: number;
+  labs: number;
+  domain: string;
+};
+
 interface ProgressSectionProps {
-  starpaths: Starpath[];
+  starpaths: StarpathLike[];
 }
 
+function GlassPanel({
+  eyebrow,
+  title,
+  subtitle,
+  count,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+  count?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_24px_90px_rgba(0,0,0,0.45)] overflow-hidden">
+      <div className="relative p-8">
+        {/* subtle glow */}
+        <div className="pointer-events-none absolute inset-0 opacity-80">
+          <div className="absolute -top-28 -left-28 h-80 w-80 rounded-full bg-sky-500/10 blur-3xl" />
+          <div className="absolute -bottom-28 -right-28 h-80 w-80 rounded-full bg-purple-500/10 blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-400/5 blur-3xl" />
+        </div>
 
-/**
- * Displays all Starpaths started by the learner and their respective progress.
- *
- * @remarks
- * - Each Starpath card is clickable and redirects to its dedicated page.
- * - Progress is dynamically computed as `(chaptersCompleted / totalChapters) * 100`.
- * - Includes a gradient bar visual consistent with the dashboard theme.
- *
- * @example
- * ```tsx
- * <ProgressSection starpaths={userStarpaths} />
- * ```
- *
- * @returns A dashboard card containing Starpath progression entries.
- *
- * @public
- */
+        <div className="relative flex items-start justify-between gap-8">
+          <div>
+            <div className="text-[11px] tracking-wide uppercase text-white/55">
+              {eyebrow}
+            </div>
+            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-white/90">
+              {title}
+            </h3>
+            {subtitle && (
+              <p className="mt-1.5 text-sm text-white/60 max-w-2xl">
+                {subtitle}
+              </p>
+            )}
+          </div>
+
+          {typeof count === "number" && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 px-5 py-4">
+              <div className="text-[10px] text-white/55 tracking-wide">Count</div>
+              <div className="mt-1 text-xl font-semibold text-white/90">{count}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="relative mt-7">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProgressSection({ starpaths }: ProgressSectionProps) {
   const navigate = useNavigate();
 
@@ -57,69 +78,69 @@ export default function ProgressSection({ starpaths }: ProgressSectionProps) {
   };
 
   return (
-    <DashboardCard className="p-6">
-      {/* === SECTION TITLE === */}
-      <SectionTitle
-        text="Starpath Progress"
-        gradient={`linear-gradient(90deg, ${ALT_COLORS.blue}, ${ALT_COLORS.purple})`}
-        count={starpaths.length}
-        showDot
-      />
-
-      {/* === EMPTY STATE === */}
+    <GlassPanel
+      eyebrow="Starpaths"
+      title="Navigation: Starpaths"
+      subtitle="Long-range missions. Each path chains labs into a guided progression."
+      count={starpaths.length}
+    >
       {starpaths.length === 0 ? (
-        <p className="text-sm text-gray-400 italic mt-2">
-          You haven’t started any Starpaths yet.
-        </p>
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-white/65">
+          <div className="text-sm font-semibold">No active starpaths</div>
+          <div className="mt-2 text-xs text-white/55">
+            Start a starpath to see progression telemetry here.
+          </div>
+        </div>
       ) : (
-        <div className="mt-5 space-y-4">
+        <div className="space-y-3">
           {starpaths.map((sp) => {
-            const progress = Math.round(
-              (sp.chaptersCompleted / sp.totalChapters) * 100
-            );
+            const total = Math.max(sp.totalChapters || 0, 1);
+            const done = Math.min(sp.chaptersCompleted || 0, total);
+            const pct = Math.round((done / total) * 100);
 
             return (
-              <div
+              <button
                 key={sp.id}
+                type="button"
                 onClick={() => handleClick(sp.id)}
-                className="
-                  group cursor-pointer
-                  bg-[#0E1325]/70 border border-[#1E293B]/60
-                  hover:border-[#7A2CF3]/40 hover:shadow-[0_0_12px_rgba(122,44,243,0.25)]
-                  rounded-xl p-3 transition-all duration-200
-                "
+                className={[
+                  "w-full text-left rounded-2xl border border-white/10 bg-black/20",
+                  "px-5 py-4 transition",
+                  "hover:bg-white/5 hover:border-white/15 hover:shadow-[0_18px_50px_rgba(0,0,0,0.35)]",
+                ].join(" ")}
               >
-                {/* === HEADER === */}
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-200 font-medium group-hover:text-sky-400 transition">
-                    {sp.name}
-                  </span>
-                  <span className="text-xs text-sky-400 font-semibold">
-                    {progress}%
-                  </span>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Orbit className="h-4 w-4 text-white/60" />
+                      <div className="truncate text-sm font-semibold text-white/90">
+                        {sp.name}
+                      </div>
+                    </div>
+
+                    <div className="mt-1 text-xs text-white/55">
+                      {sp.domain} • {sp.labs} labs • {done}/{total} chapters
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-xs text-white/60 tabular-nums">{pct}%</div>
+                    <ChevronRight className="h-4 w-4 text-white/40" />
+                  </div>
                 </div>
 
-                {/* === PROGRESS BAR === */}
-                <Progress
-                  value={progress}
-                  className="h-2 bg-[#0f172a]"
-                  indicatorClassName="bg-gradient-to-r from-sky-400 via-purple-400 to-orange-400"
-                />
-
-                {/* === FOOTER === */}
-                <div className="flex justify-between text-[11px] mt-2 text-gray-500">
-                  <span>
-                    {sp.chaptersCompleted}/{sp.totalChapters} chapters
-                  </span>
-                  <span className="italic">
-                    {sp.labs} labs • {sp.domain}
-                  </span>
+                <div className="mt-3">
+                  <Progress
+                    value={pct}
+                    className="h-2 bg-white/5 border border-white/10"
+                    indicatorClassName="bg-gradient-to-r from-sky-400/80 via-purple-400/80 to-orange-300/75"
+                  />
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
       )}
-    </DashboardCard>
+    </GlassPanel>
   );
 }

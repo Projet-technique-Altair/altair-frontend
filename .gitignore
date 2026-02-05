@@ -14,9 +14,7 @@ build/
 # Vite
 .vite/
 
-# Environment files
-.env
-.env.*.local
+
 
 # Logs
 npm-debug.log*

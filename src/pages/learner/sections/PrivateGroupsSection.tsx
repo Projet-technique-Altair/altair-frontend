@@ -1,135 +1,157 @@
-/**
- * @file PrivateGroupsSection — displays all learner private collaboration groups.
- *
- * @remarks
- * This section lists the **private groups** the learner is part of.
- * Each group card shows:
- * - Its name and visibility status
- * - A small visual overview of associated labs and starpaths
- * - A soft background glow effect for aesthetic consistency
- *
- * Used in the Learner Dashboard to represent team or private project workspaces.
- *
- * @packageDocumentation
- */
+// src/pages/learner/sections/PrivateGroupsSection.tsx
 
+import { Users, Shield } from "lucide-react";
 
-import { PrivateGroup } from "@/api";
-import DashboardCard from "@/components/ui/DashboardCard";
-import SectionTitle from "@/components/ui/SectionTitle";
-import { ALT_COLORS } from "@/lib/theme";
+type GroupLike = {
+  id: string;
+  name: string;
+  labIds: string[];
+  starpathIds: string[];
+};
 
-/**
- * Props for the {@link PrivateGroupsSection} component.
- */
 interface PrivateGroupsSectionProps {
-  groups: PrivateGroup[];
+  groups: GroupLike[];
 }
 
-
-/**
- * Displays the list of learner’s **private groups**.
- *
- * @remarks
- * - If the learner has no private groups, displays a friendly empty message.
- * - Each group card includes quick visual indicators for **labs** and **starpaths**.
- * - The progress visualization width dynamically scales with the number of items.
- *
- * @example
- * ```tsx
- * <PrivateGroupsSection groups={userPrivateGroups} />
- * ```
- *
- * @returns A stylized dashboard card containing private group summaries.
- *
- * @public
- */
-export default function PrivateGroupsSection({ groups }: PrivateGroupsSectionProps) {
+function GlassPanel({
+  eyebrow,
+  title,
+  subtitle,
+  count,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+  count?: number;
+  children: React.ReactNode;
+}) {
   return (
-    <DashboardCard className="p-6">
-      <SectionTitle
-        text="Private Groups"
-        gradient={`linear-gradient(90deg, ${ALT_COLORS.purple}, ${ALT_COLORS.cyan})`}
-        count={groups.length}
-        showDot
+    <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_24px_90px_rgba(0,0,0,0.45)] overflow-hidden">
+      <div className="relative p-8">
+        {/* subtle glow */}
+        <div className="pointer-events-none absolute inset-0 opacity-80">
+          <div className="absolute -top-28 -left-28 h-80 w-80 rounded-full bg-sky-500/10 blur-3xl" />
+          <div className="absolute -bottom-28 -right-28 h-80 w-80 rounded-full bg-purple-500/10 blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-400/5 blur-3xl" />
+        </div>
+
+        <div className="relative flex items-start justify-between gap-8">
+          <div>
+            <div className="text-[11px] tracking-wide uppercase text-white/55">
+              {eyebrow}
+            </div>
+            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-white/90">
+              {title}
+            </h3>
+            {subtitle && (
+              <p className="mt-1.5 text-sm text-white/60 max-w-2xl">
+                {subtitle}
+              </p>
+            )}
+          </div>
+
+          {typeof count === "number" && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 px-5 py-4">
+              <div className="text-[10px] text-white/55 tracking-wide">Count</div>
+              <div className="mt-1 text-xl font-semibold text-white/90">{count}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="relative mt-7">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function MiniBar({ value, max }: { value: number; max: number }) {
+  const pct = max <= 0 ? 0 : Math.min(100, Math.round((value / max) * 100));
+  return (
+    <div className="h-2 rounded-full bg-white/5 border border-white/10 overflow-hidden">
+      <div
+        className="h-full rounded-full bg-gradient-to-r from-sky-400/80 via-purple-400/80 to-orange-300/75"
+        style={{ width: `${pct}%` }}
       />
+    </div>
+  );
+}
 
+export default function PrivateGroupsSection({ groups }: PrivateGroupsSectionProps) {
+  const maxLabs = Math.max(1, ...groups.map((g) => g.labIds.length));
+  const maxStarpaths = Math.max(1, ...groups.map((g) => g.starpathIds.length));
+
+  return (
+    <GlassPanel
+      eyebrow="Groups"
+      title="Private Groups"
+      subtitle="Your secured workspaces for collaborative runs."
+      count={groups.length}
+    >
       {groups.length === 0 ? (
-        <p className="text-sm text-gray-400 italic mt-3">
-          You don’t belong to any groups yet.
-        </p>
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-white/65">
+          <div className="text-sm font-semibold">No groups yet</div>
+          <div className="mt-2 text-xs text-white/55">
+            Private groups will appear here once you join or create one.
+          </div>
+        </div>
       ) : (
-        <div className="mt-6 space-y-5">
-          {groups.map((group) => (
+        <div className="space-y-3">
+          {groups.map((g) => (
             <div
-              key={group.id}
-              className="relative overflow-hidden p-5 rounded-xl bg-[#101520]/80 border border-white/5 shadow-[0_0_12px_rgba(122,44,243,0.1)] hover:shadow-[0_0_18px_rgba(122,44,243,0.2)] hover:border-purple-500/30 transition-all duration-200"
+              key={g.id}
+              className="rounded-2xl border border-white/10 bg-black/20 px-5 py-4 hover:bg-white/5 hover:border-white/15 transition shadow-[0_0_0_rgba(0,0,0,0)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
             >
-              {/* === BACKGROUND GLOW EFFECT === */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-700/5 via-transparent to-cyan-700/5 pointer-events-none" />
-
-              {/* === HEADER === */}
-              <div className="relative flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-white">
-                    {group.name}
-                  </h3>
-                  <p className="text-sm text-gray-400 mt-1">
-                    {group.labIds.length} Labs • {group.starpathIds.length} Starpaths
-                  </p>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-white/60" />
+                    <div className="truncate text-sm font-semibold text-white/90">
+                      {g.name}
+                    </div>
+                  </div>
+                  <div className="mt-1 text-xs text-white/55">
+                    {g.labIds.length} labs • {g.starpathIds.length} starpaths
+                  </div>
                 </div>
 
-                <span className="mt-2 sm:mt-0 text-xs text-gray-400 bg-[#0e1624] px-3 py-1 rounded-full border border-white/10">
-                  Private Group
-                </span>
+                <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                  <Shield className="h-3.5 w-3.5 text-white/55" />
+                  <span className="text-[11px] text-white/60">Private</span>
+                </div>
               </div>
 
-              {/* === VISUAL INDICATORS === */}
-              <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-                {/* Labs preview */}
-                <div className="p-3 rounded-lg bg-[#0d1220]/80 border border-orange-400/10">
-                  <p className="text-sm font-medium text-orange-300 mb-1">
-                    Labs Overview
-                  </p>
-                  <div className="h-2 w-full rounded-full bg-[#1e2633] overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-orange-400 via-purple-400 to-sky-400"
-                      style={{
-                        width: `${Math.min(group.labIds.length * 20, 100)}%`,
-                      }}
-                    ></div>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-[11px] uppercase tracking-wide text-white/55">
+                    Labs Activity
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {group.labIds.length > 0
-                      ? `Contains ${group.labIds.length} collaborative labs.`
-                      : "No labs yet in this group."}
-                  </p>
+                  <div className="mt-3">
+                    <MiniBar value={g.labIds.length} max={maxLabs} />
+                  </div>
+                  <div className="mt-2 text-xs text-white/55">
+                    {g.labIds.length > 0 ? "Assigned labs detected." : "No labs assigned yet."}
+                  </div>
                 </div>
 
-                {/* Starpaths preview */}
-                <div className="p-3 rounded-lg bg-[#0d1220]/80 border border-cyan-400/10">
-                  <p className="text-sm font-medium text-cyan-300 mb-1">
-                    Starpaths Overview
-                  </p>
-                  <div className="h-2 w-full rounded-full bg-[#1e2633] overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-sky-400 via-purple-400 to-pink-400"
-                      style={{
-                        width: `${Math.min(group.starpathIds.length * 25, 100)}%`,
-                      }}
-                    ></div>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-[11px] uppercase tracking-wide text-white/55">
+                    Starpaths Activity
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {group.starpathIds.length > 0
-                      ? `Includes ${group.starpathIds.length} starpaths to explore.`
-                      : "No starpaths assigned."}
-                  </p>
+                  <div className="mt-3">
+                    <MiniBar value={g.starpathIds.length} max={maxStarpaths} />
+                  </div>
+                  <div className="mt-2 text-xs text-white/55">
+                    {g.starpathIds.length > 0
+                      ? "Starpaths linked to this group."
+                      : "No starpaths linked yet."}
+                  </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
-    </DashboardCard>
+    </GlassPanel>
   );
 }

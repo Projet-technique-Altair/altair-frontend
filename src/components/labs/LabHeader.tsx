@@ -1,4 +1,3 @@
-// src/components/labs/LabHeader.tsx
 /**
  * @file UI component displaying the lab session header.
  *
@@ -13,68 +12,66 @@
  * @packageDocumentation
  */
 
-
 import { ALT_COLORS } from "@/lib/theme";
+import { Clock3, LogOut } from "lucide-react";
 
-/**
- * Props for the {@link LabHeader} component.
- *
- * @property labName - The display name of the current lab session.
- * @property timer - Optional string showing elapsed or remaining time (e.g. `"12:30"`).
- * @property onExit - Optional callback triggered when the user ends the lab session.
- *
- * @public
- */
 interface LabHeaderProps {
   labName: string;
   timer?: string;
   onExit?: () => void;
 }
 
-
-/**
- * Displays the lab session header section.
- *
- * @remarks
- * Includes:
- * - Gradient-styled lab title using Altair theme colors
- * - Optional timer indicator (⏱)
- * - Optional "End Session" button with red accent
- *
- * Responsive across screen sizes via Tailwind classes.
- *
- * @param props - {@link LabHeaderProps} defining lab name, timer, and exit handler.
- * @returns A React JSX element rendering the session header.
- *
- *
- * @public
- */
 export default function LabHeader({ labName, timer, onExit }: LabHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-      <h1
-        className="text-2xl sm:text-3xl font-bold"
-        style={{
-          background: `linear-gradient(90deg, ${ALT_COLORS.blue}, ${ALT_COLORS.purple}, ${ALT_COLORS.orange})`,
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-        }}
-      >
-        {labName} — <span className="text-white/80 font-medium">Session</span>
-      </h1>
+    <div className="w-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Title block */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <h1
+            className="text-2xl sm:text-3xl font-semibold tracking-tight leading-tight"
+            style={{
+              background: `linear-gradient(90deg, ${ALT_COLORS.blue}, ${ALT_COLORS.purple}, ${ALT_COLORS.orange})`,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            {labName}
+          </h1>
 
-      <div className="flex items-center gap-4">
-        {timer && (
-          <span className="text-sm font-mono text-slate-400">
-            ⏱ {timer}
+          <span className="hidden sm:inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] tracking-wide text-white/60 backdrop-blur-md">
+            SESSION
           </span>
+        </div>
+
+        <p className="text-xs text-white/50">
+          Follow the steps • validate when ready • keep a clean signal
+        </p>
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {timer && (
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/70 backdrop-blur-md">
+            <Clock3 className="h-4 w-4 text-white/60" />
+            <span className="font-mono">{timer}</span>
+          </div>
         )}
+
         {onExit && (
           <button
             onClick={onExit}
-            className="px-4 py-2 rounded-full text-sm font-medium bg-[#1E293B] hover:bg-red-500/20 text-red-400 border border-red-400/40 transition"
+            className={[
+              "inline-flex items-center gap-2 rounded-full px-3 py-2",
+              "border border-white/10 bg-white/5 backdrop-blur-md",
+              "text-xs text-white/80 hover:text-white",
+              "hover:bg-white/8 hover:border-white/15 transition",
+            ].join(" ")}
+            aria-label="End session"
+            title="End session"
+            type="button"
           >
-            ✖ End Session
+            <LogOut className="h-4 w-4 text-red-300/90" />
+            <span className="hidden sm:inline">End</span>
           </button>
         )}
       </div>

@@ -1,192 +1,229 @@
 // src/pages/learner/sections/ChartsSection.tsx
 
 /**
- * @file ChartsSection — learner analytics and domain visualization.
+ * @file ChartsSection — (currently used as Insight / Telemetry snapshot)
  *
  * @remarks
- * This section is part of the Learner Dashboard.
- * It displays:
- * - A circular progress chart representing the learner’s **overall progress**
- * - A bar chart representing the number of **domains explored** (labs + starpaths)
+ * This file now owns the whole "Insight" module UI (Telemetry Snapshot),
+ * previously inline in LearnerDashboard.
  *
- * Combines data from both the `labs` and `starpaths` arrays using helper functions:
- * - {@link computeOverallProgress}
- * - {@link computeDomainStats}
- *
- * Built using Recharts and Framer Motion for smooth animated visuals.
- *
- * @packageDocumentation
+ * No backend behavior changes: pure UI aggregation.
  */
-import { motion } from "framer-motion";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-} from "recharts";
 
-import type { Lab, Starpath } from "@/api";
-import DashboardCard from "@/components/ui/DashboardCard";
-import SectionTitle from "@/components/ui/SectionTitle";
-import { computeOverallProgress, computeDomainStats } from "@/lib/statistics";
-import { ALT_COLORS } from "@/lib/theme";
+import { useId, useMemo } from "react";
 
-/**
- * Props for the {@link ChartsSection} component.
- */
+type LabLike = {
+  id?: string;
+  name?: string;
+  completed?: boolean;
+  progress?: number;
+};
+
 interface ChartsSectionProps {
-  labs: Lab[];
-  starpaths: Starpath[];
+  labs: LabLike[];
+  starpathsCount: number;
+  groupsCount: number;
 }
 
+export default function ChartsSection({
+  labs,
+  starpathsCount,
+  groupsCount,
+}: ChartsSectionProps) {
+  const active = useMemo(() => labs.filter((l) => !l.completed), [labs]);
+  const completed = useMemo(() => labs.filter((l) => l.completed), [labs]);
 
-/**
- * Displays learner statistics as interactive charts.
- *
- * @remarks
- * This section is typically used inside the {@link LearnerDashboard}.
- * It provides visual insight into overall learning completion and domain diversity.
- *
- * @example
- * ```tsx
- * <ChartsSection labs={labs} starpaths={starpaths} />
- * ```
- *
- * @returns JSX component rendering two visual dashboards.
- *
- * @public
- */
-export default function ChartsSection({ labs, starpaths }: ChartsSectionProps) {
-  const overallProgress = computeOverallProgress(labs);
-  const domains = computeDomainStats(labs, starpaths);
+  const total = labs.length;
+
+  const completionPct = useMemo(() => {
+    if (total === 0) return 0;
+    return Math.round((completed.length / total) * 100);
+  }, [total, completed.length]);
+
+  // “Signal” = moyenne des progress des labs actifs
+  const avgProgress = useMemo(() => {
+    if (active.length === 0) return 0;
+    const sum = active.reduce((acc, l) => acc + (l.progress ?? 0), 0);
+    return Math.round(sum / active.length);
+  }, [active]);
+
+  const maxBar = Math.max(active.length, completed.length, starpathsCount, groupsCount, 1);
+
+  const rawUid = useId();
+  const uid = rawUid.replace(/:/g, "");
+  const ringGradId = `altair_ring_${uid}`;
+
+  const nextAction = active[0]?.name ? `Continue: ${active[0]?.name}` : "Start a lab to generate signal.";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* === GLOBAL PROGRESS (CIRCLE CHART) === */}
-      <DashboardCard className="flex flex-col items-center justify-center p-8 relative overflow-hidden">
-        <SectionTitle
-          text="Overall Learning Progress"
-          gradient={`linear-gradient(90deg, ${ALT_COLORS.blue}, ${ALT_COLORS.purple}, ${ALT_COLORS.orange})`}
-        />
-
-        {/* Invisible gradient defs */}
-        <svg style={{ position: "absolute", visibility: "hidden" }}>
-          <defs>
-            <linearGradient id="grad" x1="1" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={ALT_COLORS.orange} />
-              <stop offset="50%" stopColor={ALT_COLORS.purple} />
-              <stop offset="100%" stopColor={ALT_COLORS.blue} />
-            </linearGradient>
-          </defs>
-        </svg>
-
-        <motion.div
-          className="relative w-[220px] h-[220px] flex items-center justify-center"
-          initial={{ opacity: 0, rotate: -90 }}
-          animate={{ opacity: 1, rotate: 0 }}
-          transition={{ duration: 1 }}
-        >
-          <svg
-            className="absolute w-full h-full -rotate-90"
-            viewBox="0 0 100 100"
-          >
-            {/* background circle */}
-            <circle
-              cx="50"
-              cy="50"
-              r="45"
-              stroke="#1a1f2b"
-              strokeWidth="10"
-              fill="none"
-            />
-            {/* animated gradient stroke */}
-            <motion.circle
-              cx="50"
-              cy="50"
-              r="45"
-              stroke="url(#grad)"
-              strokeWidth="10"
-              fill="none"
-              strokeLinecap="round"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: overallProgress / 100 }}
-              transition={{ duration: 1.2, ease: "easeInOut" }}
-            />
-          </svg>
-
-          {/* center value */}
-          <span
-            className="text-4xl font-bold"
-            style={{
-              background: `linear-gradient(90deg, ${ALT_COLORS.blue}, ${ALT_COLORS.purple}, ${ALT_COLORS.orange})`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            {overallProgress}%
-          </span>
-        </motion.div>
-      </DashboardCard>
-
-      {/* === DOMAINS BAR CHART === */}
-      <DashboardCard className="p-6 relative overflow-hidden">
-        <SectionTitle
-          text="Domains Explored"
-          gradient={`linear-gradient(90deg, ${ALT_COLORS.orange}, ${ALT_COLORS.purple}, ${ALT_COLORS.blue})`}
-        />
-
-        {/* gradient defs for bars */}
-        <svg style={{ position: "absolute", visibility: "hidden" }}>
-          <defs>
-            <linearGradient id="barGradient" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor={ALT_COLORS.orange} />
-              <stop offset="50%" stopColor={ALT_COLORS.purple} />
-              <stop offset="100%" stopColor={ALT_COLORS.blue} />
-            </linearGradient>
-          </defs>
-        </svg>
-
-        <div className="h-[280px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={domains}>
-              <XAxis
-                dataKey="domain"
-                stroke="#888"
-                tick={{ fill: "#aaa", fontSize: 13 }}
-              />
-              <YAxis stroke="#888" tick={{ fill: "#aaa", fontSize: 13 }} />
-              <Tooltip
-                cursor={{ fill: "rgba(255,255,255,0.05)" }}
-                contentStyle={{
-                  background: "rgba(15,20,30,0.9)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "12px",
-                  color: "#fff",
-                  fontSize: 13,
-                }}
-                formatter={(value: number, name, props) => {
-                  const domain = props.payload.domain;
-                  const detail = props.payload.details;
-                  return [
-                    `Total: ${value}`,
-                    domain === "Other"
-                      ? `Includes: ${detail}`
-                      : `Labs/Starpaths: ${detail}`,
-                  ];
-                }}
-              />
-              <Bar
-                dataKey="count"
-                radius={[6, 6, 0, 0]}
-                fill="url(#barGradient)"
-                barSize={40}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+    <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_24px_90px_rgba(0,0,0,0.45)] overflow-hidden">
+      <div className="relative p-8">
+        {/* background glow */}
+        <div className="pointer-events-none absolute inset-0 opacity-80">
+          <div className="absolute -top-28 -left-28 h-80 w-80 rounded-full bg-sky-500/10 blur-3xl" />
+          <div className="absolute -bottom-28 -right-28 h-80 w-80 rounded-full bg-purple-500/10 blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-400/5 blur-3xl" />
         </div>
-      </DashboardCard>
+
+        {/* gradient defs for ring */}
+        <svg style={{ position: "absolute", visibility: "hidden" }}>
+          <defs>
+            <linearGradient id={ringGradId} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="rgba(56,189,248,0.9)" />
+              <stop offset="55%" stopColor="rgba(168,85,247,0.85)" />
+              <stop offset="100%" stopColor="rgba(251,146,60,0.8)" />
+            </linearGradient>
+          </defs>
+        </svg>
+
+        <div className="relative flex flex-col gap-7">
+          {/* header row */}
+          <div className="flex items-start justify-between gap-8">
+            <div>
+              <div className="text-[11px] tracking-wide uppercase text-white/55">
+                Insight
+              </div>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white/90">
+                Telemetry Snapshot
+              </h2>
+              <p className="mt-1.5 text-sm text-white/60 max-w-2xl">
+                Visual signal (temporary). We’ll redesign this whole module later.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-5 py-4">
+                <div className="text-[10px] text-white/55 tracking-wide">
+                  Completion
+                </div>
+                <div className="mt-1 text-xl font-semibold text-white/90">
+                  {completionPct}%
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-5 py-4">
+                <div className="text-[10px] text-white/55 tracking-wide">
+                  Signal
+                </div>
+                <div className="mt-1 text-xl font-semibold text-white/90">
+                  {avgProgress}%
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* content grid */}
+          <div className="grid grid-cols-12 gap-7">
+            {/* ring */}
+            <div className="col-span-5">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-6 h-full">
+                <div className="text-xs text-white/55">Completion Ring</div>
+
+                <div className="mt-4 flex items-center justify-center">
+                  <svg width="260" height="260" viewBox="0 0 260 260">
+                    <circle
+                      cx="130"
+                      cy="130"
+                      r="100"
+                      stroke="rgba(255,255,255,0.08)"
+                      strokeWidth="16"
+                      fill="none"
+                    />
+
+                    <circle
+                      cx="130"
+                      cy="130"
+                      r="100"
+                      stroke={`url(#${ringGradId})`}
+                      strokeWidth="16"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 100}
+                      strokeDashoffset={(1 - completionPct / 100) * (2 * Math.PI * 100)}
+                      transform="rotate(-90 130 130)"
+                    />
+
+                    <circle
+                      cx="130"
+                      cy="130"
+                      r="70"
+                      fill="rgba(0,0,0,0.25)"
+                      stroke="rgba(255,255,255,0.06)"
+                    />
+
+                    <text
+                      x="130"
+                      y="132"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize="40"
+                      fontWeight="700"
+                      fill="rgba(255,255,255,0.92)"
+                    >
+                      {completionPct}%
+                    </text>
+                    <text
+                      x="130"
+                      y="165"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize="12"
+                      fill="rgba(255,255,255,0.55)"
+                    >
+                      completion
+                    </text>
+                  </svg>
+                </div>
+
+                <div className="mt-5 text-xs text-white/55 leading-relaxed">
+                  Active labs generate signal. Completed labs move into Archive.
+                </div>
+              </div>
+            </div>
+
+            {/* bars + next action */}
+            <div className="col-span-7">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-6 h-full">
+                <div className="text-xs text-white/55">Module Activity</div>
+
+                <div className="mt-5 space-y-5">
+                  {[
+                    { label: "Active Labs", value: active.length },
+                    { label: "Completed", value: completed.length },
+                    { label: "Starpaths", value: starpathsCount },
+                    { label: "Groups", value: groupsCount },
+                  ].map((row) => (
+                    <div key={row.label}>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-white/70">{row.label}</span>
+                        <span className="text-white/60">{row.value}</span>
+                      </div>
+
+                      <div className="mt-2.5 h-2.5 rounded-full bg-white/5 overflow-hidden border border-white/10">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-sky-400/80 via-purple-400/80 to-orange-300/75"
+                          style={{ width: `${Math.round((row.value / maxBar) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <div className="text-xs text-white/55">Next action (temp)</div>
+                  <div className="mt-1.5 text-sm text-white/85">
+                    {nextAction}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-[11px] text-white/45">
+            Placeholder Insight module — we’ll replace it with a more Altaïr cosmic visualization.
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

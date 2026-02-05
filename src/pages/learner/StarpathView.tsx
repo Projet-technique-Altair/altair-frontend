@@ -1,150 +1,151 @@
-// src/pages/learner/StarpathView.tsx
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { RotateCcw, ChevronLeft } from "lucide-react";
 
-/**
- * @file StarpathView — displays detailed information about a single Starpath.
- *
- * @remarks
- * This page is accessed when a learner selects a Starpath from their dashboard
- * or explorer view. It loads the corresponding Starpath by its ID and shows:
- *
- *  - The Starpath title, progress, and domain
- *  - A visual representation via the `StarpathVisualizer` component
- *  - Descriptive information about the Starpath’s content and purpose
- *
- * If the Starpath ID is invalid or not found, a fallback screen provides a
- * redirection option back to the learner dashboard.
- *
- * Route: `/learner/starpath/:id`
- *
- * @packageDocumentation
- */
-import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { getStarpathById, Starpath } from "@/api/mockStarpaths";
-import StarpathVisualizer from "@/components/starpath/StarpathVisualizer";
-import DashboardCard from "@/components/ui/DashboardCard";
-import { ALT_COLORS } from "@/lib/theme";
+import StarpathWorldCanvas, {
+  type StarpathWorldCanvasHandle,
+} from "@/components/starpath/StarpathWorldCanvas";
+import StarpathWorldBackground from "@/components/starpath/StarpathWorldBackground";
+import StarpathStarLayer from "@/components/starpath/StarpathStarLayer";
 
+function useMockEnabled() {
+  const { search } = useLocation();
+  return useMemo(() => new URLSearchParams(search).get("mock") === "1", [search]);
+}
 
-/**
- * Displays a specific Starpath page with interactive visualization and details.
- *
- * @remarks
- * - Uses `useParams` to extract the Starpath ID from the route.
- * - Fetches Starpath data via the `getStarpathById` mock API.
- * - Integrates the `StarpathVisualizer` component for graphical progress display.
- *
- * @example
- * ```tsx
- * <Route path="/learner/starpath/:id" element={<StarpathView />} />
- * ```
- *
- * @returns A page showing the Starpath name, progress, visualization, and info.
- *
- * @public
- */
+function prettyFromId(id?: string) {
+  if (!id) return "Unknown Starpath";
+  if (id === "sp-orion-foundations") return "Orion Foundations";
+  return id
+    .replace(/^sp-/, "")
+    .split("-")
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
 export default function StarpathView() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [starpath, setStarpath] = useState<Starpath | null>(null);
-  const [loading, setLoading] = useState(true);
+  const mock = useMockEnabled();
 
+  const canvasRef = useRef<StarpathWorldCanvasHandle | null>(null);
+  const title = useMemo(() => prettyFromId(id), [id]);
+
+  // ✅ Mesure dynamique de la navbar (header)
+  const [headerH, setHeaderH] = useState(118);
+
+  useLayoutEffect(() => {
+    const header = document.querySelector("header");
+    if (!header) return;
+
+    const update = () => {
+      const rect = header.getBoundingClientRect();
+      setHeaderH(Math.round(rect.height));
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(header);
+
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  // ✅ Le canvas commence juste sous la navbar
+  const TOP_OFFSET = headerH;
+
+  // ✅ Le HUD (titre + boutons) est encore un peu plus bas (sinon c'est collé)
+  const HUD_TOP = TOP_OFFSET + 26; // ajuste ici si tu veux encore + bas
+
+  // Disable browser scroll while in this view
   useEffect(() => {
-    if (!id) return;
-    console.log("🔍 StarpathView looking for ID:", id);
-    const normalizedId = id.toLowerCase().includes("blue")
-      ? "s1"
-      : id.toLowerCase().includes("red")
-      ? "s2"
-      : id.toLowerCase().includes("admin")
-      ? "s3"
-      : id;
-
-    getStarpathById(normalizedId).then((sp) => {
-      console.log("✅ Found:", sp);
-      setStarpath(sp || null);
-      setLoading(false);
-    });
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0B0F19] text-white flex items-center justify-center">
-        <div className="animate-pulse text-gray-400">Loading Starpath...</div>
-      </div>
-    );
-  }
-
-  if (!starpath) {
-    return (
-      <div className="min-h-screen bg-[#0B0F19] text-white flex flex-col items-center justify-center">
-        <h1 className="text-3xl font-bold text-red-400 mb-4">
-          Starpath Not Found
-        </h1>
-        <button
-          onClick={() => navigate("/learner/dashboard")}
-          className="px-4 py-2 rounded-full bg-[#1E293B] text-sky-400 hover:bg-sky-400/10 border border-sky-400/40 transition"
-        >
-          ← Back to Dashboard
-        </button>
-      </div>
-    );
-  }
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen w-full px-8 py-10 bg-[#0B0F19] text-white space-y-10">
-      {/* === HEADER === */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1
-            className="text-3xl font-bold"
-            style={{
-              background: `linear-gradient(90deg, ${ALT_COLORS.blue}, ${ALT_COLORS.purple}, ${ALT_COLORS.orange})`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            {starpath.name}
-          </h1>
-          <p className="text-gray-400 mt-1">
-            Progression actuelle :{" "}
-            <span className="text-sky-400 font-semibold">
-              {starpath.progress}%
-            </span>
-          </p>
-        </div>
-
-        <button
-          onClick={() => navigate("/learner/dashboard")}
-          className="px-5 py-2 rounded-full bg-gradient-to-r from-[#2AA7FF] via-[#7A2CF3] to-[#FF8C4A] font-medium hover:opacity-90 transition"
+    <div className="fixed inset-0 z-40 bg-black">
+      {/* ZONE PAN/ZOOM: commence sous la navbar */}
+      <div
+        className="absolute left-0 right-0 bottom-0"
+        style={{ top: TOP_OFFSET }}
+      >
+        <StarpathWorldCanvas
+          ref={canvasRef}
+          className="absolute inset-0"
+          initialScale={1}
+          minScale={0.55}
+          maxScale={3}
         >
-          ← Back to Dashboard
-        </button>
+          <StarpathWorldBackground />
+          <StarpathStarLayer />
+        </StarpathWorldCanvas>
       </div>
 
-      {/* === MAIN VISUALIZER === */}
-      <DashboardCard>
-        <StarpathVisualizer data={starpath} />
-      </DashboardCard>
+      {/* TITRE + ACTIONS */}
+      <div className="absolute left-0 right-0" style={{ top: HUD_TOP }}>
+        <div className="mx-auto w-full max-w-7xl px-6">
+          <div className="pointer-events-none flex items-start justify-between gap-6">
+            {/* TEXT */}
+            <div className="select-none">
+              <div className="text-[10px] tracking-[0.35em] text-white/40">
+                STARPATH
+              </div>
 
-      {/* === INFO === */}
-      <DashboardCard>
-        <h2
-          className="text-lg font-semibold mb-2"
-          style={{
-            background: `linear-gradient(90deg, ${ALT_COLORS.purple}, ${ALT_COLORS.orange})`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          About this Starpath
-        </h2>
-        <p className="text-sm text-gray-300 leading-relaxed">
-          This learning path focuses on advanced cybersecurity labs and
-          hands-on exercises. Complete each step to unlock the next mission and
-          earn Stardust rewards.
-        </p>
-      </DashboardCard>
+              <div
+                className="mt-2 text-4xl sm:text-5xl font-semibold leading-none"
+                style={{
+                  background:
+                    "linear-gradient(90deg, rgba(42,167,255,0.85) 0%, rgba(122,44,243,0.85) 55%, rgba(60,120,255,0.85) 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                {title}
+              </div>
+
+              {mock && (
+                <div className="mt-2 text-sm text-white/35 select-none">
+                  mock mode enabled
+                </div>
+              )}
+            </div>
+
+            {/* ACTIONS */}
+            <div className="pointer-events-auto flex items-center gap-2">
+              <button
+                onClick={() => navigate("/learner/dashboard")}
+                className="rounded-full border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm text-white/80 transition flex items-center gap-2"
+                type="button"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Dashboard
+              </button>
+
+              <button
+                onClick={() => canvasRef.current?.reset()}
+                className="rounded-full border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm text-white/80 transition flex items-center gap-2"
+                type="button"
+                title="Reset view (position + zoom)"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Recenter
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* hint discret */}
+      <div className="pointer-events-none absolute left-6 bottom-5 text-[11px] text-white/35">
+        Drag to pan • Scroll to zoom (under cursor)
+      </div>
     </div>
   );
 }
