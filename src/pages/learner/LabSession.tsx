@@ -19,6 +19,8 @@ import LabInstructions from "@/components/labs/LabInstructions";
 import Terminal from "@/components/labs/Terminal";
 import { useLabTimer } from "@/hooks/useLabTimer";
 
+
+
 /* =========================
    Types (UI runtime)
 ========================= */
@@ -53,7 +55,7 @@ function buildMockLab(id: string): MockLabVM {
     case "mock-in-progress":
       return {
         lab_id: id,
-        name: "Lab — In Progress",
+        name: "Mock Lab — In Progress",
         description: "Fake lab used to validate the LabSession UI (mock mode).",
         difficulty: "INTERMEDIATE",
       };
@@ -120,7 +122,7 @@ function buildMockSteps(id: string): LabStep[] {
 ========================= */
 
 function getAuthToken(): string | null {
-  return localStorage.getItem("altair_token");
+  return sessionStorage.getItem("altair_token");
 }
 
 function getApiBase(): string {
@@ -227,19 +229,43 @@ function extractStepsFromPayload(payload: any): LabStep[] {
    Runtime session fetcher
 ========================= */
 
-type TryEndpoint = {
+/*type TryEndpoint = {
   method: "GET" | "POST";
   path: (labId: string) => string;
   body?: (labId: string) => any;
-};
+};*/
 
-const SESSION_TRY: TryEndpoint[] = [
-  { method: "GET", path: (labId) => `/sessions/labs/${labId}` },
-  { method: "GET", path: (labId) => `/sessions/${labId}` },
+function sessionKey(labId: string) {
+  return `altair_session_${labId}`;
+}
 
-  { method: "POST", path: () => `/sessions`, body: (labId) => ({ lab_id: labId }) },
-  { method: "POST", path: (labId) => `/sessions/labs/${labId}/start`, body: () => ({}) },
-];
+function getStoredSessionId(labId: string): string | null {
+  return sessionStorage.getItem(sessionKey(labId));
+}
+
+function storeSessionId(labId: string, sessionId: string) {
+  sessionStorage.setItem(sessionKey(labId), sessionId);
+}
+
+function clearStoredSessionId(labId: string) {
+  sessionStorage.removeItem(sessionKey(labId));
+}
+
+/*async function fetchJson(res: Response) {
+  const text = await res.text().catch(() => "");
+  return text ? JSON.parse(text) : {};
+}*/
+
+async function fetchJson(res: Response) {
+  const text = await res.text().catch(() => "");
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+}
+
 
 async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
   const base = getApiBase();
@@ -248,70 +274,203 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  let lastErr: any = null;
+  // 0) Resume by stored sessionId (no "list all sessions")
+  const cached = getStoredSessionId(labId);
+  if (cached) {
+    const getUrl = `${base}/sessions/sessions/${cached}`;
+    const getRes = await fetch(getUrl, { method: "GET", headers });
 
-  for (const attempt of SESSION_TRY) {
-    const url = `${base}${attempt.path(labId)}`;
+    if (getRes.ok) {
+      const payload = await fetchJson(getRes);
+      return { sessionId: cached, labId, steps: extractStepsFromPayload(payload) };
+    }
 
-    try {
-      const res = await fetch(url, {
-        method: attempt.method,
-        headers,
-        body: attempt.method === "POST" ? JSON.stringify(attempt.body?.(labId) ?? {}) : undefined,
-      });
+    // session not found/invalid -> forget and start again
+    if (getRes.status === 404) clearStoredSessionId(labId);
 
-      if (res.status === 401 || res.status === 403) {
-        const text = await res.text().catch(() => "");
-        throw new Error(
-          `Unauthorized (${res.status}) at ${attempt.method} ${attempt.path(labId)}\n${text}`
-        );
-      }
-
-      if (res.status === 404 || res.status === 405) {
-        lastErr = new Error(`${res.status} ${attempt.method} ${attempt.path(labId)}`);
-        continue;
-      }
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        lastErr = new Error(`HTTP ${res.status} on ${attempt.method} ${attempt.path(labId)}\n${text}`);
-        if (res.status >= 500) break;
-        continue;
-      }
-
-      const payload = await res.json().catch(() => ({}));
-      const steps = extractStepsFromPayload(payload);
-
-      const sessionId =
-        payload?.session_id ??
-        payload?.sessionId ??
-        payload?.data?.session_id ??
-        payload?.data?.sessionId ??
-        payload?.data?.id ??
-        payload?.id ??
-        undefined;
-
-      const resolvedLabId =
-        payload?.lab_id ??
-        payload?.labId ??
-        payload?.data?.lab_id ??
-        payload?.data?.labId ??
-        labId;
-
-      return {
-        sessionId: sessionId != null ? String(sessionId) : undefined,
-        labId: String(resolvedLabId),
-        steps,
-      };
-    } catch (e) {
-      lastErr = e;
-      const msg = String((e as any)?.message ?? "");
-      if (msg.toLowerCase().includes("unauthorized")) break;
+    // if 401/403, throw (auth issue)
+    if (getRes.status === 401 || getRes.status === 403) {
+      const text = await getRes.text().catch(() => "");
+      throw new Error(`Unauthorized (${getRes.status}) on GET /sessions/sessions/${cached}\n${text}`);
     }
   }
 
-  throw lastErr ?? new Error("Unable to fetch session runtime");
+  // 1) POST start (doit réussir)
+  const startUrl = `${base}/sessions/labs/${labId}/start`;
+  const startRes = await fetch(startUrl, { method: "POST", headers, body: JSON.stringify({}) });
+
+  /*if (!startRes.ok) {
+    const text = await startRes.text().catch(() => "");
+    throw new Error(`HTTP ${startRes.status} on POST /start\n${text}`);
+  }*/
+
+  if (startRes.status === 409) {
+    // ✅ Session already exists: backend should tell us which one
+    const conflictPayload = await fetchJson(startRes);
+
+    const existingSessionId =
+      conflictPayload?.session_id ??
+      conflictPayload?.sessionId ??
+      conflictPayload?.data?.session_id ??
+      conflictPayload?.data?.sessionId ??
+      conflictPayload?.data?.id ??
+      conflictPayload?.id ??
+      undefined;
+
+    if (!existingSessionId) {
+      throw new Error(
+        "409 Conflict: session already exists, but backend did not return session_id. " +
+          "Add session_id in 409 response body or provide a 'get active session for lab' endpoint."
+      );
+    }
+
+    const sessionId = String(existingSessionId);
+    storeSessionId(labId, sessionId);
+
+    // Then GET the session runtime
+    const getUrl = `${base}/sessions/sessions/${sessionId}`;
+    const getRes = await fetch(getUrl, { method: "GET", headers });
+
+    if (!getRes.ok) {
+      const text = await getRes.text().catch(() => "");
+      throw new Error(`HTTP ${getRes.status} on GET /sessions/${sessionId}\n${text}`);
+    }
+
+    const payload = await fetchJson(getRes);
+    return { sessionId, labId, steps: extractStepsFromPayload(payload) };
+  }
+
+  if (!startRes.ok) {
+    const text = await startRes.text().catch(() => "");
+    throw new Error(`HTTP ${startRes.status} on POST /start\n${text}`);
+  }
+
+
+  const startPayload = await fetchJson(startRes);
+
+  const sessionIdFromStart =
+    startPayload?.session_id ??
+    startPayload?.sessionId ??
+    startPayload?.data?.session_id ??
+    startPayload?.data?.sessionId ??
+    startPayload?.data?.id ??
+    startPayload?.id ??
+    undefined;
+
+  if (!sessionIdFromStart) {
+    throw new Error("Start succeeded but did not return a session_id");
+  }
+
+  const sessionId = String(sessionIdFromStart);
+  storeSessionId(labId, sessionId);
+
+  // If start already includes steps/runtime, return directly
+  const stepsFromStart = extractStepsFromPayload(startPayload);
+  if (stepsFromStart.length > 0) {
+    return { sessionId, labId, steps: stepsFromStart };
+  }
+
+  // 2) GET after POST succeeded
+  const getUrl = `${base}/sessions/sessions/${sessionId}`;
+  const getRes = await fetch(getUrl, { method: "GET", headers });
+
+  if (!getRes.ok) {
+    const text = await getRes.text().catch(() => "");
+    throw new Error(`HTTP ${getRes.status} on GET /sessions/sessions/${sessionId}\n${text}`);
+  }
+
+  const payload = await fetchJson(getRes);
+  return { sessionId, labId, steps: extractStepsFromPayload(payload) };
 }
+
+
+
+
+//WORKS TECHNICALLY
+/*async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
+  const base = getApiBase();
+  const token = getAuthToken();
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  //Need to add a verification to see if the session is already running or not
+
+  // 1) POST start (doit réussir)
+  const startUrl = `${base}/sessions/labs/${labId}/start`;
+  const startRes = await fetch(startUrl, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({}), // ou { lab_id: labId } si ton backend le demande
+  });
+
+  if (!startRes.ok) {
+    const text = await startRes.text().catch(() => "");
+    throw new Error(`HTTP ${startRes.status} on POST /start\n${text}`);
+  }
+
+  const startPayload = await startRes.json().catch(() => ({}));
+
+  // Si le POST renvoie déjà les steps/runtime → parfait, on retourne direct
+  const stepsFromStart = extractStepsFromPayload(startPayload);
+  const sessionIdFromStart =
+    startPayload?.session_id ??
+    startPayload?.sessionId ??
+    startPayload?.data?.session_id ??
+    startPayload?.data?.sessionId ??
+    startPayload?.data?.id ??
+    startPayload?.id ??
+    undefined;
+
+  const resolvedLabId =
+    startPayload?.lab_id ??
+    startPayload?.labId ??
+    startPayload?.data?.lab_id ??
+    startPayload?.data?.labId ??
+    labId;
+
+  if (stepsFromStart.length > 0) {
+    return {
+      sessionId: sessionIdFromStart != null ? String(sessionIdFromStart) : undefined,
+      labId: String(resolvedLabId),
+      steps: stepsFromStart,
+    };
+  }
+
+  // 2) Sinon → GET par sessionId (uniquement après POST réussi)
+  if (!sessionIdFromStart) {
+    throw new Error("Start succeeded but did not return a session_id");
+  }
+
+  const sessionId = String(sessionIdFromStart);
+  const getUrl = `${base}/sessions/sessions/${sessionId}`;
+
+  const getRes = await fetch(getUrl, {
+    method: "GET",
+    headers,
+  });
+
+  if (!getRes.ok) {
+    const text = await getRes.text().catch(() => "");
+    throw new Error(`HTTP ${getRes.status} on GET /sessions/${sessionId}\n${text}`);
+  }
+
+  const payload = await getRes.json().catch(() => ({}));
+  const steps = extractStepsFromPayload(payload);
+
+  return {
+    sessionId,
+    labId: String(
+      payload?.lab_id ??
+        payload?.labId ??
+        payload?.data?.lab_id ??
+        payload?.data?.labId ??
+        resolvedLabId
+    ),
+    steps,
+  };
+}*/
+
 
 /* =========================
    Component
@@ -336,7 +495,35 @@ export default function LabSession() {
 
   const { formatted } = useLabTimer();
 
+  // ✅ Compute steps early so other hooks (useEffect) can depend on it safely
+  const steps = useMemo<LabStep[]>(() => {
+    if (!lab) return [];
+    const fromLab = extractStepsFromPayload(lab as any);
+    const fromSession = session?.steps ?? [];
+    return fromSession.length > 0 ? fromSession : fromLab;
+  }, [lab, session]);
+
+
+  // ✅ Reset navigation state when lab id changes
   useEffect(() => {
+    setCurrentStep(0);
+    setUserInput("");
+    setFeedback(null);
+  }, [id]);
+
+  // ✅ Clamp currentStep when steps change (avoid "no step" when index is out of range)
+  useEffect(() => {
+    if (steps.length === 0) return;
+    if (currentStep >= steps.length) {
+      setCurrentStep(0);
+      setUserInput("");
+      setFeedback(null);
+    }
+  }, [steps.length, currentStep]);
+
+
+
+  /*useEffect(() => {
     let cancelled = false;
     if (!id) return;
 
@@ -384,7 +571,60 @@ export default function LabSession() {
     return () => {
       cancelled = true;
     };
+  }, [id, mockUI]);*/
+
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!id) return;
+
+    const routeId = id; // ✅ now a stable string in this scope
+
+    async function run(labRouteId: string) {
+      setLoading(true);
+      setError(null);
+
+      try {
+        if (mockUI) {
+          const mockLab = buildMockLab(labRouteId);
+          const mockSteps = buildMockSteps(labRouteId);
+
+          if (cancelled) return;
+          setLab(mockLab);
+          setSession({
+            labId: mockLab.lab_id,
+            sessionId: "mock-session",
+            steps: mockSteps,
+          });
+          setLoading(false);
+          return;
+        }
+
+        // ✅ REAL MODE
+        const labData = await getLab(labRouteId);
+        if (cancelled) return;
+        setLab(labData);
+
+        const runtime = await fetchSessionRuntime(labData.lab_id);
+        if (cancelled) return;
+
+        setSession(runtime);
+        setLoading(false);
+      } catch (e) {
+        if (cancelled) return;
+        const msg = (e as any)?.message ? String((e as any).message) : "Failed to load session";
+        console.error("❌ LabSession error:", e);
+        setError(msg);
+        setLoading(false);
+      }
+    }
+
+    run(routeId);
+    return () => {
+      cancelled = true;
+    };
   }, [id, mockUI]);
+
 
   if (loading) {
     return (
@@ -421,7 +661,7 @@ export default function LabSession() {
     );
   }
 
-  const steps = session.steps ?? [];
+
   const current = steps[currentStep];
 
   if (!current) {
