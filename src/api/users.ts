@@ -33,5 +33,5 @@ export function getUserById(userId: string) {
     email?: string
     roles: string[]
     metadata?: Record<string, unknown>
-  }>(`/users/${userId}`)
+  }>(`/users/users/${userId}`)
 }
