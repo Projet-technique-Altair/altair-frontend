@@ -1,19 +1,19 @@
 import { request } from "./client"
 
 export function getSession(id: string) {
-  return request(`/sessions/${id}`)
+  return request(`/sessions/sessions/${id}`)
 }
 
 export function getUserSessions(userId: string) {
-  return request(`/sessions/user/${userId}`)
+  return request(`/sessions/sessions/user/${userId}`)
 }
 
 export function getLabSessions(labId: string) {
-  return request(`/sessions/lab/${labId}`)
+  return request(`/sessions/sessions/lab/${labId}`)
 }
 
 export function stopSession(sessionId: string) {
-  return request(`/sessions/${sessionId}`, {
+  return request(`/sessions/sessions/${sessionId}`, {
     method: "DELETE",
   })
 }
