@@ -795,7 +795,11 @@ export default function LabSession() {
 
         {/* RIGHT */}
         <div className="bg-[#0E1323] border border-white/5 rounded-xl p-6 flex flex-col">
-          <Terminal step={current} />
+          <Terminal
+            step={current}
+            sessionId={session?.sessionId ?? ""}
+            token={getAuthToken() ?? ""}
+          />
         </div>
       </div>
     </div>
