@@ -37,6 +37,7 @@ type SessionRuntime = {
   sessionId?: string;
   labId: string;
   steps: LabStep[];
+  webshellUrl?: string;
 };
 
 type MockLabVM = {
@@ -281,8 +282,9 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
     const getRes = await fetch(getUrl, { method: "GET", headers });
 
     if (getRes.ok) {
-      const payload = await fetchJson(getRes);
-      return { sessionId: cached, labId, steps: extractStepsFromPayload(payload) };
+  const payload = await fetchJson(getRes);
+  const webshellUrl = payload?.data?.webshell_url ?? payload?.webshell_url;
+  return { sessionId: cached, labId, steps: extractStepsFromPayload(payload), webshellUrl };
     }
 
     // session not found/invalid -> forget and start again
@@ -337,7 +339,8 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
     }
 
     const payload = await fetchJson(getRes);
-    return { sessionId, labId, steps: extractStepsFromPayload(payload) };
+    const webshellUrl = payload?.data?.webshell_url ?? payload?.webshell_url;
+    return { sessionId, labId, steps: extractStepsFromPayload(payload), webshellUrl };
   }
 
   if (!startRes.ok) {
@@ -380,7 +383,8 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
   }
 
   const payload = await fetchJson(getRes);
-  return { sessionId, labId, steps: extractStepsFromPayload(payload) };
+  const webshellUrl = payload?.data?.webshell_url ?? payload?.webshell_url;
+  return { sessionId, labId, steps: extractStepsFromPayload(payload), webshellUrl };
 }
 
 
@@ -799,6 +803,7 @@ export default function LabSession() {
             step={current}
             sessionId={session?.sessionId ?? ""}
             token={getAuthToken() ?? ""}
+            webshellUrl={session?.webshellUrl}
           />
         </div>
       </div>

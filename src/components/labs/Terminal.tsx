@@ -23,11 +23,17 @@ interface TerminalProps {
   step: LabStep;
   sessionId: string;
   token: string;
+  webshellUrl?: string;
 }
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 
-export default function Terminal({ sessionId, token }: TerminalProps) {
+function isWebSocketUrl(url?: string): boolean {
+  if (!url) return false;
+  return url.toLowerCase().startsWith("ws://") || url.toLowerCase().startsWith("wss://");
+}
+
+export default function Terminal({ sessionId, token, webshellUrl }: TerminalProps) {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
@@ -237,6 +243,41 @@ export default function Terminal({ sessionId, token }: TerminalProps) {
     error: "text-red-300",
   };
 
+  // If webshellUrl is HTTP/HTTPS, render iframe
+  if (webshellUrl && !isWebSocketUrl(webshellUrl)) {
+    return (
+      <div className="h-full rounded-3xl border border-white/10 bg-[#0c0c0f] backdrop-blur-md shadow-[0_18px_60px_rgba(0,0,0,0.45)] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/40">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
+              <span className="h-2.5 w-2.5 rounded-full bg-yellow-300/70" />
+              <span className="h-2.5 w-2.5 rounded-full bg-green-400/70" />
+            </div>
+            <span className="ml-2 text-xs text-white/70 tracking-wide">
+              WEB SHELL
+            </span>
+          </div>
+
+          <div className="text-[11px] text-green-300">
+            Status: connected
+          </div>
+        </div>
+
+        {/* iframe Container */}
+        <iframe
+          src={webshellUrl}
+          className="flex-1 border-0 w-full h-full"
+          title="Web Shell"
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation"
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      </div>
+    );
+  }
+
+  // Otherwise render WebSocket terminal
   return (
     <div className="h-full rounded-3xl border border-white/10 bg-[#0c0c0f] backdrop-blur-md shadow-[0_18px_60px_rgba(0,0,0,0.45)] overflow-hidden flex flex-col">
       {/* Header */}
