@@ -1,0 +1,13 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+jobs:
+  ci:
+    uses: Projet-technique-Altair/altair-ci/.github/workflows/frontend.yml@v2
+    with:
+      node_version: "20"
