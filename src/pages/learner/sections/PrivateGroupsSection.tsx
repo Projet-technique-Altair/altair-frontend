@@ -1,12 +1,18 @@
 // src/pages/learner/sections/PrivateGroupsSection.tsx
 
 import { Users, Shield } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+type GroupItem = {
+  id: string;
+  name: string;
+};
 
 type GroupLike = {
   id: string;
   name: string;
-  labIds: string[];
-  starpathIds: string[];
+  labs: GroupItem[];
+  starpaths: GroupItem[];
 };
 
 interface PrivateGroupsSectionProps {
@@ -29,13 +35,6 @@ function GlassPanel({
   return (
     <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_24px_90px_rgba(0,0,0,0.45)] overflow-hidden">
       <div className="relative p-8">
-        {/* subtle glow */}
-        <div className="pointer-events-none absolute inset-0 opacity-80">
-          <div className="absolute -top-28 -left-28 h-80 w-80 rounded-full bg-sky-500/10 blur-3xl" />
-          <div className="absolute -bottom-28 -right-28 h-80 w-80 rounded-full bg-purple-500/10 blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-400/5 blur-3xl" />
-        </div>
-
         <div className="relative flex items-start justify-between gap-8">
           <div>
             <div className="text-[11px] tracking-wide uppercase text-white/55">
@@ -65,21 +64,10 @@ function GlassPanel({
   );
 }
 
-function MiniBar({ value, max }: { value: number; max: number }) {
-  const pct = max <= 0 ? 0 : Math.min(100, Math.round((value / max) * 100));
-  return (
-    <div className="h-2 rounded-full bg-white/5 border border-white/10 overflow-hidden">
-      <div
-        className="h-full rounded-full bg-gradient-to-r from-sky-400/80 via-purple-400/80 to-orange-300/75"
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
-}
-
-export default function PrivateGroupsSection({ groups }: PrivateGroupsSectionProps) {
-  const maxLabs = Math.max(1, ...groups.map((g) => g.labIds.length));
-  const maxStarpaths = Math.max(1, ...groups.map((g) => g.starpathIds.length));
+export default function PrivateGroupsSection({
+  groups,
+}: PrivateGroupsSectionProps) {
+  const navigate = useNavigate();
 
   return (
     <GlassPanel
@@ -100,7 +88,7 @@ export default function PrivateGroupsSection({ groups }: PrivateGroupsSectionPro
           {groups.map((g) => (
             <div
               key={g.id}
-              className="rounded-2xl border border-white/10 bg-black/20 px-5 py-4 hover:bg-white/5 hover:border-white/15 transition shadow-[0_0_0_rgba(0,0,0,0)] hover:shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+              className="rounded-2xl border border-white/10 bg-black/20 px-5 py-4 hover:bg-white/5 hover:border-white/15 transition"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -110,9 +98,6 @@ export default function PrivateGroupsSection({ groups }: PrivateGroupsSectionPro
                       {g.name}
                     </div>
                   </div>
-                  <div className="mt-1 text-xs text-white/55">
-                    {g.labIds.length} labs • {g.starpathIds.length} starpaths
-                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
@@ -121,33 +106,47 @@ export default function PrivateGroupsSection({ groups }: PrivateGroupsSectionPro
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                  <div className="text-[11px] uppercase tracking-wide text-white/55">
-                    Labs Activity
+              {/* LABS */}
+              {g.labs.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-[11px] uppercase tracking-wide text-white/55 mb-2">
+                    Labs
                   </div>
-                  <div className="mt-3">
-                    <MiniBar value={g.labIds.length} max={maxLabs} />
-                  </div>
-                  <div className="mt-2 text-xs text-white/55">
-                    {g.labIds.length > 0 ? "Assigned labs detected." : "No labs assigned yet."}
-                  </div>
-                </div>
 
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                  <div className="text-[11px] uppercase tracking-wide text-white/55">
-                    Starpaths Activity
-                  </div>
-                  <div className="mt-3">
-                    <MiniBar value={g.starpathIds.length} max={maxStarpaths} />
-                  </div>
-                  <div className="mt-2 text-xs text-white/55">
-                    {g.starpathIds.length > 0
-                      ? "Starpaths linked to this group."
-                      : "No starpaths linked yet."}
+                  <div className="space-y-2">
+                    {g.labs.map((lab) => (
+                      <button
+                        key={lab.id}
+                        onClick={() => navigate(`/learner/labs/${lab.id}`)}
+                        className="w-full text-left px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition text-sm text-white/80"
+                      >
+                        {lab.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* STARPATHS */}
+              {g.starpaths.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-[11px] uppercase tracking-wide text-white/55 mb-2">
+                    Starpaths
+                  </div>
+
+                  <div className="space-y-2">
+                    {g.starpaths.map((sp) => (
+                      <button
+                        key={sp.id}
+                        onClick={() => navigate(`/learner/starpaths/${sp.id}`)}
+                        className="w-full text-left px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition text-sm text-white/80"
+                      >
+                        {sp.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

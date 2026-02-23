@@ -14,6 +14,14 @@ import {
 import { getLabs } from "@/api/labs";
 import type { Lab } from "@/contracts/labs";
 
+import { getGroups } from "@/api/groups";
+import { getGroupLabs } from "@/api/groups";
+import { getGroupStarpaths } from "@/api/groups";
+
+import { getStarpaths } from "@/api/starpaths";
+import type { Starpath } from "@/contracts/starpaths";
+
+
 // Sections existantes (on ne les modifie pas)
 import PublicLabsSection from "./sections/PublicLabsSection";
 import CompletedSection from "./sections/CompletedSection";
@@ -24,7 +32,7 @@ import PrivateGroupsSection from "./sections/PrivateGroupsSection";
 import ChartsSection from "./sections/ChartsSection";
 
 // Types utilisés par les sections (sans les éditer)
-import type { Starpath } from "@/api/mock";
+//import type { Starpath } from "@/api/mock";
 import type { PrivateGroup } from "@/api";
 
 /* =========================
@@ -52,6 +60,23 @@ type LabLike = {
   name: string;
   progress?: number;
   completed?: boolean;
+};
+
+type GroupLab = {
+  id: string;
+  name: string;
+};
+
+type GroupStarpath = {
+  id: string;
+  name: string;
+};
+
+type DashboardGroup = {
+  id: string;
+  name: string;
+  labs: GroupLab[];
+  starpaths: GroupStarpath[];
 };
 
 type FocusKey = "insight" | "labs" | "starpaths" | "groups" | "archive";
@@ -144,6 +169,7 @@ function RailItem({
 export default function LearnerDashboard() {
   const [labs, setLabs] = useState<UILab[]>([]);
   const [loading, setLoading] = useState(true);
+  const [groups, setGroups] = useState<DashboardGroup[]>([]);
 
   // Focus UX — default to INSIGHT
   const [focus, setFocus] = useState<FocusKey>("insight");
@@ -192,78 +218,162 @@ export default function LearnerDashboard() {
     [],
   );
 
-  const starpaths: Starpath[] = useMemo(() => {
-    if (!mockUI) return [] as Starpath[];
-    return [
-      {
-        id: "sp-orion-foundations",
-        name: "Orion Foundations",
-        chaptersCompleted: 2,
-        totalChapters: 6,
-        labs: 9,
-        domain: "Linux PrivEsc",
-      } as Starpath,
-      {
-        id: "sp-web-attack-surface",
-        name: "Web Attack Surface",
-        chaptersCompleted: 1,
-        totalChapters: 5,
-        labs: 7,
-        domain: "Web",
-      } as Starpath,
-    ];
-  }, [mockUI]);
-
-  const groups: PrivateGroup[] = useMemo(() => {
-    if (!mockUI) return [] as PrivateGroup[];
-    return [
-      {
-        id: "grp-arcadia",
-        name: "Arcadia Ops",
-        labIds: ["mock-in-progress", "mock-completed"],
-        starpathIds: ["sp-orion-foundations"],
-      } as PrivateGroup,
-      {
-        id: "grp-nova",
-        name: "Nova Crew",
-        labIds: ["mock-in-progress"],
-        starpathIds: ["sp-web-attack-surface"],
-      } as PrivateGroup,
-    ];
-  }, [mockUI]);
-
-  /* =========================
-     Fetch labs (backend)
-  ========================= */
+  const [starpaths, setStarpaths] = useState<Starpath[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchData() {
       try {
+        /* =========================
+          FETCH LABS
+        ========================= */
+
         const labsData = await getLabs();
 
-        const arr = Array.isArray(labsData)
+        const labsArr = Array.isArray(labsData)
           ? labsData
           : Array.isArray((labsData as any)?.data)
             ? (labsData as any).data
             : [];
 
-        const normalized = (arr as Lab[]).map(normalizeLab);
-        if (!cancelled) setLabs(normalized);
+        const normalizedLabs = (labsArr as Lab[]).map(normalizeLab);
+
+
+        /* =========================
+          FETCH STARPATHS
+        ========================= */
+
+        const starpathsData = await getStarpaths();
+
+        const starpathsArr = Array.isArray(starpathsData)
+          ? starpathsData
+          : Array.isArray((starpathsData as any)?.data)
+            ? (starpathsData as any).data
+            : [];
+
+        /* =========================
+          FETCH GROUPS
+        ========================= */
+
+        const groupsData = await getGroups();
+        console.log("RAW groupsData:", groupsData);
+
+        const groupsArr = Array.isArray(groupsData)
+          ? groupsData
+          : Array.isArray((groupsData as any)?.data)
+            ? (groupsData as any).data
+            : [];
+
+        /* =========================
+          FETCH LABS FOR EACH GROUP
+        ========================= */
+
+        const groupsWithLabs = await Promise.all(
+          groupsArr.map(async (g: any) => {
+            try {
+              const labsForGroup = await getGroupLabs(g.group_id);
+              const starpathsForGroup = await getGroupStarpaths(g.group_id);
+              console.log("Labs for group", g.group_id, labsForGroup);
+              console.log("Starpaths for group", g.group_id, starpathsForGroup);
+
+              const labsArray = Array.isArray(labsForGroup)
+                ? labsForGroup
+                : Array.isArray((labsForGroup as any)?.data)
+                  ? (labsForGroup as any).data
+                  : [];
+
+              const mappedLabs = labsArray
+                .map((labId: string) => {
+                  const fullLab = normalizedLabs.find((l) => l.id === labId);
+
+                  if (!fullLab) return null;
+
+                  return {
+                    id: fullLab.id,
+                    name: fullLab.name,
+                  };
+                })
+                .filter(Boolean);
+
+
+              const starpathsArray = Array.isArray(starpathsForGroup)
+                ? starpathsForGroup
+                : Array.isArray((starpathsForGroup as any)?.data)
+                  ? (starpathsForGroup as any).data
+                  : [];
+
+              const mappedStarpaths = starpathsArray
+                .map((spId: string) => {
+                  const fullStarpath = (starpathsArr as any[]).find(
+                    (sp: any) => (sp.id ?? sp.starpath_id) === spId
+                  );
+
+                  if (!fullStarpath) return null;
+
+                  return {
+                    id: fullStarpath.id ?? fullStarpath.starpath_id,
+                    name: fullStarpath.name ?? "Untitled starpath",
+                  } as GroupStarpath;
+                })
+                .filter((x): x is GroupStarpath => x !== null);
+
+              return {
+                id: g.group_id,
+                name: g.name,
+                labs: mappedLabs,
+                starpaths: mappedStarpaths,
+              };
+            } catch (err) {
+              console.error(
+                `❌ Error loading labs for group ${g.group_id}`,
+                err
+              );
+
+              return {
+                id: g.group_id,
+                name: g.name,
+                labs: [],
+                starpaths: [],
+              };
+            }
+          })
+        );
+
+        /* =========================
+          APPLY STATE
+        ========================= */
+
+        if (!cancelled) {
+          setLabs(normalizedLabs);
+          setGroups(groupsWithLabs);
+          setStarpaths(starpathsArr);
+        }
+
       } catch (err) {
         console.error("❌ Error loading dashboard data:", err);
-        if (!cancelled) setLabs([]);
+
+        if (!cancelled) {
+          setLabs([]);
+          setGroups([]);
+          setStarpaths([]);
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     fetchData();
+
     return () => {
       cancelled = true;
     };
   }, []);
+
+
+
 
   /* =========================
      Labs base (backend OR mock)
