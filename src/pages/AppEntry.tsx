@@ -20,94 +20,6 @@
  * authentication (Keycloak) and authorization (Gateway + backend).
  */
 
-/*import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-
-const API_URL = import.meta.env.VITE_API_URL as string;
-
-type MeResponse = {
-  role: "learner" | "creator" | "admin";
-};
-
-export default function AppEntry() {
-  const navigate = useNavigate();
-  const { token, logout } = useAuth();
-
-  useEffect(() => {
-    if (!token) {
-      navigate("/login", { replace: true });
-      return;
-    }
-
-    async function resolveUser() {
-      try {
-        const url = `${API_URL}/users/me`; 
-
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        });
-
-        // Auth invalid -> logout
-        if (res.status === 401) {
-          console.error("AppEntry: 401 from /users/me (token invalid/expired)");
-          logout();
-          navigate("/login", { replace: true });
-          return;
-        }
-
-        // Auth ok but not allowed -> do NOT logout
-        if (res.status === 403) {
-          console.error("AppEntry: 403 from /users/me (access denied)");
-          navigate("/forbidden", { replace: true });
-          return;
-        }
-
-        const contentType = res.headers.get("content-type") ?? "";
-
-        if (!res.ok) {
-          const raw = await res.text();
-          console.error("AppEntry failed:", res.status, raw);
-          navigate("/login", { replace: true });
-          return;
-        }
-
-        if (!contentType.includes("application/json")) {
-          const raw = await res.text();
-          console.error("Expected JSON, got:", contentType, "raw:", raw);
-          navigate("/login", { replace: true });
-          return;
-        }
-
-        const data: MeResponse = await res.json();
-
-        switch (data.role) {
-          case "admin":
-            navigate("/admin", { replace: true });
-            break;
-          case "creator":
-            navigate("/creator/dashboard", { replace: true });
-            break;
-          case "learner":
-          default:
-            navigate("/learner/dashboard", { replace: true });
-        }
-      } catch (err) {
-        console.error("AppEntry crashed", err);
-        logout();
-        navigate("/login", { replace: true });
-      }
-    }
-
-    resolveUser();
-  }, [token, navigate, logout]);
-
-  return null; // no UI, pure redirect logic
-}
-*/
 
 
 import { useEffect } from "react";
@@ -121,6 +33,7 @@ type MeResponse = { role: "learner" | "creator" | "admin" };
 export default function AppEntry() {
   const navigate = useNavigate();
   const { token: ctxToken, logout } = useAuth();
+  
 
   // ✅ fallback anti-race-condition
   const token = ctxToken ?? sessionStorage.getItem("altair_token");
@@ -167,9 +80,18 @@ export default function AppEntry() {
           return;
         }
 
-        const data: MeResponse = await res.json();
+        //const data: MeResponse = await res.json();
+        //console.log("ROLE FROM /users/me =", data.role);
 
-        switch (data.role) {
+
+        const json = await res.json();
+        console.log("FULL /users/me RESPONSE =", json);
+
+        const role = json.role ?? json.data?.role ?? json.user?.role;
+        console.log("ROLE RESOLVED =", role);
+
+
+        switch (role) {
           case "admin":
             navigate("/admin", { replace: true });
             break;

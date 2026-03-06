@@ -11,7 +11,7 @@ import { ALT_COLORS } from "@/lib/theme";
 import { CreatorLabCard } from "@/pages/creator";
 
 // Normalize backend labs → frontend format
-function normalizeLab(raw: any) {
+/*function normalizeLab(raw: any) {
   return {
     id: raw.id ?? raw.lab_id ?? "unknown",
     title: raw.name ?? "Untitled Lab",
@@ -20,6 +20,18 @@ function normalizeLab(raw: any) {
     completed: raw.completed ?? false,
     rating: raw.rating ?? 4.5,
     views: raw.views ?? 0,
+    ...raw,
+  };
+}*/
+
+function normalizeLab(raw: any, stepsCount: number) {
+  return {
+    id: raw.lab_id,
+    title: raw.name,
+    createdAt: raw.created_at,
+    difficulty: raw.difficulty,
+    duration: raw.estimated_duration,
+    stepsCount,
     ...raw,
   };
 }
@@ -31,12 +43,12 @@ export default function CreatorDashboard() {
   const [loading, setLoading] = useState(true);
 
   // === FETCH LABS ONLY ===
-  useEffect(() => {
+  /*useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
-        const rawLabs = await api.getLabs();
+        const rawLabs = await api.getMyLabs();
         if (!cancelled) {
           setLabs(rawLabs.map(normalizeLab));
         }
@@ -51,7 +63,42 @@ export default function CreatorDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, []);*/
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const rawLabs = await api.getMyLabs();
+
+        const labsWithSteps = await Promise.all(
+          rawLabs.map(async (lab: any) => {
+            try {
+              const steps = await api.getSteps(lab.lab_id);
+              return normalizeLab(lab, steps.length);
+            } catch {
+              return normalizeLab(lab, 0);
+            }
+          })
+        );
+
+        if (!cancelled) {
+          setLabs(labsWithSteps);
+        }
+      } catch (err) {
+        console.error("Failed to fetch labs:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+}, []);
 
   // === ACTIVE LABS ONLY ===
   const activeLabs = useMemo(

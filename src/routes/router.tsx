@@ -18,6 +18,9 @@ import LabSession from "@/pages/learner/LabSession";
 
 import { CreatorDashboard } from "@/pages/creator";
 import CreateLabPage from "@/pages/creator/CreateLabPage";
+import CreateStepPage from "@/pages/creator/CreateStepPage";
+import CreatorLabDetails from "@/pages/creator/CreatorLabDetails";
+import CreatorLabEditPage from "@/pages/creator/CreatorLabEditPage";
 import LabAnalyticsPage from "@/pages/creator/analytics/LabAnalyticsPage";
 
 import AdminDashboard from "@/pages/admin/AdminDashboard";
@@ -64,6 +67,7 @@ export const router = createBrowserRouter([
           {
             path: "/app",
             element: <AppEntry />,
+            errorElement: null,
           },
 
           {
@@ -101,8 +105,11 @@ export const router = createBrowserRouter([
             ),
             children: [
               { path: "dashboard", element: <CreatorDashboard /> },
+              { path: "lab/:id", element: <CreatorLabDetails /> },
               { path: "labs/new", element: <CreateLabPage /> },
-              { path: "lab/:id", element: <LabAnalyticsPage /> },
+              { path: "labs/:id/steps", element: <CreateStepPage />},
+              { path: "lab/:id/edit", element: <CreatorLabEditPage /> },
+              { path: "lab/:id/analytics", element: <LabAnalyticsPage /> },
             ],
           },
 

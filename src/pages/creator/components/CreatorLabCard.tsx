@@ -64,9 +64,6 @@ export default function CreatorLabCard({
   onToggleVisibility,
 }: CreatorLabCardProps) {
   const navigate = useNavigate();
-  // Simulated participant metric derived from views for visual dynamism.
-  const participants = Math.floor(lab.views / 3 + Math.random() * 10);
-
   return (
     <div
       onClick={() => navigate(`/creator/lab/${lab.id}`)}
@@ -110,29 +107,29 @@ export default function CreatorLabCard({
             )}
           </button>
 
-          <button
-            onClick={onDelete}
-            className="p-2 rounded-lg bg-[#1A1F2E] hover:bg-[#2b1a1a] transition"
-            title="Delete this lab"
-          >
-            <Trash2 className="h-4 w-4 text-red-400" />
-          </button>
+          
         </div>
       </div>
 
       {/* BODY */}
-      <div className="flex-1 flex flex-col justify-center text-sm text-gray-300">
-        <p>
-          Views: <span className="text-white">{lab.views}</span>
-        </p>
-        <p>
-          Rating: <span className="text-white">{lab.rating}</span>
-        </p>
-        <p>
-          Participants: <span className="text-white">{participants}</span>
-        </p>
-      </div>
+      <div className="flex-1 flex flex-col justify-center gap-2 text-sm text-gray-300">
 
+        <div className="flex gap-2">
+          <span className="text-gray-400">Difficulty:</span>
+          <span className="text-white capitalize">{lab.difficulty}</span>
+        </div>
+
+        <div className="flex gap-2">
+          <span className="text-gray-400">Steps:</span>
+          <span className="text-white">{lab.stepsCount}</span>
+        </div>
+
+        <div className="flex gap-2">
+          <span className="text-gray-400">Duration:</span>
+          <span className="text-white">{lab.duration || "—"}</span>
+        </div>
+
+      </div>
       {/* FOOTER */}
       <div className="mt-3 text-xs text-gray-500">
         ID: <span className="text-white/70">{lab.id}</span>

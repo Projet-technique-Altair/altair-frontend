@@ -24,6 +24,10 @@ export interface Lab {
   difficulty: string | null;
 
   visibility: LabVisibility;
+  
+  template_path?: string | null;
+  lab_type?: string | null;
+  estimated_duration?: string | null;
 
   path: string | null;         // slug / logical path
   image: string | null;
