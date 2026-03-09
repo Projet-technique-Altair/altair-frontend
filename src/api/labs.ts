@@ -13,6 +13,10 @@ export function getMyLabs() {
   return request<Lab[]>("/labs/mylabs");
 }
 
+export function searchLabs(query: string) {
+  return request<any[]>(`/labs/search?q=${encodeURIComponent(query)}`);
+}
+
 export function getLab(id: string) {
   return request<Lab>(`/labs/labs/${id}`);
 }

@@ -35,3 +35,8 @@ export function getUserById(userId: string) {
     metadata?: Record<string, unknown>
   }>(`/users/users/${userId}`)
 }
+
+
+export function searchUsers(query: string) {
+  return request<any[]>(`/users/search?q=${encodeURIComponent(query)}`);
+}

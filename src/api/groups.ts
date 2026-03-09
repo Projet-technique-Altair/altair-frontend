@@ -9,6 +9,10 @@ export function getGroups() {
   return request<Group[]>("/groups/groups");
 }
 
+export function getMyGroups() {
+  return request<Group[]>("/groups/mygroups");
+}
+
 export function getGroupById(groupId: string) {
   return request<Group>(`/groups/groups/${groupId}`);
 }

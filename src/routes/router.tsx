@@ -19,6 +19,8 @@ import LabSession from "@/pages/learner/LabSession";
 import { CreatorDashboard } from "@/pages/creator";
 import CreateLabPage from "@/pages/creator/CreateLabPage";
 import CreateStepPage from "@/pages/creator/CreateStepPage";
+import CreateGroupPage from "@/pages/creator/CreateGroupPage";
+import CreatorGroupPage from "@/pages/creator/CreatorGroupPage";
 import CreatorLabDetails from "@/pages/creator/CreatorLabDetails";
 import CreatorLabEditPage from "@/pages/creator/CreatorLabEditPage";
 import LabAnalyticsPage from "@/pages/creator/analytics/LabAnalyticsPage";
@@ -110,6 +112,8 @@ export const router = createBrowserRouter([
               { path: "labs/:id/steps", element: <CreateStepPage />},
               { path: "lab/:id/edit", element: <CreatorLabEditPage /> },
               { path: "lab/:id/analytics", element: <LabAnalyticsPage /> },
+              { path: "groups/new", element: <CreateGroupPage /> },
+              { path: "group/:id", element: <CreatorGroupPage /> },
             ],
           },
 

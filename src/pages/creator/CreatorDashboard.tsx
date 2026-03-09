@@ -8,21 +8,10 @@ import { api } from "@/api";
 import DashboardCard from "@/components/ui/DashboardCard";
 import { ALT_COLORS } from "@/lib/theme";
 
-import { CreatorLabCard } from "@/pages/creator";
+import CreatorLabCard from "@/pages/creator/components/CreatorLabCard";
+import CreatorGroupCard from "@/pages/creator/components/CreatorGroupCard";
 
-// Normalize backend labs → frontend format
-/*function normalizeLab(raw: any) {
-  return {
-    id: raw.id ?? raw.lab_id ?? "unknown",
-    title: raw.name ?? "Untitled Lab",
-    createdAt: raw.created_at ?? "Unknown date",
-    visibility: "public",
-    completed: raw.completed ?? false,
-    rating: raw.rating ?? 4.5,
-    views: raw.views ?? 0,
-    ...raw,
-  };
-}*/
+
 
 function normalizeLab(raw: any, stepsCount: number) {
   return {
@@ -36,34 +25,23 @@ function normalizeLab(raw: any, stepsCount: number) {
   };
 }
 
+function normalizeGroup(raw: any) {
+  return {
+    id: raw.group_id,
+    name: raw.name,
+    createdAt: raw.created_at,
+    ...raw,
+  };
+}
+
 export default function CreatorDashboard() {
   const navigate = useNavigate();
 
   const [labs, setLabs] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+
   const [loading, setLoading] = useState(true);
 
-  // === FETCH LABS ONLY ===
-  /*useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const rawLabs = await api.getMyLabs();
-        if (!cancelled) {
-          setLabs(rawLabs.map(normalizeLab));
-        }
-      } catch (err) {
-        console.error("Failed to fetch labs:", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);*/
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +49,9 @@ export default function CreatorDashboard() {
     async function load() {
       try {
         const rawLabs = await api.getMyLabs();
+
+        const rawGroups = await api.getMyGroups();
+        setGroups(rawGroups);
 
         const labsWithSteps = await Promise.all(
           rawLabs.map(async (lab: any) => {
@@ -151,7 +132,7 @@ export default function CreatorDashboard() {
         </button>
       </div>
 
-      {/* ACTIVE LABS ONLY */}
+      {/* LABS */}
       <DashboardCard className="p-6">
         <h2 className="text-lg font-semibold text-sky-400 mb-4">
           Your Active Labs
@@ -178,6 +159,39 @@ export default function CreatorDashboard() {
           </div>
         )}
       </DashboardCard>
+
+      {/* GROUPS */}
+      <DashboardCard className="p-6">
+        <div className="flex justify-between items-center mb-4">
+
+          <h2 className="text-lg font-semibold text-purple-400">
+            Your Groups
+          </h2>
+
+          <button
+            onClick={() => navigate("/creator/groups/new")}
+            className="px-4 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30"
+          >
+            + Create group
+          </button>
+
+        </div>
+
+        {groups.length === 0 ? (
+          <p className="text-gray-500 italic text-sm">No groups yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {groups.map((group) => (
+              <CreatorGroupCard
+                key={group.group_id}
+                group={group}
+              />
+            ))}
+          </div>
+        )}
+
+      </DashboardCard>
+
     </div>
   );
 }
