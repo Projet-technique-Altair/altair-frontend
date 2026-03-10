@@ -8,6 +8,6 @@ on:
 
 jobs:
   ci:
-    uses: Projet-technique-Altair/altair-ci/.github/workflows/frontend.yml@v2
+    uses: Projet-technique-Altair/altair-ci/.github/workflows/frontend.yml@v1
     with:
       node_version: "20"

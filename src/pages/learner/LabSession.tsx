@@ -11,7 +11,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { getLab } from "@/api/labs";
+import { getHints, getLab, getSteps, startLab } from "@/api/labs";
+import {
+  getSession,
+  getSessionProgress,
+  requestSessionHint,
+  stopSession,
+  validateSessionStep,
+  type SessionProgress,
+} from "@/api/sessions";
 import type { Lab } from "@/contracts/labs";
 
 import LabHeader from "@/components/labs/LabHeader";
@@ -26,17 +34,23 @@ import { useLabTimer } from "@/hooks/useLabTimer";
 ========================= */
 
 type LabStep = {
+  step_id?: string;
+  step_number?: number;
   title: string;
   instruction: string;
-  expected?: string;
-  hint?: string;
-  solution?: string;
+  question?: string;
+  points?: number;
+  has_validation?: boolean;
+  hints?: Array<{
+    hint_number: number;
+    cost: number;
+    text: string;
+  }>;
 };
 
 type SessionRuntime = {
   sessionId?: string;
   labId: string;
-  steps: LabStep[];
 };
 
 type MockLabVM = {
@@ -83,9 +97,10 @@ function buildMockSteps(id: string): LabStep[] {
         title: "Completed Session (Preview)",
         instruction:
           "This session is already marked as completed (visual preview).\n\nType `ALTAIR{done}` to validate.",
-        expected: "ALTAIR{done}",
-        hint: "Just type the exact flag for mock.",
-        solution: "ALTAIR{done}",
+        question: "Type the exact mock flag.",
+        points: 20,
+        has_validation: true,
+        hints: [{ hint_number: 1, cost: 2, text: "Just type the exact flag for mock." }],
       },
     ];
   }
@@ -95,62 +110,40 @@ function buildMockSteps(id: string): LabStep[] {
     {
       title: "Warmup — Environment check",
       instruction: "Type `whoami` in the terminal and copy the output.",
-      expected: "whoami",
-      hint: "Basic Linux identity command.",
-      solution: "whoami",
+      question: "What command prints the current user?",
+      points: 10,
+      has_validation: true,
+      hints: [{ hint_number: 1, cost: 2, text: "Basic Linux identity command." }],
     },
     {
       title: "Recon — Find the target",
       instruction: "List files in the current directory using `ls -la`.",
-      expected: "ls -la",
-      hint: "Use ls with long format + show hidden.",
-      solution: "ls -la",
+      question: "Which command lists hidden files in long format?",
+      points: 10,
+      has_validation: true,
+      hints: [{ hint_number: 1, cost: 2, text: "Use ls with long format + show hidden." }],
     },
     {
       title: "Validate — Submit the flag",
       instruction:
         "When you find the flag, paste it here (example: `ALTAIR{...}`).\n\nFor mock, just type `ALTAIR{mock_flag}`.",
-      expected: "ALTAIR{mock_flag}",
-      hint: "In real labs, flags are usually inside a file or an env variable.",
-      solution: "ALTAIR{mock_flag}",
+      question: "Submit the mock flag.",
+      points: 20,
+      has_validation: true,
+      hints: [{ hint_number: 1, cost: 5, text: "In real labs, flags are usually inside a file or an env variable." }],
     },
   ];
 }
 
 /* =========================
-   Helpers: auth + base url
+   Helpers: auth
 ========================= */
 
 function getAuthToken(): string | null {
   return sessionStorage.getItem("altair_token");
 }
 
-function getApiBase(): string {
-  return (
-    (import.meta as any).env?.VITE_API_URL ??
-    (import.meta as any).env?.VITE_GATEWAY_URL ??
-    ""
-  );
-}
-
-/* =========================
-   Helpers: extract steps from JSON
-========================= */
-
-function asArray(x: any): any[] | null {
-  return Array.isArray(x) ? x : null;
-}
-
-function tryJsonParse(x: any): any | null {
-  if (typeof x !== "string") return null;
-  try {
-    return JSON.parse(x);
-  } catch {
-    return null;
-  }
-}
-
-function normalizeStep(raw: any, index: number): LabStep {
+function normalizeRuntimeStep(raw: any, index: number): LabStep {
   const title =
     raw?.title ??
     raw?.name ??
@@ -160,69 +153,26 @@ function normalizeStep(raw: any, index: number): LabStep {
 
   const instruction =
     raw?.instruction ??
+    raw?.description ??
     raw?.prompt ??
-    raw?.question ??
     raw?.text ??
     raw?.body ??
     "No instruction provided.";
-
-  const expected =
-    raw?.expected ??
-    raw?.expected_answer ??
-    raw?.expectedAnswer ??
-    raw?.answer ??
-    raw?.expected_output ??
-    raw?.expectedOutput ??
+  const question =
+    raw?.question ??
+    raw?.prompt ??
     undefined;
 
-  const hint = raw?.hint ?? raw?.clue ?? raw?.tips ?? undefined;
-  const solution = raw?.solution ?? raw?.solve ?? raw?.explanation ?? undefined;
-
   return {
+    step_id: raw?.step_id ?? raw?.stepId,
+    step_number: raw?.step_number ?? raw?.stepNumber ?? index + 1,
     title: String(title),
     instruction: String(instruction),
-    expected: expected != null ? String(expected) : undefined,
-    hint: hint != null ? String(hint) : undefined,
-    solution: solution != null ? String(solution) : undefined,
+    question: question != null ? String(question) : undefined,
+    points: raw?.points != null ? Number(raw.points) : undefined,
+    has_validation: Boolean(raw?.has_validation ?? raw?.question),
+    hints: Array.isArray(raw?.hints) ? raw.hints : [],
   };
-}
-
-function extractStepsFromPayload(payload: any): LabStep[] {
-  const candidates: any[] = [];
-
-  candidates.push(payload?.steps);
-  candidates.push(payload?.questions);
-  candidates.push(payload?.data?.steps);
-  candidates.push(payload?.data?.questions);
-  candidates.push(payload?.runtime?.steps);
-  candidates.push(payload?.runtime?.questions);
-  candidates.push(payload?.data?.runtime?.steps);
-  candidates.push(payload?.data?.runtime?.questions);
-
-  const q1 = tryJsonParse(payload?.questions_json);
-  const q2 = tryJsonParse(payload?.data?.questions_json);
-  const q3 = tryJsonParse(payload?.steps_json);
-  const q4 = tryJsonParse(payload?.data?.steps_json);
-
-  if (q1) candidates.push(q1);
-  if (q2) candidates.push(q2);
-  if (q3) candidates.push(q3);
-  if (q4) candidates.push(q4);
-
-  for (const c of [q1, q2, q3, q4]) {
-    if (!c) continue;
-    candidates.push(c?.steps);
-    candidates.push(c?.questions);
-    candidates.push(c?.data?.steps);
-    candidates.push(c?.data?.questions);
-  }
-
-  for (const cand of candidates) {
-    const arr = asArray(cand);
-    if (arr && arr.length > 0) return arr.map((s, i) => normalizeStep(s, i));
-  }
-
-  return [];
 }
 
 /* =========================
@@ -251,225 +201,35 @@ function clearStoredSessionId(labId: string) {
   sessionStorage.removeItem(sessionKey(labId));
 }
 
-/*async function fetchJson(res: Response) {
-  const text = await res.text().catch(() => "");
-  return text ? JSON.parse(text) : {};
-}*/
-
-async function fetchJson(res: Response) {
-  const text = await res.text().catch(() => "");
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    return {};
-  }
-}
-
-
 async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
-  const base = getApiBase();
-  const token = getAuthToken();
-
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  // 0) Resume by stored sessionId (no "list all sessions")
   const cached = getStoredSessionId(labId);
+
   if (cached) {
-    const getUrl = `${base}/sessions/sessions/${cached}`;
-    const getRes = await fetch(getUrl, { method: "GET", headers });
+    try {
+      const existing = await getSession(cached);
+      const status = String(existing?.status ?? "").toLowerCase();
+      const webshellUrl = existing?.webshell_url ?? null;
 
-    if (getRes.ok) {
-      const payload = await fetchJson(getRes);
-      return { sessionId: cached, labId, steps: extractStepsFromPayload(payload) };
-    }
+      if (status === "created" || status === "running" || webshellUrl) {
+        return { sessionId: cached, labId };
+      }
 
-    // session not found/invalid -> forget and start again
-    if (getRes.status === 404) clearStoredSessionId(labId);
-
-    // if 401/403, throw (auth issue)
-    if (getRes.status === 401 || getRes.status === 403) {
-      const text = await getRes.text().catch(() => "");
-      throw new Error(`Unauthorized (${getRes.status}) on GET /sessions/sessions/${cached}\n${text}`);
+      clearStoredSessionId(labId);
+    } catch {
+      clearStoredSessionId(labId);
     }
   }
 
-  // 1) POST start (doit réussir)
-  const startUrl = `${base}/sessions/labs/${labId}/start`;
-  const startRes = await fetch(startUrl, { method: "POST", headers, body: JSON.stringify({}) });
+  const started = await startLab(labId);
+  const sessionId = started?.session_id;
 
-  /*if (!startRes.ok) {
-    const text = await startRes.text().catch(() => "");
-    throw new Error(`HTTP ${startRes.status} on POST /start\n${text}`);
-  }*/
-
-  if (startRes.status === 409) {
-    // ✅ Session already exists: backend should tell us which one
-    const conflictPayload = await fetchJson(startRes);
-
-    const existingSessionId =
-      conflictPayload?.session_id ??
-      conflictPayload?.sessionId ??
-      conflictPayload?.data?.session_id ??
-      conflictPayload?.data?.sessionId ??
-      conflictPayload?.data?.id ??
-      conflictPayload?.id ??
-      undefined;
-
-    if (!existingSessionId) {
-      throw new Error(
-        "409 Conflict: session already exists, but backend did not return session_id. " +
-          "Add session_id in 409 response body or provide a 'get active session for lab' endpoint."
-      );
-    }
-
-    const sessionId = String(existingSessionId);
-    storeSessionId(labId, sessionId);
-
-    // Then GET the session runtime
-    const getUrl = `${base}/sessions/sessions/${sessionId}`;
-    const getRes = await fetch(getUrl, { method: "GET", headers });
-
-    if (!getRes.ok) {
-      const text = await getRes.text().catch(() => "");
-      throw new Error(`HTTP ${getRes.status} on GET /sessions/${sessionId}\n${text}`);
-    }
-
-    const payload = await fetchJson(getRes);
-    return { sessionId, labId, steps: extractStepsFromPayload(payload) };
-  }
-
-  if (!startRes.ok) {
-    const text = await startRes.text().catch(() => "");
-    throw new Error(`HTTP ${startRes.status} on POST /start\n${text}`);
-  }
-
-
-  const startPayload = await fetchJson(startRes);
-
-  const sessionIdFromStart =
-    startPayload?.session_id ??
-    startPayload?.sessionId ??
-    startPayload?.data?.session_id ??
-    startPayload?.data?.sessionId ??
-    startPayload?.data?.id ??
-    startPayload?.id ??
-    undefined;
-
-  if (!sessionIdFromStart) {
+  if (!sessionId) {
     throw new Error("Start succeeded but did not return a session_id");
   }
 
-  const sessionId = String(sessionIdFromStart);
   storeSessionId(labId, sessionId);
-
-  // If start already includes steps/runtime, return directly
-  const stepsFromStart = extractStepsFromPayload(startPayload);
-  if (stepsFromStart.length > 0) {
-    return { sessionId, labId, steps: stepsFromStart };
-  }
-
-  // 2) GET after POST succeeded
-  const getUrl = `${base}/sessions/sessions/${sessionId}`;
-  const getRes = await fetch(getUrl, { method: "GET", headers });
-
-  if (!getRes.ok) {
-    const text = await getRes.text().catch(() => "");
-    throw new Error(`HTTP ${getRes.status} on GET /sessions/sessions/${sessionId}\n${text}`);
-  }
-
-  const payload = await fetchJson(getRes);
-  return { sessionId, labId, steps: extractStepsFromPayload(payload) };
+  return { sessionId, labId };
 }
-
-
-
-
-//WORKS TECHNICALLY
-/*async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
-  const base = getApiBase();
-  const token = getAuthToken();
-
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  //Need to add a verification to see if the session is already running or not
-
-  // 1) POST start (doit réussir)
-  const startUrl = `${base}/sessions/labs/${labId}/start`;
-  const startRes = await fetch(startUrl, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({}), // ou { lab_id: labId } si ton backend le demande
-  });
-
-  if (!startRes.ok) {
-    const text = await startRes.text().catch(() => "");
-    throw new Error(`HTTP ${startRes.status} on POST /start\n${text}`);
-  }
-
-  const startPayload = await startRes.json().catch(() => ({}));
-
-  // Si le POST renvoie déjà les steps/runtime → parfait, on retourne direct
-  const stepsFromStart = extractStepsFromPayload(startPayload);
-  const sessionIdFromStart =
-    startPayload?.session_id ??
-    startPayload?.sessionId ??
-    startPayload?.data?.session_id ??
-    startPayload?.data?.sessionId ??
-    startPayload?.data?.id ??
-    startPayload?.id ??
-    undefined;
-
-  const resolvedLabId =
-    startPayload?.lab_id ??
-    startPayload?.labId ??
-    startPayload?.data?.lab_id ??
-    startPayload?.data?.labId ??
-    labId;
-
-  if (stepsFromStart.length > 0) {
-    return {
-      sessionId: sessionIdFromStart != null ? String(sessionIdFromStart) : undefined,
-      labId: String(resolvedLabId),
-      steps: stepsFromStart,
-    };
-  }
-
-  // 2) Sinon → GET par sessionId (uniquement après POST réussi)
-  if (!sessionIdFromStart) {
-    throw new Error("Start succeeded but did not return a session_id");
-  }
-
-  const sessionId = String(sessionIdFromStart);
-  const getUrl = `${base}/sessions/sessions/${sessionId}`;
-
-  const getRes = await fetch(getUrl, {
-    method: "GET",
-    headers,
-  });
-
-  if (!getRes.ok) {
-    const text = await getRes.text().catch(() => "");
-    throw new Error(`HTTP ${getRes.status} on GET /sessions/${sessionId}\n${text}`);
-  }
-
-  const payload = await getRes.json().catch(() => ({}));
-  const steps = extractStepsFromPayload(payload);
-
-  return {
-    sessionId,
-    labId: String(
-      payload?.lab_id ??
-        payload?.labId ??
-        payload?.data?.lab_id ??
-        payload?.data?.labId ??
-        resolvedLabId
-    ),
-    steps,
-  };
-}*/
 
 
 /* =========================
@@ -485,6 +245,9 @@ export default function LabSession() {
 
   const [lab, setLab] = useState<Lab | MockLabVM | null>(null);
   const [session, setSession] = useState<SessionRuntime | null>(null);
+  const [sessionProgress, setSessionProgress] = useState<SessionProgress | null>(null);
+  const [steps, setSteps] = useState<LabStep[]>([]);
+  const [revealedHints, setRevealedHints] = useState<Record<number, LabStep["hints"]>>({});
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -495,20 +258,14 @@ export default function LabSession() {
 
   const { formatted } = useLabTimer();
 
-  // ✅ Compute steps early so other hooks (useEffect) can depend on it safely
-  const steps = useMemo<LabStep[]>(() => {
-    if (!lab) return [];
-    const fromLab = extractStepsFromPayload(lab as any);
-    const fromSession = session?.steps ?? [];
-    return fromSession.length > 0 ? fromSession : fromLab;
-  }, [lab, session]);
-
-
   // ✅ Reset navigation state when lab id changes
   useEffect(() => {
     setCurrentStep(0);
     setUserInput("");
     setFeedback(null);
+    setSessionProgress(null);
+    setSteps([]);
+    setRevealedHints({});
   }, [id]);
 
   // ✅ Clamp currentStep when steps change (avoid "no step" when index is out of range)
@@ -520,59 +277,6 @@ export default function LabSession() {
       setFeedback(null);
     }
   }, [steps.length, currentStep]);
-
-
-
-  /*useEffect(() => {
-    let cancelled = false;
-    if (!id) return;
-
-    async function run() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        // ✅ MOCK MODE: NO BACKEND CALLS AT ALL
-        if (mockUI) {
-          const mockLab = buildMockLab(id);
-          const mockSteps = buildMockSteps(id);
-
-          if (cancelled) return;
-          setLab(mockLab);
-          setSession({
-            labId: mockLab.lab_id,
-            sessionId: "mock-session",
-            steps: mockSteps,
-          });
-          setLoading(false);
-          return;
-        }
-
-        // ✅ REAL MODE
-        const labData = await getLab(id);
-        if (cancelled) return;
-        setLab(labData);
-
-        const runtime = await fetchSessionRuntime(labData.lab_id);
-        if (cancelled) return;
-
-        setSession(runtime);
-        setLoading(false);
-      } catch (e) {
-        if (cancelled) return;
-        const msg = (e as any)?.message ? String((e as any).message) : "Failed to load session";
-        console.error("❌ LabSession error:", e);
-        setError(msg);
-        setLoading(false);
-      }
-    }
-
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [id, mockUI]);*/
-
 
   useEffect(() => {
     let cancelled = false;
@@ -594,8 +298,8 @@ export default function LabSession() {
           setSession({
             labId: mockLab.lab_id,
             sessionId: "mock-session",
-            steps: mockSteps,
           });
+          setSteps(mockSteps);
           setLoading(false);
           return;
         }
@@ -607,8 +311,36 @@ export default function LabSession() {
 
         const runtime = await fetchSessionRuntime(labData.lab_id);
         if (cancelled) return;
-
         setSession(runtime);
+
+        const rawSteps = await getSteps(labData.lab_id);
+        if (cancelled) return;
+
+        const enrichedSteps: LabStep[] = await Promise.all(
+          rawSteps.map(async (step: any, index: number) => {
+            const hints = step?.step_id ? await getHints(labData.lab_id, step.step_id) : [];
+            return normalizeRuntimeStep({ ...step, hints }, index);
+          })
+        );
+        if (cancelled) return;
+        setSteps(enrichedSteps);
+
+        const progress = await getSessionProgress(runtime.sessionId!);
+        if (cancelled) return;
+        setSessionProgress(progress);
+        setCurrentStep(Math.max(0, (progress.current_step ?? 1) - 1));
+
+        const hintsByStep: Record<number, LabStep["hints"]> = {};
+        const usedKeys = Array.isArray(progress.hints_used) ? progress.hints_used : [];
+        for (const step of enrichedSteps) {
+          const stepNumber = step.step_number ?? 0;
+          const shown = (step.hints || []).filter((hint) =>
+            usedKeys.includes(`${stepNumber}_${hint.hint_number}`)
+          );
+          hintsByStep[stepNumber] = shown;
+        }
+        setRevealedHints(hintsByStep);
+
         setLoading(false);
       } catch (e) {
         if (cancelled) return;
@@ -624,6 +356,24 @@ export default function LabSession() {
       cancelled = true;
     };
   }, [id, mockUI]);
+
+  const unlockedStepIndex = useMemo(
+    () => Math.max(0, (sessionProgress?.current_step ?? 1) - 1),
+    [sessionProgress]
+  );
+  const progressRatio = useMemo(
+    () =>
+      steps.length > 0
+        ? (sessionProgress?.completed_steps?.length ?? 0) / steps.length
+        : 0,
+    [sessionProgress, steps.length]
+  );
+  const labName = useMemo(() => (lab as any)?.name ?? "Untitled Lab", [lab]);
+  const current = useMemo(() => steps[currentStep], [steps, currentStep]);
+  const currentHints = useMemo(
+    () => (current?.step_number ? revealedHints[current.step_number] || [] : []),
+    [current, revealedHints]
+  );
 
 
   if (loading) {
@@ -662,8 +412,6 @@ export default function LabSession() {
   }
 
 
-  const current = steps[currentStep];
-
   if (!current) {
     return (
       <div className="min-h-[70vh] text-white flex items-center justify-center text-center p-8">
@@ -683,42 +431,103 @@ export default function LabSession() {
     );
   }
 
-  const handleValidate = () => {
-    const expected = (current.expected ?? "").trim();
-    const input = userInput.trim();
+  const handleValidate = async () => {
+    if (mockUI) {
+      setFeedback("Submitted in mock mode.");
+      return;
+    }
+    if (!current.has_validation) return;
+    if (!session?.sessionId || !current.step_number) return;
 
-    if (expected && input === expected) {
-      setFeedback("Correct!");
-      setTimeout(() => {
-        setFeedback(null);
-        setUserInput("");
-        if (currentStep < steps.length - 1) setCurrentStep((s) => s + 1);
-        else setFeedback("Lab completed!");
-      }, 900);
-    } else {
-      setFeedback(expected ? "Try again!" : "Submitted.");
+    try {
+      const result = await validateSessionStep(
+        session.sessionId,
+        current.step_number,
+        userInput.trim()
+      );
+      const pointsEarned = Number(result?.points_earned ?? 0);
+      setFeedback(`✅ Correct answer. +${pointsEarned} pts`);
+      const progress = await getSessionProgress(session.sessionId);
+      setSessionProgress(progress);
+      setUserInput("");
+      setCurrentStep(Math.max(0, (progress.current_step ?? 1) - 1));
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : "Incorrect answer.";
+      setFeedback(`❌ ${msg}`);
     }
   };
 
-  const handleHint = () => {
-    setFeedback(current.hint ? `Hint: ${current.hint}` : "No hint available.");
+  const handleHint = async () => {
+    if (mockUI) {
+      const next = (current.hints || [])[0];
+      setFeedback(next ? `💡 ${next.text}` : "No hint available.");
+      return;
+    }
+    if (!current.has_validation) {
+      setFeedback("💡 No hint workflow is defined for this step.");
+      return;
+    }
+    if (!session?.sessionId || !current.step_number) return;
+
+    const usedForStep = revealedHints[current.step_number] || [];
+    const nextHint = (current.hints || []).find(
+      (hint) => !usedForStep.some((used) => used?.hint_number === hint.hint_number)
+    );
+
+    if (!nextHint) {
+      setFeedback("💡 No more hints available for this step.");
+      return;
+    }
+
+    try {
+      const result = await requestSessionHint(
+        session.sessionId,
+        current.step_number,
+        nextHint.hint_number
+      );
+      const hintText = result?.hint ?? nextHint.text;
+      const cost = Number(result?.cost ?? nextHint.cost ?? 0);
+      setRevealedHints((prev) => ({
+        ...prev,
+        [current.step_number!]: [...usedForStep, { ...nextHint, text: hintText, cost }],
+      }));
+      const progress = await getSessionProgress(session.sessionId);
+      setSessionProgress(progress);
+      setFeedback(`💡 Hint unlocked (-${cost} pts)`);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : "Hint request failed.";
+      setFeedback(`❌ ${msg}`);
+    }
   };
 
-  const handleSolution = () => {
-    setFeedback(current.solution ? `Solution: ${current.solution}` : "No solution provided.");
+  const handleEndSession = async () => {
+    if (!mockUI && session?.sessionId) {
+      try {
+        await stopSession(session.sessionId);
+      } catch (e) {
+        console.error("Failed to stop session before exit:", e);
+      } finally {
+        clearStoredSessionId(session.labId);
+      }
+    }
+
+    navigate("/learner/dashboard");
   };
 
-  const handleEndSession = () => navigate("/learner/dashboard");
-
-  const progressRatio = steps.length > 0 ? (currentStep + 1) / steps.length : 0;
-
-  const labName = (lab as any).name ?? "Untitled Lab";
+  const handleResumeLater = () => {
+    navigate("/learner/dashboard");
+  };
 
   return (
     <div className="min-h-screen text-white flex flex-col">
       {/* HEADER */}
       <div className="border-b border-white/5 bg-[#0E1323] px-6 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between">
-        <LabHeader labName={labName} onExit={handleEndSession} timer={formatted} />
+        <LabHeader
+          labName={labName}
+          onExit={handleEndSession}
+          onResumeLater={handleResumeLater}
+          timer={formatted}
+        />
       </div>
 
       {/* GRID */}
@@ -728,13 +537,16 @@ export default function LabSession() {
           <LabInstructions
             stepIndex={currentStep}
             totalSteps={steps.length}
+            unlockedStepIndex={unlockedStepIndex}
             step={current}
             userInput={userInput}
             onChangeInput={setUserInput}
             onValidate={handleValidate}
             onHint={handleHint}
-            onSolution={handleSolution}
             feedback={feedback}
+            currentScore={sessionProgress?.score}
+            maxScore={sessionProgress?.max_score}
+            revealedHints={currentHints}
           />
 
           {/* Navigation */}
@@ -761,12 +573,15 @@ export default function LabSession() {
             <button
               disabled={currentStep === steps.length - 1}
               onClick={() => {
+                if (currentStep >= unlockedStepIndex) return;
                 setFeedback(null);
                 setUserInput("");
                 setCurrentStep((s) => Math.min(steps.length - 1, s + 1));
               }}
               className={`px-3 py-1 rounded-md border border-white/10 ${
-                currentStep === steps.length - 1 ? "opacity-30 cursor-not-allowed" : "hover:bg-white/5"
+                currentStep === steps.length - 1 || currentStep >= unlockedStepIndex
+                  ? "opacity-30 cursor-not-allowed"
+                  : "hover:bg-white/5"
               }`}
               type="button"
             >
@@ -780,7 +595,7 @@ export default function LabSession() {
               <span className="inline-block w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_10px_#38bdf8]" />
               <span>Progress</span>
               <span className="text-slate-400 text-xs">
-                ({currentStep + 1}/{steps.length})
+                ({sessionProgress?.completed_steps?.length ?? 0}/{steps.length} completed)
               </span>
             </div>
 

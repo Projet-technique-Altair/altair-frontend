@@ -13,15 +13,21 @@
  */
 
 import { ALT_COLORS } from "@/lib/theme";
-import { Clock3, LogOut } from "lucide-react";
+import { ArrowLeft, Clock3, LogOut } from "lucide-react";
 
 interface LabHeaderProps {
   labName: string;
   timer?: string;
   onExit?: () => void;
+  onResumeLater?: () => void;
 }
 
-export default function LabHeader({ labName, timer, onExit }: LabHeaderProps) {
+export default function LabHeader({
+  labName,
+  timer,
+  onExit,
+  onResumeLater,
+}: LabHeaderProps) {
   return (
     <div className="w-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       {/* Title block */}
@@ -55,6 +61,24 @@ export default function LabHeader({ labName, timer, onExit }: LabHeaderProps) {
             <Clock3 className="h-4 w-4 text-white/60" />
             <span className="font-mono">{timer}</span>
           </div>
+        )}
+
+        {onResumeLater && (
+          <button
+            onClick={onResumeLater}
+            className={[
+              "inline-flex items-center gap-2 rounded-full px-3 py-2",
+              "border border-white/10 bg-white/5 backdrop-blur-md",
+              "text-xs text-white/80 hover:text-white",
+              "hover:bg-white/8 hover:border-white/15 transition",
+            ].join(" ")}
+            aria-label="Resume later"
+            title="Resume later"
+            type="button"
+          >
+            <ArrowLeft className="h-4 w-4 text-sky-300/90" />
+            <span className="hidden sm:inline">Resume Later</span>
+          </button>
         )}
 
         {onExit && (

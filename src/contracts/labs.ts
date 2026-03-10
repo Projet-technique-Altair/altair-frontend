@@ -22,6 +22,10 @@ export interface Lab {
 
   // In SQL: TEXT (comment says could be an enum later)
   difficulty: string | null;
+  category?: string | null;
+  story?: string | null;
+  objectives?: string | null;
+  prerequisites?: string | null;
 
   visibility: LabVisibility;
   
