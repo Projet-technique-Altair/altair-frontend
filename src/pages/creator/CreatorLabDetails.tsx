@@ -1,7 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
-import { getLab, getSteps, getHints, deleteLab } from "@/api/labs";
+import {
+  deleteLab,
+  getEditableSteps,
+  getHints,
+  getLab,
+} from "@/api/labs";
 
 import DashboardCard from "@/components/ui/DashboardCard";
 import { ALT_COLORS } from "@/lib/theme";
@@ -40,11 +45,10 @@ export default function CreatorLabDetails() {
 
         const labData = await getLab(id!);
 
-        const stepsData = await getSteps(id!);
+        const stepsData = await getEditableSteps(id!);
 
         const stepsWithHints = await Promise.all(
           stepsData.map(async (step: any) => {
-
             const hints = await getHints(id!, step.step_id);
 
             return {

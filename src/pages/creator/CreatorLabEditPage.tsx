@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import DashboardCard from "@/components/ui/DashboardCard";
 import { ALT_COLORS } from "@/lib/theme";
 import { api } from "@/api";
+import { getEditableSteps } from "@/api/labs";
 
 type Hint = {
   hint_id?: string;
@@ -57,7 +58,7 @@ export default function CreatorLabEditPage() {
       try {
         const lab = await api.getLab(id!);
 
-        const stepsData = await api.getSteps(id!);
+        const stepsData = await getEditableSteps(id!);
 
         const stepsWithHints = await Promise.all(
         stepsData.map(async (step: any) => {

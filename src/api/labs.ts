@@ -1,5 +1,6 @@
 import { request } from "./client";
 import type { Lab, LabUpsertPayload } from "@/contracts/labs";
+import type { SessionSummary } from "./sessions";
 
 /* =======================================================
    LABS
@@ -42,7 +43,7 @@ export function deleteLab(id: string) {
 }
 
 export function startLab(labId: string) {
-  return request<{ session_id: string }>(`/sessions/labs/${labId}/start`, {
+  return request<SessionSummary>(`/sessions/labs/${labId}/start`, {
     method: "POST",
   });
 }
@@ -53,6 +54,10 @@ export function startLab(labId: string) {
 
 export function getSteps(labId: string) {
   return request<any[]>(`/labs/labs/${labId}/steps`);
+}
+
+export function getEditableSteps(labId: string) {
+  return request<any[]>(`/labs/labs/${labId}/steps/edit`);
 }
 
 export function createStep(labId: string, payload: any) {

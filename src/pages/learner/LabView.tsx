@@ -16,6 +16,8 @@ interface LabViewModel {
   description: string;
   difficulty: string;
   estimatedTime: string;
+  story: string | null;
+  objectives: string | null;
   // UI-only
   mock?: boolean;
 }
@@ -26,7 +28,11 @@ function mapLabToViewModel(raw: Lab): LabViewModel {
     name: raw.name,
     description: raw.description ?? "No description available.",
     difficulty: raw.difficulty ?? "Unknown",
-    estimatedTime: raw.estimated_time ? `${raw.estimated_time} min` : "Unknown duration",
+    estimatedTime:
+      raw.estimated_duration ??
+      (raw.estimated_time ? `${raw.estimated_time} min` : "Unknown duration"),
+    story: raw.story ?? null,
+    objectives: raw.objectives ?? null,
   };
 }
 
@@ -45,8 +51,21 @@ function mockLabFromId(id: string): LabViewModel {
       "This is mock data to validate UI. Backend is bypassed when ?mock=1 is present.",
     difficulty: isCompleted ? "BEGINNER" : "INTERMEDIATE",
     estimatedTime: isCompleted ? "25 min" : "45 min",
+    story:
+      "A short mock narrative used to validate the learner briefing layout before backend content is fully wired.",
+    objectives:
+      "Understand the environment\nIdentify the main target\nComplete the expected task",
     mock: true,
   };
+}
+
+function splitBriefingText(value: string | null | undefined): string[] {
+  if (!value) return [];
+
+  return value
+    .split(/\r?\n|•|-/)
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
 function DifficultyPill({ difficulty }: { difficulty: string }) {
@@ -221,9 +240,36 @@ export default function LabView() {
                 <div className="text-[11px] uppercase tracking-wide text-white/55">
                   Briefing
                 </div>
-                <p className="mt-2 text-sm text-white/75 leading-relaxed">
-                  {lab.description}
-                </p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="text-[11px] uppercase tracking-wide text-white/50">
+                      Story
+                    </div>
+                    <p className="mt-2 text-sm text-white/75 leading-relaxed">
+                      {lab.story ?? lab.description}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="text-[11px] uppercase tracking-wide text-white/50">
+                      Objectives
+                    </div>
+                    {splitBriefingText(lab.objectives).length > 0 ? (
+                      <ul className="mt-2 space-y-2 text-sm text-white/75">
+                        {splitBriefingText(lab.objectives).map((objective) => (
+                          <li key={objective} className="flex gap-2 leading-relaxed">
+                            <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-sky-300" />
+                            <span>{objective}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-sm text-white/75 leading-relaxed">
+                        No objectives provided.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* optional: “coming soon” social tease, but NO likes/comments */}
@@ -233,8 +279,6 @@ export default function LabView() {
             </div>
           </div>
         </div>
-
-        {/* ===== (future) you can add other panels here later: prerequisites, objectives, etc. */}
       </div>
     </div>
   );
