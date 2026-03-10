@@ -15,6 +15,12 @@ import GroupsView from "@/pages/learner/GroupsView";
 import StarpathView from "@/pages/learner/StarpathView";
 import LabView from "@/pages/learner/LabView";
 import LabSession from "@/pages/learner/LabSession";
+import LearnerExplorer from "@/pages/learner/LearnerExplorer";
+import ProfilePage from "@/pages/learner/ProfilePage";
+import SettingsPage from "@/pages/learner/SettingsPage";
+import GachaPage from "@/pages/gamification/GachaPage";
+import MarketplacePage from "@/pages/gamification/MarketplacePage";
+import CollectionPage from "@/pages/gamification/CollectionPage";
 
 import { CreatorDashboard } from "@/pages/creator";
 import CreateLabPage from "@/pages/creator/CreateLabPage";
@@ -82,6 +88,12 @@ export const router = createBrowserRouter([
             errorElement: <RouteError />,
             children: [
               { path: "dashboard", element: <LearnerDashboard /> },
+              { path: "explorer", element: <LearnerExplorer /> },
+              { path: "profile", element: <ProfilePage /> },
+              { path: "settings", element: <SettingsPage /> },
+              { path: "gacha", element: <GachaPage /> },
+              { path: "marketplace", element: <MarketplacePage /> },
+              { path: "collection", element: <CollectionPage /> },
 
               // ✅ Groups (list + detail)
               { path: "groups", element: <GroupsView /> },

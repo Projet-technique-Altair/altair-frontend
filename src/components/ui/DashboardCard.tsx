@@ -10,7 +10,7 @@
  */
 
 import React from "react";
-import { ALT_BG, ALT_SHADOW } from "@/lib/theme";
+import { ALT_SHADOW } from "@/lib/theme";
 
 
 
@@ -46,7 +46,7 @@ export default function DashboardCard({
         className,
       ].join(" ")}
       style={{
-        boxShadow: ALT_SHADOW, // conserve ta cohérence visuelle
+        boxShadow: ALT_SHADOW.card,
       }}
     >
       {children}

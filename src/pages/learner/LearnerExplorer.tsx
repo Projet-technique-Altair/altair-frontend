@@ -23,8 +23,49 @@ import SearchBar from "@/components/ui/SearchBar";
 import SectionTitle from "@/components/ui/SectionTitle";
 import DashboardCard from "@/components/ui/DashboardCard";
 import { Star } from "lucide-react";
-import { mockNewLabs, mockNewStarpaths } from "@/api";
 import { ALT_COLORS } from "@/lib/theme";
+
+const mockNewLabs = [
+  {
+    id: "explorer-lab-1",
+    name: "PATH Hijacking Challenge",
+    level: "Beginner",
+    domain: "Linux Privilege Escalation",
+    rating: 4.7,
+    participants: 182,
+  },
+  {
+    id: "explorer-lab-2",
+    name: "Orbital Console Injection",
+    level: "Intermediate",
+    domain: "Web Security",
+    rating: 4.5,
+    participants: 136,
+  },
+];
+
+const mockNewStarpaths = [
+  {
+    id: "explorer-sp-1",
+    name: "Blue Team Foundations",
+    domain: "Defensive Security",
+    chaptersCompleted: 0,
+    totalChapters: 6,
+    labs: 12,
+    rating: 4.8,
+    participants: 94,
+  },
+  {
+    id: "explorer-sp-2",
+    name: "Web Exploitation Track",
+    domain: "Offensive Security",
+    chaptersCompleted: 0,
+    totalChapters: 8,
+    labs: 15,
+    rating: 4.6,
+    participants: 121,
+  },
+];
 
 
 /**
