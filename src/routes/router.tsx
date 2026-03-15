@@ -30,6 +30,8 @@ import CreatorGroupPage from "@/pages/creator/CreatorGroupPage";
 import CreatorLabDetails from "@/pages/creator/CreatorLabDetails";
 import CreatorLabEditPage from "@/pages/creator/CreatorLabEditPage";
 import LabAnalyticsPage from "@/pages/creator/analytics/LabAnalyticsPage";
+import CreateStarpathPage from "@/pages/creator/CreateStarpathPage";
+import CreatorStarpathPage from "@/pages/creator/CreatorStarpathPage";
 
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AuthCallback from "@/pages/AuthCallback";
@@ -119,13 +121,18 @@ export const router = createBrowserRouter([
             ),
             children: [
               { path: "dashboard", element: <CreatorDashboard /> },
+
               { path: "lab/:id", element: <CreatorLabDetails /> },
               { path: "labs/new", element: <CreateLabPage /> },
               { path: "labs/:id/steps", element: <CreateStepPage />},
               { path: "lab/:id/edit", element: <CreatorLabEditPage /> },
               { path: "lab/:id/analytics", element: <LabAnalyticsPage /> },
+
               { path: "groups/new", element: <CreateGroupPage /> },
               { path: "group/:id", element: <CreatorGroupPage /> },
+
+              { path: "/creator/starpaths/new", element: <CreateStarpathPage />},
+              { path: "/creator/starpath/:id", element: <CreatorStarpathPage />},
             ],
           },
 
