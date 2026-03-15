@@ -14,8 +14,16 @@ export function getStarpaths() {
   return request<Starpath[]>("/starpaths/starpaths");
 }
 
+export function getMyStarpaths() {
+  return request<Starpath[]>("/starpaths/mystarpaths");
+}
+
 export function getStarpath(id: string) {
   return request<Starpath>(`/starpaths/starpaths/${id}`);
+}
+
+export function searchStarpaths(query: string) {
+  return request<any[]>(`/starpaths/search?q=${encodeURIComponent(query)}`);
 }
 
 export function createStarpath(payload: StarpathUpsertPayload) {

@@ -25,6 +25,12 @@ export default function CreatorGroupPage() {
   const [labResults, setLabResults] = useState<any[]>([]);
   const [selectedLabs, setSelectedLabs] = useState<any[]>([]);
 
+  const [starpaths, setStarpaths] = useState<any[]>([]);
+
+  const [starpathQuery, setStarpathQuery] = useState("");
+  const [starpathResults, setStarpathResults] = useState<any[]>([]);
+  const [selectedStarpaths, setSelectedStarpaths] = useState<any[]>([]);
+
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -38,12 +44,14 @@ export default function CreatorGroupPage() {
         const g = await api.getGroupById(id!);
         const m = await api.getGroupMembers(id!);
         const l = await api.getGroupLabs(id!);
+        const sp = await api.getGroupStarpaths(id!);
 
         setGroup(g);
         setMembers(m);
         setLabs(l);
         setName(g.name);
         setDescription(g.description ?? "");
+        setStarpaths(sp);
 
       } catch (err) {
         console.error("Failed to load group:", err);
@@ -65,16 +73,13 @@ export default function CreatorGroupPage() {
     }
 
     const timeout = setTimeout(async () => {
-
         try {
-
         const labs = await api.searchLabs(labQuery);
         setLabResults(labs);
 
         } catch (err) {
         console.error("Failed to search labs:", err);
         }
-
     }, 300);
 
     return () => clearTimeout(timeout);
@@ -89,43 +94,53 @@ export default function CreatorGroupPage() {
     }
 
     const timeout = setTimeout(async () => {
-
       try {
-
         const users = await api.searchUsers(userQuery);
         setUserResults(users);
 
       } catch (err) {
         console.error("Failed to search users:", err);
       }
-
     }, 300);
 
     return () => clearTimeout(timeout);
 
   }, [userQuery]);
 
+  useEffect(() => {
+    if (starpathQuery.length < 2) {
+      setStarpathResults([]);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        const starpaths = await api.searchStarpaths(starpathQuery);
+        setStarpathResults(starpaths);
+      } catch (err) {
+        console.error("Failed to search starpaths:", err);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [starpathQuery]);
+
 
   // ========================
   // MODIFY
   // ========================  
   const handleSaveGroup = async () => {
-
     try {
-
       const updated = await api.updateGroup(id!, {
         name,
         description,
       });
 
       setGroup(updated);
-
       setEditing(false);
 
     } catch (err) {
       console.error("Failed to update group:", err);
     }
-
   };
 
   // ========================
@@ -133,9 +148,7 @@ export default function CreatorGroupPage() {
   // ========================
 
   const handleRemoveMember = async (userId: string) => {
-
     try {
-
       await api.removeGroupMember(id!, userId);
 
       setMembers(prev =>
@@ -145,7 +158,6 @@ export default function CreatorGroupPage() {
     } catch (err) {
       console.error("Failed to remove member:", err);
     }
-
   };
 
 
@@ -155,9 +167,7 @@ export default function CreatorGroupPage() {
   // ========================
 
   const handleUnassignLab = async (labId: string) => {
-
     try {
-
       await api.unassignLabFromGroup(id!, labId);
 
       setLabs(prev =>
@@ -167,7 +177,6 @@ export default function CreatorGroupPage() {
     } catch (err) {
       console.error("Failed to unassign lab:", err);
     }
-
   };
 
 
@@ -178,7 +187,6 @@ export default function CreatorGroupPage() {
     const handleConfirmLabs = async () => {
 
     if (selectedLabs.length === 0) return;
-
     try {
 
         for (const lab of selectedLabs) {
@@ -197,7 +205,6 @@ export default function CreatorGroupPage() {
     } catch (err) {
         console.error("Failed to assign labs:", err);
     }
-
     };
 
 
@@ -208,7 +215,6 @@ export default function CreatorGroupPage() {
     const handleConfirmUsers = async () => {
 
     if (selectedUsers.length === 0) return;
-
     try {
 
       for (const user of selectedUsers) {
@@ -227,10 +233,44 @@ export default function CreatorGroupPage() {
     } catch (err) {
       console.error("Failed to add users:", err);
     }
+  };
+
+  // ========================
+  // ADD STARPATH
+  // ========================
+  const handleConfirmStarpaths = async () => {
+    if (selectedStarpaths.length === 0) return;
+    try {
+      for (const sp of selectedStarpaths) {
+        await api.assignStarpathToGroup(id!, sp.starpath_id);
+      }
+      setStarpaths(prev => [
+        ...prev,
+        ...selectedStarpaths
+      ]);
+      setSelectedStarpaths([]);
+      setStarpathQuery("");
+      setStarpathResults([]);
+
+    } catch (err) {
+      console.error("Failed to assign starpaths:", err);
+    }
 
   };
 
-
+  // ========================
+  // DELETE STARPATH
+  // ========================
+  const handleUnassignStarpath = async (starpathId: string) => {
+    try {
+      await api.unassignStarpathFromGroup(id!, starpathId);
+      setStarpaths(prev =>
+        prev.filter(sp => sp.starpath_id !== starpathId)
+      );
+    } catch (err) {
+      console.error("Failed to unassign starpath:", err);
+    }
+  };
 
   // ========================
   // DELETE GROUP
@@ -239,7 +279,6 @@ export default function CreatorGroupPage() {
     try {
 
       await api.deleteGroup(id!);
-
       navigate("/creator/dashboard");
 
     } catch (err) {
@@ -267,18 +306,11 @@ export default function CreatorGroupPage() {
         {/* LEFT SIDE */}
 
         <div>
-
           {editing ? (
-
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="
-              text-3xl font-bold
-              bg-transparent
-              border-b border-white/20
-              outline-none
-              "
+              className="text-3xl font-bold bg-transparent border-b border-white/20 outline-none"
             />
 
           ) : (
@@ -301,16 +333,7 @@ export default function CreatorGroupPage() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="
-              mt-2
-              w-full
-              max-w-xl
-              rounded-xl
-              border border-white/10
-              bg-black/30
-              px-4 py-2
-              text-sm
-              "
+              className="mt-2 w-full max-w-xl rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm"
             />
 
           ) : (
@@ -338,16 +361,7 @@ export default function CreatorGroupPage() {
 
             <button
               onClick={handleSaveGroup}
-              className="
-              px-4 py-2
-              rounded-xl
-              border border-green-400/30
-              bg-green-500/10
-              text-green-200
-              text-sm
-              hover:bg-green-500/20
-              transition
-              "
+              className="px-4 py-2 rounded-xl border border-green-400/30 bg-green-500/10 text-green-200 text-sm hover:bg-green-500/20 transition"
             >
               Save
             </button>
@@ -661,6 +675,148 @@ export default function CreatorGroupPage() {
         )}
 
         </div>
+
+      </DashboardCard>
+
+      {/* STARPATHS */}
+
+      <DashboardCard className="p-6 space-y-4">
+
+      <div className="text-lg text-orange-400 font-semibold">
+      Assigned Starpaths
+      </div>
+
+      {starpaths.length === 0 && (
+      <p className="text-white/50 text-sm">
+      No starpaths assigned.
+      </p>
+      )}
+
+      {starpaths.map((sp) => (
+
+      <div
+      key={sp.starpath_id}
+      className="flex justify-between items-center bg-black/30 rounded-xl px-4 py-3"
+      >
+
+      <span className="text-sm">
+      {sp.name ?? sp.starpath_id}
+      </span>
+
+      <button
+      onClick={() => handleUnassignStarpath(sp.starpath_id)}
+      className="text-red-400 text-xs hover:text-red-300"
+      >
+      Remove
+      </button>
+
+      </div>
+
+      ))}
+
+      <div className="pt-2">
+
+      {selectedStarpaths.length > 0 && (
+
+      <div className="mt-4 mb-6 space-y-2">
+
+      <div className="text-xs text-white/50">
+      Selected starpaths
+      </div>
+
+      {selectedStarpaths.map((sp) => (
+
+      <div
+      key={sp.starpath_id}
+      className="flex justify-between items-center bg-black/30 rounded-xl px-4 py-2"
+      >
+
+      <span className="text-sm">{sp.name}</span>
+
+      <button
+      onClick={() =>
+      setSelectedStarpaths(prev =>
+      prev.filter(s => s.starpath_id !== sp.starpath_id)
+      )
+      }
+      className="text-red-400 text-xs hover:text-red-300"
+      >
+      Remove
+      </button>
+
+      </div>
+
+      ))}
+
+      <button
+      onClick={handleConfirmStarpaths}
+      className="
+      mt-2
+      px-4 py-2
+      rounded-xl
+      bg-orange-500/20
+      text-orange-200
+      text-sm
+      hover:bg-orange-500/30
+      "
+      >
+      Confirm starpaths
+      </button>
+
+      </div>
+
+      )}
+
+      <input
+      placeholder="Search starpath..."
+      value={starpathQuery}
+      onChange={(e) => setStarpathQuery(e.target.value)}
+      className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm"
+      />
+
+      {starpathQuery.length >= 2 && (
+
+      <div className="mt-2 border border-white/10 rounded-xl bg-black/40 overflow-hidden">
+
+      {starpathResults.length === 0 ? (
+
+      <div className="px-4 py-2 text-sm text-white/50">
+      No starpaths found.
+      </div>
+
+      ) : (
+
+      starpathResults.map((sp) => (
+
+      <div
+      key={sp.starpath_id}
+      onClick={() => {
+
+      const alreadyAssigned =
+      starpaths.some(s => s.starpath_id === sp.starpath_id);
+
+      const alreadySelected =
+      selectedStarpaths.some(s => s.starpath_id === sp.starpath_id);
+
+      if (!alreadyAssigned && !alreadySelected) {
+      setSelectedStarpaths(prev => [...prev, sp]);
+      }
+
+      }}
+      className="px-4 py-2 text-sm hover:bg-white/10 cursor-pointer"
+      >
+      {sp.name}
+      </div>
+
+      ))
+
+      )}
+
+      </div>
+
+      )}
+
+      </div>
 
       </DashboardCard>
 

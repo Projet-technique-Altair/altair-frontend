@@ -1,5 +1,5 @@
 export type Starpath = {
-  id: string;
+  starpath_id: string;
   name: string;
   description?: string;
   difficulty?: string;
@@ -13,8 +13,7 @@ export type StarpathUpsertPayload = {
 
 export type StarpathLabUpsertPayload = {
   lab_id: string;
-  order?: number;
-  points?: number;
+  position: number;
 };
 
 export type StarpathProgress = {

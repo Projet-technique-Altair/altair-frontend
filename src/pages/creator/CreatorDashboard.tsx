@@ -11,6 +11,9 @@ import { ALT_COLORS } from "@/lib/theme";
 import CreatorLabCard from "@/pages/creator/components/CreatorLabCard";
 import CreatorGroupCard from "@/pages/creator/components/CreatorGroupCard";
 
+import { getMyStarpaths } from "@/api/starpaths";
+import CreatorStarpathCard from "@/pages/creator/components/CreatorStarpathCard";
+
 
 
 function normalizeLab(raw: any, stepsCount: number) {
@@ -39,6 +42,7 @@ export default function CreatorDashboard() {
 
   const [labs, setLabs] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
+  const [starpaths, setStarpaths] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
 
@@ -52,6 +56,9 @@ export default function CreatorDashboard() {
 
         const rawGroups = await api.getMyGroups();
         setGroups(rawGroups);
+
+        const rawStarpaths = await getMyStarpaths();
+        setStarpaths(rawStarpaths);
 
         const labsWithSteps = await Promise.all(
           rawLabs.map(async (lab: any) => {
@@ -190,6 +197,38 @@ export default function CreatorDashboard() {
           </div>
         )}
 
+      </DashboardCard>
+      {/* STARPATHS */}
+      <DashboardCard className="p-6">
+        <div className="flex justify-between items-center mb-4">
+
+          <h2 className="text-lg font-semibold text-orange-400">
+            Your Starpaths
+          </h2>
+
+          <button
+            onClick={() => navigate("/creator/starpaths/new")}
+            className="px-4 py-2 rounded-lg bg-orange-500/20 hover:bg-orange-500/30"
+          >
+            + Create starpath
+          </button>
+
+        </div>
+
+        {starpaths.length === 0 ? (
+          <p className="text-gray-500 italic text-sm">
+            No starpaths yet.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {starpaths.map((starpath) => (
+              <CreatorStarpathCard
+                key={starpath.starpath_id}
+                starpath={starpath}
+              />
+            ))}
+          </div>
+        )}
       </DashboardCard>
 
     </div>
