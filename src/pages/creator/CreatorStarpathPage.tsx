@@ -13,18 +13,26 @@ import {
 } from "@/api/starpaths";
 
 import { api } from "@/api";
+import type { SearchLabResult } from "@/api/types";
+import type { GroupLabResult } from "@/api/types";
+import type { Starpath } from "@/contracts/starpaths";
+
+type EditableStarpath = Starpath & {
+  description?: string | null;
+  difficulty?: string | null;
+};
 
 export default function CreatorStarpathPage() {
 
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [starpath, setStarpath] = useState<any>(null);
-  const [labs, setLabs] = useState<any[]>([]);
+  const [starpath, setStarpath] = useState<EditableStarpath | null>(null);
+  const [labs, setLabs] = useState<GroupLabResult[]>([]);
 
   const [labQuery, setLabQuery] = useState("");
-  const [labResults, setLabResults] = useState<any[]>([]);
-  const [selectedLabs, setSelectedLabs] = useState<any[]>([]);
+  const [labResults, setLabResults] = useState<SearchLabResult[]>([]);
+  const [selectedLabs, setSelectedLabs] = useState<SearchLabResult[]>([]);
 
   const [editing, setEditing] = useState(false);
 

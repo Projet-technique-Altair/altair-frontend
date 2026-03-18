@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { AuthProvider } from "@/context/AuthContext";
 
 // SplashIntro volontairement mis de côté pour plus tard
 // import SplashIntro from "@/components/SplashIntro";
@@ -38,17 +38,7 @@ import AuthCallback from "@/pages/AuthCallback";
 
 import { ProtectedRoute } from "@/routes/ProtectedRoute";
 import AppEntry from "@/pages/AppEntry";
-
-// ===== TOKEN-ONLY GUARD =====
-// Redirige vers la landing si non authentifié
-function AuthGuard() {
-  const { token } = useAuth();
-  const storedToken = sessionStorage.getItem("altair_token");
-  const effectiveToken = token ?? storedToken;
-
-  if (!effectiveToken) return <Navigate to="/" replace />;
-  return <Outlet />;
-}
+import AuthGuard from "@/routes/AuthGuard";
 
 export const router = createBrowserRouter([
   {

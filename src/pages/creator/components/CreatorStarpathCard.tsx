@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
+import type { SearchStarpathResult } from "@/api/types";
 
 interface CreatorStarpathCardProps {
-  starpath: any;
+  starpath: SearchStarpathResult;
 }
 
 export default function CreatorStarpathCard({
@@ -29,7 +30,7 @@ export default function CreatorStarpathCard({
         </h3>
 
         <p className="text-xs text-gray-400 mt-1">
-          Created on {new Date(starpath.created_at).toLocaleDateString("en-GB")}
+          Created on {new Date(starpath.created_at ?? Date.now()).toLocaleDateString("en-GB")}
         </p>
 
       </div>

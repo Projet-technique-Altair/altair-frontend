@@ -14,35 +14,64 @@ import CreatorGroupCard from "@/pages/creator/components/CreatorGroupCard";
 import { getMyStarpaths } from "@/api/starpaths";
 import CreatorStarpathCard from "@/pages/creator/components/CreatorStarpathCard";
 
+export type CreatorLab = {
+  id: string;
+  title: string;
+  createdAt: string;
+  difficulty: string;
+  duration: string;
+  stepsCount: number;
+  visibility: "public" | "private";
+  completed: boolean;
+};
 
+type CreatorGroup = {
+  group_id: string;
+  name: string;
+  created_at: string;
+  members_count?: number;
+  labs_count?: number;
+};
 
-function normalizeLab(raw: any, stepsCount: number) {
+type CreatorStarpath = {
+  starpath_id: string;
+  name: string;
+  created_at?: string;
+  difficulty?: string;
+  labs_count?: number;
+};
+
+function normalizeLab(
+  raw: {
+    lab_id: string;
+    name: string;
+    updated_at?: string;
+    date_of_creation?: string;
+    difficulty?: string | null;
+    estimated_duration?: string | null;
+    visibility?: "public" | "private";
+    completed?: boolean;
+  },
+  stepsCount: number
+): CreatorLab {
   return {
     id: raw.lab_id,
     title: raw.name,
-    createdAt: raw.created_at,
-    difficulty: raw.difficulty,
-    duration: raw.estimated_duration,
+    createdAt: raw.updated_at ?? raw.date_of_creation ?? new Date().toISOString(),
+    difficulty: raw.difficulty ?? "unknown",
+    duration: raw.estimated_duration ?? "—",
     stepsCount,
-    ...raw,
-  };
-}
-
-function normalizeGroup(raw: any) {
-  return {
-    id: raw.group_id,
-    name: raw.name,
-    createdAt: raw.created_at,
-    ...raw,
+    visibility: raw.visibility ?? "private",
+    completed: raw.completed ?? false,
   };
 }
 
 export default function CreatorDashboard() {
   const navigate = useNavigate();
 
-  const [labs, setLabs] = useState<any[]>([]);
-  const [groups, setGroups] = useState<any[]>([]);
-  const [starpaths, setStarpaths] = useState<any[]>([]);
+  const [labs, setLabs] = useState<CreatorLab[]>([]);
+  const [groups, setGroups] = useState<CreatorGroup[]>([]);
+  const [starpaths, setStarpaths] = useState<CreatorStarpath[]>([]);
 
   const [loading, setLoading] = useState(true);
 
@@ -55,13 +84,13 @@ export default function CreatorDashboard() {
         const rawLabs = await api.getMyLabs();
 
         const rawGroups = await api.getMyGroups();
-        setGroups(rawGroups);
+        setGroups(rawGroups as CreatorGroup[]);
 
         const rawStarpaths = await getMyStarpaths();
-        setStarpaths(rawStarpaths);
+        setStarpaths(rawStarpaths as CreatorStarpath[]);
 
         const labsWithSteps = await Promise.all(
-          rawLabs.map(async (lab: any) => {
+          rawLabs.map(async (lab) => {
             try {
               const steps = await api.getSteps(lab.lab_id);
               return normalizeLab(lab, steps.length);
@@ -86,7 +115,7 @@ export default function CreatorDashboard() {
     return () => {
       cancelled = true;
     };
-}, []);
+  }, []);
 
   // === ACTIVE LABS ONLY ===
   const activeLabs = useMemo(

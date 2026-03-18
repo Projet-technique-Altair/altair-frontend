@@ -26,6 +26,7 @@ import LabHeader from "@/components/labs/LabHeader";
 import LabInstructions from "@/components/labs/LabInstructions";
 import Terminal from "@/components/labs/Terminal";
 import { useLabTimer } from "@/hooks/useLabTimer";
+import type { LabHint, LabStep as ApiLabStep } from "@/api/types";
 
 
 
@@ -143,7 +144,22 @@ function getAuthToken(): string | null {
   return sessionStorage.getItem("altair_token");
 }
 
-function normalizeRuntimeStep(raw: any, index: number): LabStep {
+type RuntimeStepInput = Partial<ApiLabStep> & {
+  name?: string;
+  label?: string;
+  question_title?: string;
+  prompt?: string;
+  text?: string;
+  body?: string;
+  stepId?: string;
+  stepNumber?: number;
+};
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function normalizeRuntimeStep(raw: RuntimeStepInput, index: number): LabStep {
   const title =
     raw?.title ??
     raw?.name ??
@@ -171,7 +187,7 @@ function normalizeRuntimeStep(raw: any, index: number): LabStep {
     question: question != null ? String(question) : undefined,
     points: raw?.points != null ? Number(raw.points) : undefined,
     has_validation: Boolean(raw?.has_validation ?? raw?.question),
-    hints: Array.isArray(raw?.hints) ? raw.hints : [],
+    hints: Array.isArray(raw?.hints) ? (raw.hints as LabHint[]) : [],
   };
 }
 
@@ -317,7 +333,7 @@ export default function LabSession() {
         if (cancelled) return;
 
         const enrichedSteps: LabStep[] = await Promise.all(
-          rawSteps.map(async (step: any, index: number) => {
+          rawSteps.map(async (step, index: number) => {
             const hints = step?.step_id ? await getHints(labData.lab_id, step.step_id) : [];
             return normalizeRuntimeStep({ ...step, hints }, index);
           })
@@ -344,7 +360,7 @@ export default function LabSession() {
         setLoading(false);
       } catch (e) {
         if (cancelled) return;
-        const msg = (e as any)?.message ? String((e as any).message) : "Failed to load session";
+        const msg = getErrorMessage(e, "Failed to load session");
         console.error("❌ LabSession error:", e);
         setError(msg);
         setLoading(false);
@@ -368,7 +384,7 @@ export default function LabSession() {
         : 0,
     [sessionProgress, steps.length]
   );
-  const labName = useMemo(() => (lab as any)?.name ?? "Untitled Lab", [lab]);
+  const labName = useMemo(() => lab?.name ?? "Untitled Lab", [lab]);
   const current = useMemo(() => steps[currentStep], [steps, currentStep]);
   const currentHints = useMemo(
     () => (current?.step_number ? revealedHints[current.step_number] || [] : []),
@@ -451,8 +467,8 @@ export default function LabSession() {
       setSessionProgress(progress);
       setUserInput("");
       setCurrentStep(Math.max(0, (progress.current_step ?? 1) - 1));
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : "Incorrect answer.";
+    } catch (e) {
+      const msg = getErrorMessage(e, "Incorrect answer.");
       setFeedback(`❌ ${msg}`);
     }
   };
@@ -494,8 +510,8 @@ export default function LabSession() {
       const progress = await getSessionProgress(session.sessionId);
       setSessionProgress(progress);
       setFeedback(`💡 Hint unlocked (-${cost} pts)`);
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : "Hint request failed.";
+    } catch (e) {
+      const msg = getErrorMessage(e, "Hint request failed.");
       setFeedback(`❌ ${msg}`);
     }
   };

@@ -92,6 +92,13 @@ export default function CreatorLabCard({
           onClick={(e) => e.stopPropagation()}
         >
           <button
+            onClick={onDelete}
+            className="p-2 rounded-lg bg-[#1A1F2E] hover:bg-[#23283a] transition"
+            title="Delete this lab"
+          >
+            <Trash2 className="h-4 w-4 text-red-400" />
+          </button>
+          <button
             onClick={onToggleVisibility}
             className="p-2 rounded-lg bg-[#1A1F2E] hover:bg-[#23283a] transition"
             title={
@@ -107,7 +114,6 @@ export default function CreatorLabCard({
             )}
           </button>
 
-          
         </div>
       </div>
 

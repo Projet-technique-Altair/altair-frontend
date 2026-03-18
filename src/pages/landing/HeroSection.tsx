@@ -5,7 +5,7 @@
  * Global background is managed by Landing.tsx (scroll gradient).
  */
 
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/useAuth";
 import logoImg from "@/assets/logo.png";
 import { smoothScrollTo } from "./utils/smoothScroll";
 

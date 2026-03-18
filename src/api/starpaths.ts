@@ -5,6 +5,7 @@ import type {
   StarpathLabUpsertPayload,
   StarpathProgress,
 } from "@/contracts/starpaths";
+import type { GroupLabResult, SearchStarpathResult } from "./types";
 
 /* =========================
    Starpaths CRUD
@@ -23,7 +24,7 @@ export function getStarpath(id: string) {
 }
 
 export function searchStarpaths(query: string) {
-  return request<any[]>(`/starpaths/search?q=${encodeURIComponent(query)}`);
+  return request<SearchStarpathResult[]>(`/starpaths/search?q=${encodeURIComponent(query)}`);
 }
 
 export function createStarpath(payload: StarpathUpsertPayload) {
@@ -54,7 +55,7 @@ export function deleteStarpath(id: string) {
 ========================= */
 
 export function getStarpathLabs(starpathId: string) {
-  return request<any[]>(
+  return request<GroupLabResult[]>(
     `/starpaths/starpaths/${starpathId}/labs`
   );
 }

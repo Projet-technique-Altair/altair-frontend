@@ -63,7 +63,7 @@ export function ChartContainer({ data }: ChartContainerProps) {
             borderRadius: "12px",
             color: "#fff",
           }}
-          formatter={(value: number) => [`Total : ${value} items`, ""]}
+          formatter={(value?: number) => [`Total : ${value ?? 0} items`, ""]}
         />
         <Bar
           dataKey="count"

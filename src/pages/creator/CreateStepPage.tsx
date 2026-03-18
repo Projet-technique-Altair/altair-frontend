@@ -1,27 +1,21 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { createStep, createHint } from "@/api/labs";
+import type { LabHint, LabStep } from "@/api/types";
 
 import DashboardCard from "@/components/ui/DashboardCard";
 import { ALT_COLORS } from "@/lib/theme";
 
-type Hint = {
-  hint_number: number;
-  text: string;
-  cost: number;
-};
-
-type Step = {
-  step_number: number;
-  title: string;
-  description: string;
-  question: string;
-  expected_answer: string;
+type Hint = LabHint;
+type Step = LabStep & {
   validation_type: "exact_match" | "contains" | "regex";
   validation_pattern: string | null;
   points: number;
   hints: Hint[];
 };
+
+type StepFieldValue = Step[keyof Step];
+type HintFieldValue = Hint[keyof Hint];
 
 export default function LabStepsPage() {
   const { id } = useParams();
@@ -44,7 +38,7 @@ export default function LabStepsPage() {
   const handleChange = (
     index: number,
     field: keyof Step,
-    value: any
+    value: StepFieldValue
   ) => {
     const copy = [...steps];
     copy[index] = { ...copy[index], [field]: value };
@@ -84,7 +78,7 @@ export default function LabStepsPage() {
     stepIndex: number,
     hintIndex: number,
     field: keyof Hint,
-    value: any
+    value: HintFieldValue
   ) => {
     const copy = [...steps];
 
@@ -113,6 +107,9 @@ export default function LabStepsPage() {
         });
 
         const stepId = createdStep.step_id;
+        if (!stepId) {
+          throw new Error("Created step is missing step_id");
+        }
 
         for (const hint of step.hints) {
           await createHint(id!, stepId, hint);

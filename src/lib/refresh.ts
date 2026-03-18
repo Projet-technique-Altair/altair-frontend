@@ -1,5 +1,19 @@
 const REFRESH_KEY = "refresh_token";
 
+type RefreshTokenResponse = {
+  access_token: string;
+  refresh_token?: string;
+};
+
+function isRefreshTokenResponse(value: unknown): value is RefreshTokenResponse {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "access_token" in value &&
+    typeof value.access_token === "string"
+  );
+}
+
 export async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = sessionStorage.getItem(REFRESH_KEY);
   if (!refreshToken) return null;
@@ -39,17 +53,13 @@ export async function refreshAccessToken(): Promise<string | null> {
 
   const data: unknown = await res.json();
 
-  if (
-    typeof data !== "object" ||
-    data === null ||
-    typeof (data as any).access_token !== "string"
-  ) {
+  if (!isRefreshTokenResponse(data)) {
     return null;
   }
 
-  if (typeof (data as any).refresh_token === "string") {
-    sessionStorage.setItem(REFRESH_KEY, (data as any).refresh_token);
+  if (typeof data.refresh_token === "string") {
+    sessionStorage.setItem(REFRESH_KEY, data.refresh_token);
   }
 
-  return (data as any).access_token;
+  return data.access_token;
 }

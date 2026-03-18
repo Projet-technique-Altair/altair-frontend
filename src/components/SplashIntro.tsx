@@ -12,7 +12,7 @@
  * - Automatic transition management
  * - Responsive guard for non-desktop devices
  *
- * Navigation proceeds automatically to `/login` when all conditions are met or when the failsafe timer expires.
+ * Navigation proceeds automatically to `/` when all conditions are met or when the failsafe timer expires.
  *
  * @packageDocumentation
  */
@@ -70,7 +70,7 @@ function usePreloadImages(srcs: string[]) {
  * - Framer Motion animation for logo and subtitle
  * - Session-based transition handling (`altairTransition`)
  * - Preloads images before route change
- * - Automatically redirects to `/login` after delay or timeout
+ * - Automatically redirects to `/` after delay or timeout
  * - Displays a warning overlay for mobile users
  *
  * @returns A React JSX element rendering the Altair splash intro screen.
@@ -96,7 +96,7 @@ export default function SplashIntro() {
     const t = setTimeout(() => setMinTimePassed(true), MIN_SPLASH_MS);
     const failSafe = setTimeout(() => {
       sessionStorage.setItem("altairTransition", String(Date.now()));
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
     }, MAX_WAIT_MS);
     return () => { clearTimeout(t); clearTimeout(failSafe); };
   }, [navigate]);
@@ -105,7 +105,7 @@ export default function SplashIntro() {
     if (assetsReady && minTimePassed && isDesktop) {
       sessionStorage.setItem("altairSplashSeen", "1");
       sessionStorage.setItem("altairTransition", String(Date.now()));
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
     }
   }, [assetsReady, minTimePassed, isDesktop, navigate]);
 

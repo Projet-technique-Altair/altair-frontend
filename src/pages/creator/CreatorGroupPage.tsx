@@ -4,32 +4,45 @@ import { useNavigate, useParams } from "react-router-dom";
 import DashboardCard from "@/components/ui/DashboardCard";
 import { ALT_COLORS } from "@/lib/theme";
 import { api } from "@/api";
+import type { Group } from "@/contracts/groups";
+import type {
+  GroupLabResult,
+  GroupMemberResult,
+  GroupStarpathResult,
+  SearchLabResult,
+  SearchStarpathResult,
+  SearchUserResult,
+} from "@/api/types";
+
+type EditableGroup = Group & {
+  description?: string | null;
+};
 
 export default function CreatorGroupPage() {
 
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [group, setGroup] = useState<any>(null);
-  const [members, setMembers] = useState<any[]>([]);
-  const [labs, setLabs] = useState<any[]>([]);
+  const [group, setGroup] = useState<EditableGroup | null>(null);
+  const [members, setMembers] = useState<GroupMemberResult[]>([]);
+  const [labs, setLabs] = useState<GroupLabResult[]>([]);
 
   const [userQuery, setUserQuery] = useState("");
-  const [userResults, setUserResults] = useState<any[]>([]);
-  const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [userResults, setUserResults] = useState<SearchUserResult[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<SearchUserResult[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const [labQuery, setLabQuery] = useState("");
-  const [labResults, setLabResults] = useState<any[]>([]);
-  const [selectedLabs, setSelectedLabs] = useState<any[]>([]);
+  const [labResults, setLabResults] = useState<SearchLabResult[]>([]);
+  const [selectedLabs, setSelectedLabs] = useState<SearchLabResult[]>([]);
 
-  const [starpaths, setStarpaths] = useState<any[]>([]);
+  const [starpaths, setStarpaths] = useState<GroupStarpathResult[]>([]);
 
   const [starpathQuery, setStarpathQuery] = useState("");
-  const [starpathResults, setStarpathResults] = useState<any[]>([]);
-  const [selectedStarpaths, setSelectedStarpaths] = useState<any[]>([]);
+  const [starpathResults, setStarpathResults] = useState<SearchStarpathResult[]>([]);
+  const [selectedStarpaths, setSelectedStarpaths] = useState<SearchStarpathResult[]>([]);
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");

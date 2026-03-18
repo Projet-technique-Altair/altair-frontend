@@ -22,7 +22,6 @@ import { useNavigate } from "react-router-dom";
 import DashboardCard from "@/components/ui/DashboardCard";
 import { ALT_COLORS } from "@/lib/theme";
 import CreatorActivationModal from "@/components/user/CreatorActivationModal";
-import { useAuth } from "@/context/AuthContext";
 
 
 /**
@@ -45,22 +44,20 @@ import { useAuth } from "@/context/AuthContext";
  */
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { user, switchRole } = useAuth();
-
   const [showModal, setShowModal] = useState(false);
-  const [username, setUsername] = useState(user?.username ?? "guest");
+  const [username, setUsername] = useState("guest");
   const [language, setLanguage] = useState("en");
+  const [creatorModeRequested, setCreatorModeRequested] = useState(false);
 
   const handleSave = () => {
     console.log("Settings updated:", { username, language });
   };
 
   const handleActivateCreator = () => {
-    //Switch the user to creator mode
-    switchRole("creator");
     setShowModal(false);
+    setCreatorModeRequested(true);
 
-    //Redirect immediately to creator dashboard
+    // Redirect to creator space; backend remains the source of truth for access.
     navigate("/creator/dashboard");
   };
 
@@ -123,16 +120,15 @@ export default function SettingsPage() {
 
       {/* === CREATOR MODE === */}
       <DashboardCard
-        id="creator"
         className="p-8 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 border border-purple-400/10"
       >
         <div className="flex-1">
           <h2 className="text-xl font-semibold text-purple-400 mb-1">
             Creator Mode
           </h2>
-          {user?.role === "creator" ? (
+          {creatorModeRequested ? (
             <p className="text-sm text-green-400">
-              Creator mode is already enabled for this account.
+              Creator mode has been requested for this session.
             </p>
           ) : (
             <p className="text-sm text-gray-400">
@@ -141,7 +137,7 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {user?.role === "creator" ? (
+        {creatorModeRequested ? (
           <button
             onClick={() => navigate("/creator/dashboard")}
             className="px-6 py-2 rounded-lg bg-gradient-to-r from-green-500 to-sky-400 hover:opacity-90 font-semibold text-white transition"

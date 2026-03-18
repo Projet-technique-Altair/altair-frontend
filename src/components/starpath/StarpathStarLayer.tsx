@@ -87,44 +87,11 @@ export default function StarpathStarLayer({
   opacity,
 }: Props) {
   const isSingle = typeof x === "number" && typeof y === "number";
-
-  // =========================
-  // SINGLE STAR MODE (compat)
-  // =========================
-  if (isSingle) {
-    const s = size ?? 180;
-    const a = opacity ?? 1;
-    const c = color ?? `rgba(255,255,255,${a})`;
-
-    return (
-      <div
-        className={["absolute left-0 top-0 pointer-events-none", className ?? ""].join(" ")}
-        style={{ width: WORLD_W, height: WORLD_H }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            left: x!,
-            top: y!,
-            width: s,
-            height: s,
-            transform: "translate(-50%, -50%)",
-            opacity: a,
-            ...tintMaskStyle(c),
-            mixBlendMode: "screen",
-            filter: `drop-shadow(0 0 ${Math.round(s * 0.55)}px rgba(255,255,255,0.35))`,
-          }}
-        />
-      </div>
-    );
-  }
-
-  // =========================
-  // STARFIELD MODE (canvas)
-  // =========================
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const stars = useMemo<Star[]>(() => {
+    if (isSingle) return [];
+
     const s =
       typeof seed === "number" ? (seed >>> 0) : hashStringToUint32(String(seed));
     const rng = mulberry32(s);
@@ -370,9 +337,11 @@ export default function StarpathStarLayer({
     }
 
     return out;
-  }, [seed, density]);
+  }, [seed, density, isSingle]);
 
   useEffect(() => {
+    if (isSingle) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -394,7 +363,10 @@ export default function StarpathStarLayer({
       ctx.clearRect(0, 0, WORLD_W, WORLD_H);
 
       ctx.imageSmoothingEnabled = true;
-      (ctx as any).imageSmoothingQuality = "high";
+      const highQualityCtx = ctx as CanvasRenderingContext2D & {
+        imageSmoothingQuality?: "low" | "medium" | "high";
+      };
+      highQualityCtx.imageSmoothingQuality = "high";
 
       ctx.globalCompositeOperation = "screen";
 
@@ -412,7 +384,10 @@ export default function StarpathStarLayer({
         const octx = off.getContext("2d")!;
         octx.clearRect(0, 0, size, size);
         octx.imageSmoothingEnabled = true;
-        (octx as any).imageSmoothingQuality = "high";
+        const highQualityOffscreen = octx as CanvasRenderingContext2D & {
+          imageSmoothingQuality?: "low" | "medium" | "high";
+        };
+        highQualityOffscreen.imageSmoothingQuality = "high";
 
         octx.drawImage(img, 0, 0, size, size);
         octx.globalCompositeOperation = "source-in";
@@ -456,7 +431,35 @@ export default function StarpathStarLayer({
     return () => {
       img.onload = null;
     };
-  }, [stars]);
+  }, [stars, isSingle]);
+
+  if (isSingle) {
+    const s = size ?? 180;
+    const a = opacity ?? 1;
+    const c = color ?? `rgba(255,255,255,${a})`;
+
+    return (
+      <div
+        className={["absolute left-0 top-0 pointer-events-none", className ?? ""].join(" ")}
+        style={{ width: WORLD_W, height: WORLD_H }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            left: x,
+            top: y,
+            width: s,
+            height: s,
+            transform: "translate(-50%, -50%)",
+            opacity: a,
+            ...tintMaskStyle(c),
+            mixBlendMode: "screen",
+            filter: `drop-shadow(0 0 ${Math.round(s * 0.55)}px rgba(255,255,255,0.35))`,
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <canvas

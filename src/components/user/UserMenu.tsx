@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Settings, LogOut, User, Sparkles } from "lucide-react";
-import { ALT_COLORS } from "@/lib/theme";
 
 export default function UserMenu() {
   const [open, setOpen] = useState(false);
@@ -74,7 +73,7 @@ export default function UserMenu() {
             <button
               onClick={() => {
                 setOpen(false);
-                navigate("/login");
+                navigate("/");
               }}
               className="flex items-center gap-3 w-full px-4 py-3 text-sm text-gray-200 hover:bg-red-500/10 transition"
             >

@@ -1,4 +1,9 @@
 import { request } from "./client"
+import type {
+  SessionHintResponse,
+  SessionRecord,
+  SessionStepValidation,
+} from "./types"
 
 export type SessionSummary = {
   session_id: string
@@ -21,7 +26,7 @@ export type SessionProgress = {
 }
 
 export function getSession(id: string) {
-  return request<any>(`/sessions/sessions/${id}`)
+  return request<SessionRecord>(`/sessions/sessions/${id}`)
 }
 
 export function getSessionProgress(id: string) {
@@ -29,7 +34,7 @@ export function getSessionProgress(id: string) {
 }
 
 export function validateSessionStep(sessionId: string, stepNumber: number, userAnswer: string) {
-  return request<any>(`/sessions/sessions/${sessionId}/validate-step`, {
+  return request<SessionStepValidation>(`/sessions/sessions/${sessionId}/validate-step`, {
     method: "POST",
     body: JSON.stringify({
       step_number: stepNumber,
@@ -39,7 +44,7 @@ export function validateSessionStep(sessionId: string, stepNumber: number, userA
 }
 
 export function requestSessionHint(sessionId: string, stepNumber: number, hintNumber: number) {
-  return request<any>(`/sessions/sessions/${sessionId}/request-hint`, {
+  return request<SessionHintResponse>(`/sessions/sessions/${sessionId}/request-hint`, {
     method: "POST",
     body: JSON.stringify({
       step_number: stepNumber,

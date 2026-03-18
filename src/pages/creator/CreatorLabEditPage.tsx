@@ -7,23 +7,11 @@ import DashboardCard from "@/components/ui/DashboardCard";
 import { ALT_COLORS } from "@/lib/theme";
 import { api } from "@/api";
 import { getEditableSteps } from "@/api/labs";
+import type { LabHint, LabStep } from "@/api/types";
 
-type Hint = {
-  hint_id?: string;
-  hint_number: number;
-  cost: number;
-  text: string;
-};
-
-type Step = {
-  step_id?: string;
-  step_number: number;
-  title: string;
-  description: string;
-  question: string;
-  expected_answer: string;
+type Hint = LabHint;
+type Step = LabStep & {
   validation_type: "exact_match" | "contains" | "regex";
-  validation_pattern?: string | null;
   points: number;
   hints: Hint[];
 };
@@ -31,8 +19,6 @@ type Step = {
 export default function CreatorLabEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-
-  const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState({
     name: "",
@@ -61,16 +47,18 @@ export default function CreatorLabEditPage() {
         const stepsData = await getEditableSteps(id!);
 
         const stepsWithHints = await Promise.all(
-        stepsData.map(async (step: any) => {
-            const hints = await api.getHints(id!, step.step_id);
+          stepsData.map(async (step) => {
+            const hints = step.step_id ? await api.getHints(id!, step.step_id) : [];
 
             return {
-            ...step,
-            hints,
-            };
-        })
+              ...step,
+              validation_type: step.validation_type ?? "exact_match",
+              points: step.points ?? 0,
+              hints,
+            } as Step;
+          })
         );
-setSteps(stepsWithHints);
+        setSteps(stepsWithHints);
 
 setForm({
   name: lab.name ?? "",
@@ -83,8 +71,6 @@ setForm({
 
       } catch (err) {
         console.error("Failed to load lab", err);
-      } finally {
-        setLoading(false);
       }
     }
 
@@ -105,6 +91,9 @@ setForm({
         } else {
             const created = await api.createStep(id!, step);
             stepId = created.step_id;
+            if (!stepId) {
+              throw new Error("Created step is missing step_id");
+            }
         }
 
         for (const hint of step.hints) {

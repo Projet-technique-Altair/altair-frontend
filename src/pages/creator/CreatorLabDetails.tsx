@@ -10,16 +10,18 @@ import {
 
 import DashboardCard from "@/components/ui/DashboardCard";
 import { ALT_COLORS } from "@/lib/theme";
+import type { Lab } from "@/contracts/labs";
+import type { LabStep } from "@/api/types";
 
 type Hint = {
-  hint_id: string;
+  hint_id?: string;
   hint_number: number;
   text: string;
   cost: number;
 };
 
 type Step = {
-  step_id: string;
+  step_id?: string;
   step_number: number;
   title: string;
   description: string;
@@ -32,7 +34,7 @@ export default function CreatorLabDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [lab, setLab] = useState<any>(null);
+  const [lab, setLab] = useState<Lab | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -48,8 +50,8 @@ export default function CreatorLabDetails() {
         const stepsData = await getEditableSteps(id!);
 
         const stepsWithHints = await Promise.all(
-          stepsData.map(async (step: any) => {
-            const hints = await getHints(id!, step.step_id);
+          stepsData.map(async (step: LabStep) => {
+            const hints = step.step_id ? await getHints(id!, step.step_id) : [];
 
             return {
               ...step,
@@ -176,7 +178,7 @@ export default function CreatorLabDetails() {
         >
 
         <div className="text-sm text-white/70 leading-relaxed max-w-3xl">
-            {lab.description || "No description"}
+            {lab?.description || "No description"}
         </div>
 
         <div className="grid grid-cols-3 gap-10 text-sm pt-2">
@@ -186,7 +188,7 @@ export default function CreatorLabDetails() {
                 Difficulty
             </div>
             <div className="text-white/90">
-                {lab.difficulty}
+                {lab?.difficulty}
             </div>
             </div>
 
@@ -195,7 +197,7 @@ export default function CreatorLabDetails() {
                 Lab type
             </div>
             <div className="text-white/90">
-                {lab.lab_type}
+                {lab?.lab_type}
             </div>
             </div>
 
@@ -204,7 +206,7 @@ export default function CreatorLabDetails() {
                 Duration
             </div>
             <div className="text-white/90">
-                {lab.estimated_duration}
+                {lab?.estimated_duration}
             </div>
             </div>
 

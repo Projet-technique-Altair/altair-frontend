@@ -211,7 +211,7 @@ export default function GroupsView() {
   }, [location.search]);
 
   // "real" group only via navigation state (until backend exists)
-  const realStateGroup = (location.state as any)?.group as
+  const realStateGroup = (location.state as { group?: RealPrivateGroupMinimal } | null)?.group as
     | RealPrivateGroupMinimal
     | undefined;
 

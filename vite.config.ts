@@ -1,9 +1,9 @@
-// @ts-nocheck
-
-
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { fileURLToPath } from "node:url";
+
+const srcDir = fileURLToPath(new URL("./src", import.meta.url));
 
 // === CONFIGURATION VITE ===
 // Cette configuration crée un alias "@" vers le dossier /src
@@ -12,7 +12,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(srcDir),
     },
   },
   server: {

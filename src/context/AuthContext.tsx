@@ -39,26 +39,14 @@
  * but never decides "what I am allowed to do".
  */
 
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { generateCodeChallenge, generateCodeVerifier } from "@/lib/pkce";
-
-type AuthContextValue = {
-  isAuthenticated: boolean;
-  token: string | null;
-
-  // OAuth / OIDC
-  loginSSO: () => Promise<void>;
-  completeLogin: (token: string) => void;
-  refreshToken: () => Promise<string | null>;
-  logout: () => void;
-};
+import { AuthContext } from "@/context/auth-context";
 
 const TOKEN_KEY = "altair_token";
 const REFRESH_KEY = "altair_refresh_token";
 const PKCE_KEY = "pkce_verifier";
 const STATE_KEY = "oauth_state";
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() => {
@@ -121,11 +109,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   console.log("sessionStorage token =", sessionStorage.getItem("altair_token"));
 
+  /**
+   * Clears frontend authentication state.
+   * Does NOT perform Keycloak SSO logout (handled separately).
+   */
+  const logout = useCallback(() => {
+    console.trace("LOGOUT CALLED");
+
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(REFRESH_KEY);
+    sessionStorage.removeItem(PKCE_KEY);
+    sessionStorage.removeItem(STATE_KEY);
+
+    setToken(null);
+  }, []);
 
   /**
    * Refresh access token using refresh_token (OAuth public client).
    */
-  const refreshToken = async (): Promise<string | null> => {
+  const refreshToken = useCallback(async (): Promise<string | null> => {
     const refresh = sessionStorage.getItem(REFRESH_KEY);
     if (!refresh) return null;
 
@@ -175,22 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout();
       return null;
     }
-  };
-
-  /**
-   * Clears frontend authentication state.
-   * Does NOT perform Keycloak SSO logout (handled separately).
-   */
-  const logout = () => {
-    console.trace("LOGOUT CALLED");
-
-    sessionStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem(REFRESH_KEY);
-    sessionStorage.removeItem(PKCE_KEY);
-    sessionStorage.removeItem(STATE_KEY);
-
-    setToken(null);
-  };
+  }, [logout]);
 
   const value = useMemo(
     () => ({
@@ -201,16 +188,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshToken,
       logout,
     }),
-    [token]
+    [token, refreshToken, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("AuthProvider missing");
-  }
-  return ctx;
 }

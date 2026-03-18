@@ -1,5 +1,6 @@
 import React, {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -46,7 +47,7 @@ export default forwardRef<StarpathWorldCanvasHandle, Props>(
     const clamp = (v: number, a: number, b: number) =>
       Math.max(a, Math.min(b, v));
 
-    const computeCentered = (s: number) => {
+    const computeCentered = useCallback((s: number) => {
       const el = containerRef.current;
       if (!el) return { tx: 0, ty: 0, scale: s };
 
@@ -59,22 +60,21 @@ export default forwardRef<StarpathWorldCanvasHandle, Props>(
       const nextTy = cy - (WORLD_H * s) / 2;
 
       return { tx: nextTx, ty: nextTy, scale: s };
-    };
+    }, []);
 
-    const resetView = () => {
+    const resetView = useCallback(() => {
       const next = computeCentered(initialScale);
       setScale(next.scale);
       setTx(next.tx);
       setTy(next.ty);
-    };
+    }, [computeCentered, initialScale]);
 
-    useImperativeHandle(ref, () => ({ reset: resetView }), [initialScale]);
+    useImperativeHandle(ref, () => ({ reset: resetView }), [resetView]);
 
     // initial center
     useLayoutEffect(() => {
       resetView();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [resetView]);
 
     // keep correct on resize
     useEffect(() => {
@@ -83,8 +83,7 @@ export default forwardRef<StarpathWorldCanvasHandle, Props>(
       const ro = new ResizeObserver(() => resetView());
       ro.observe(el);
       return () => ro.disconnect();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [resetView]);
 
     // zoom under cursor
     useEffect(() => {
@@ -115,7 +114,7 @@ export default forwardRef<StarpathWorldCanvasHandle, Props>(
       };
 
       el.addEventListener("wheel", onWheel, { passive: false });
-      return () => el.removeEventListener("wheel", onWheel as any);
+      return () => el.removeEventListener("wheel", onWheel);
     }, [scale, tx, ty, minScale, maxScale]);
 
     const onMouseDown = (e: React.MouseEvent) => {

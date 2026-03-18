@@ -1,6 +1,7 @@
 import { request } from "./client";
 import type { Lab, LabUpsertPayload } from "@/contracts/labs";
 import type { SessionSummary } from "./sessions";
+import type { LabHint, LabStep, SearchLabResult } from "./types";
 
 /* =======================================================
    LABS
@@ -15,7 +16,7 @@ export function getMyLabs() {
 }
 
 export function searchLabs(query: string) {
-  return request<any[]>(`/labs/search?q=${encodeURIComponent(query)}`);
+  return request<SearchLabResult[]>(`/labs/search?q=${encodeURIComponent(query)}`);
 }
 
 export function getLab(id: string) {
@@ -53,22 +54,22 @@ export function startLab(labId: string) {
 ======================================================= */
 
 export function getSteps(labId: string) {
-  return request<any[]>(`/labs/labs/${labId}/steps`);
+  return request<LabStep[]>(`/labs/labs/${labId}/steps`);
 }
 
 export function getEditableSteps(labId: string) {
-  return request<any[]>(`/labs/labs/${labId}/steps/edit`);
+  return request<LabStep[]>(`/labs/labs/${labId}/steps/edit`);
 }
 
-export function createStep(labId: string, payload: any) {
-  return request<any>(`/labs/labs/${labId}/steps`, {
+export function createStep(labId: string, payload: LabStep) {
+  return request<LabStep>(`/labs/labs/${labId}/steps`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export function updateStep(labId: string, stepId: string, payload: any) {
-  return request<any>(`/labs/labs/${labId}/steps/${stepId}`, {
+export function updateStep(labId: string, stepId: string, payload: LabStep) {
+  return request<LabStep>(`/labs/labs/${labId}/steps/${stepId}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
@@ -85,11 +86,11 @@ export function deleteStep(labId: string, stepId: string) {
 ======================================================= */
 
 export function getHints(labId: string, stepId: string) {
-  return request<any[]>(`/labs/labs/${labId}/steps/${stepId}/hints`);
+  return request<LabHint[]>(`/labs/labs/${labId}/steps/${stepId}/hints`);
 }
 
-export function createHint(labId: string, stepId: string, payload: any) {
-  return request<any>(`/labs/labs/${labId}/steps/${stepId}/hints`, {
+export function createHint(labId: string, stepId: string, payload: LabHint) {
+  return request<LabHint>(`/labs/labs/${labId}/steps/${stepId}/hints`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -99,9 +100,9 @@ export function updateHint(
   labId: string,
   stepId: string,
   hintId: string,
-  payload: any
+  payload: LabHint
 ) {
-  return request<any>(`/labs/labs/${labId}/steps/${stepId}/hints/${hintId}`, {
+  return request<LabHint>(`/labs/labs/${labId}/steps/${stepId}/hints/${hintId}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });

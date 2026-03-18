@@ -11,10 +11,26 @@ import { useEffect, useState } from "react";
 import DashboardCard from "@/components/ui/DashboardCard";
 import { api } from "@/api";
 
-// Normaliser un template provenant du backend
-function normalizeTemplate(raw: any) {
+type AdminTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  stepsCount: number;
+  updatedAt: string;
+};
+
+function normalizeTemplate(raw: {
+  lab_id?: string;
+  id?: string;
+  template_id?: string;
+  name?: string;
+  description?: string | null;
+  steps_count?: number | null;
+  updated_at?: string | null;
+  updatedAt?: string | null;
+}): AdminTemplate {
   return {
-    id: raw.id ?? raw.template_id ?? "unknown",
+    id: raw.lab_id ?? raw.id ?? raw.template_id ?? "unknown",
     name: raw.name ?? "Untitled Template",
     description: raw.description ?? "No description",
     stepsCount: raw.steps_count ?? 0,
@@ -23,7 +39,7 @@ function normalizeTemplate(raw: any) {
 }
 
 export default function AdminDashboard() {
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<AdminTemplate[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Charger les templates depuis le gateway
@@ -32,8 +48,8 @@ export default function AdminDashboard() {
 
     async function loadTemplates() {
       try {
-        const raw = await api.getLabTemplates?.(); // si non existant, je te le crée ensuite
-        if (!cancelled && raw) {
+        const raw = await api.getLabs();
+        if (!cancelled) {
           const normalized = raw.map(normalizeTemplate);
           console.log("🔥 LAB TEMPLATES =", normalized);
           setTemplates(normalized);

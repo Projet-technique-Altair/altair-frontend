@@ -1,5 +1,3 @@
-import { refreshAccessToken } from "@/lib/refresh";
-
 export function createApiClient(
   getToken: () => string | null,
   refreshToken: () => Promise<string | null>
@@ -28,4 +26,3 @@ export function createApiClient(
     return res;
   };
 }
-

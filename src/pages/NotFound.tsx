@@ -6,7 +6,7 @@
  * It provides a clean fallback experience that:
  *
  *  - Informs the user that the page was not found
- *  - Suggests returning to the login screen
+ *  - Suggests returning to the home screen
  *  - Uses Altaïr’s dark theme with consistent typography
  *
  * Route: fallback (`*`)
@@ -24,11 +24,11 @@ export default function NotFound() {
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <a
-            href="/login"
+            href="/"
             className="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 bg-white/5 
                        hover:bg-white/10 transition backdrop-blur-md text-slate-200 hover:text-white"
           >
-            ← Back to Login
+            ← Back to Home
           </a>
         </div>
       </div>

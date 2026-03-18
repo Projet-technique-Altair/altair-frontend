@@ -7,7 +7,7 @@
  * Route: /login
  */
 
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/useAuth";
 import Footer from "@/components/Footer";
 
 import bgImg from "@/assets/banniere.png";

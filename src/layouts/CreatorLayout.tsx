@@ -19,7 +19,7 @@
  * @packageDocumentation
  */
 import { Outlet, useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/useAuth";
 import { LogOut, User, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -32,8 +32,8 @@ import { motion } from "framer-motion";
  * @remarks
  * Features:
  * - Top header with gradient title and interactive buttons
- * - “Return to Student Mode” toggle using {@link useAuth.switchRole}
- * - Logout action that clears session data and redirects to `/login`
+ * - “Return to Student Mode” toggle back to learner routes
+ * - Logout action that clears session data and redirects to `/`
  * - Embedded route rendering through React Router’s `<Outlet />`
  *
  * Used as the root layout for all `/creator/*` routes.
@@ -44,18 +44,17 @@ import { motion } from "framer-motion";
  */
 export default function CreatorLayout() {
   const navigate = useNavigate();
-  const { user, switchRole, logout } = useAuth();
+  const { logout } = useAuth();
 
   /** Clears the session and navigates back to the login screen. */
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    navigate("/", { replace: true });
   };
 
-  /** Switches back to learner mode and redirects to the learner dashboard. */
+  /** Returns to the learner space; backend remains the RBAC source of truth. */
   const handleReturnToStudent = () => {
-    switchRole("learner");
-    navigate("/learner/dashboard");
+    navigate("/learner/dashboard", { replace: true });
   };
 
   return (
@@ -92,7 +91,7 @@ export default function CreatorLayout() {
             className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm bg-[#1A1F2E] hover:bg-[#23283a] transition"
           >
             <User className="h-4 w-4" />
-            {user?.username ?? "guest"}
+            Profile
           </button>
 
           {/* === LOGOUT === */}

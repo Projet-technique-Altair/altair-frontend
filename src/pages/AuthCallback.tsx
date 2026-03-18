@@ -47,7 +47,7 @@
 
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/useAuth";
 
 const PKCE_KEY = "pkce_verifier";
 const STATE_KEY = "oauth_state";
@@ -87,7 +87,7 @@ export default function AuthCallback() {
     ) {
       console.error("Invalid OAuth callback parameters");
       logout();
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
       return;
     }
 
@@ -101,7 +101,7 @@ export default function AuthCallback() {
     if (!clientId || !keycloakUrl || !realm) {
       console.error("Missing Keycloak environment variables");
       logout();
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
       return;
     }
 
@@ -154,7 +154,7 @@ export default function AuthCallback() {
       } catch (err) {
         console.error("SSO exchange failed", err);
         logout();
-        navigate("/login", { replace: true });
+        navigate("/", { replace: true });
       }
     }
 

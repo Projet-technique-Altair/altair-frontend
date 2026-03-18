@@ -4,6 +4,7 @@
  */
 
 import { request } from "./client"
+import type { SearchUserResult } from "./types"
 
 // =====================
 // ===== USERS =========
@@ -38,5 +39,5 @@ export function getUserById(userId: string) {
 
 
 export function searchUsers(query: string) {
-  return request<any[]>(`/users/search?q=${encodeURIComponent(query)}`);
+  return request<SearchUserResult[]>(`/users/search?q=${encodeURIComponent(query)}`);
 }

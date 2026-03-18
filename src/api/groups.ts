@@ -1,5 +1,6 @@
 import { request } from "./client";
 import type { Group } from "@/contracts/groups";
+import type { GroupLabResult, GroupMemberResult, GroupStarpathResult } from "./types";
 
 /* =========================
    Groups CRUD
@@ -51,7 +52,7 @@ export function deleteGroup(groupId: string) {
 ========================= */
 
 export function getGroupMembers(groupId: string) {
-  return request<string[]>(`/groups/groups/${groupId}/members`);
+  return request<GroupMemberResult[]>(`/groups/groups/${groupId}/members`);
 }
 
 export function addGroupMember(groupId: string, userId: string) {
@@ -75,7 +76,7 @@ export function removeGroupMember(groupId: string, userId: string) {
 ========================= */
 
 export function getGroupLabs(groupId: string) {
-  return request<string[]>(`/groups/groups/${groupId}/labs`);
+  return request<GroupLabResult[]>(`/groups/groups/${groupId}/labs`);
 }
 
 export function assignLabToGroup(groupId: string, labId: string) {
@@ -99,7 +100,7 @@ export function unassignLabFromGroup(groupId: string, labId: string) {
 ========================= */
 
 export function getGroupStarpaths(groupId: string) {
-  return request<string[]>(
+  return request<GroupStarpathResult[]>(
     `/groups/groups/${groupId}/starpaths`
   );
 }

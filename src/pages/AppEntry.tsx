@@ -24,11 +24,9 @@
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/useAuth";
 
 const API_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
-
-type MeResponse = { role: "learner" | "creator" | "admin" };
 
 export default function AppEntry() {
   const navigate = useNavigate();
@@ -40,7 +38,7 @@ export default function AppEntry() {
 
   useEffect(() => {
     if (!token) {
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
       return;
     }
 
@@ -58,31 +56,27 @@ export default function AppEntry() {
 
         if (res.status === 401) {
           logout();
-          navigate("/login", { replace: true });
+          navigate("/", { replace: true });
           return;
         }
 
         if (res.status === 403) {
-          navigate("/forbidden", { replace: true });
+          navigate("/", { replace: true });
           return;
         }
 
         const contentType = res.headers.get("content-type") ?? "";
         if (!res.ok) {
-          navigate("/login", { replace: true });
+          navigate("/", { replace: true });
           return;
         }
 
         if (!contentType.includes("application/json")) {
           // 🔥 très bon indicateur de "API_URL mauvais → tu hits ton frontend (index.html)"
           console.error("Expected JSON, got:", contentType, "final url:", res.url);
-          navigate("/login", { replace: true });
+          navigate("/", { replace: true });
           return;
         }
-
-        //const data: MeResponse = await res.json();
-        //console.log("ROLE FROM /users/me =", data.role);
-
 
         const json = await res.json();
         console.log("FULL /users/me RESPONSE =", json);
@@ -104,7 +98,7 @@ export default function AppEntry() {
       } catch (err) {
         console.error("AppEntry crashed", err);
         logout();
-        navigate("/login", { replace: true });
+        navigate("/", { replace: true });
       }
     }
 

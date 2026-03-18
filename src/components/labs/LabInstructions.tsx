@@ -60,7 +60,6 @@ export default function LabInstructions({
   step,
   stepIndex,
   totalSteps,
-  unlockedStepIndex,
   userInput,
   feedback,
   currentScore,

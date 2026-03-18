@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Layers,
   Orbit,
@@ -16,12 +16,14 @@ import type { Lab } from "@/contracts/labs";
 import { getGroups } from "@/api/groups";
 import { getStarpaths } from "@/api/starpaths";
 import type { Starpath } from "@/contracts/starpaths";
+import type { Group } from "@/contracts/groups";
 
 import PublicLabsSection from "./sections/PublicLabsSection";
 import CompletedSection from "./sections/CompletedSection";
 import ProgressSection from "./sections/ProgressSection";
 import PrivateGroupsSection from "./sections/PrivateGroupsSection";
 import ChartsSection from "./sections/ChartsSection";
+import type { StarpathLike } from "./sections/ProgressSection";
 
 type FocusKey = "insight" | "labs" | "starpaths" | "groups" | "archive";
 
@@ -36,13 +38,29 @@ type UILab = {
   raw: Lab;
 };
 
+type DashboardGroup = {
+  id: string;
+  name: string;
+  labs: Array<{ id: string; name: string }>;
+  starpaths: Array<{ id: string; name: string }>;
+};
+
+type RailButtonProps = {
+  active: boolean;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  count: number;
+  onClick: () => void;
+};
+
 function normalizeLab(raw: Lab): UILab {
   return {
-    id: (raw as any).lab_id,
+    id: raw.lab_id,
     name: raw.name ?? "Untitled lab",
     description: raw.description ?? "",
     difficulty: raw.difficulty ?? "unknown",
-    visibility: (raw as any).visibility ?? "public",
+    visibility: raw.visibility ?? "public",
     completed: false,
     progress: 0,
     raw,
@@ -55,20 +73,30 @@ export default function LearnerDashboard() {
   ================================= */
 
   const [labs, setLabs] = useState<UILab[]>([]);
-  const [groups, setGroups] = useState<any[]>([]);
-  const [starpaths, setStarpaths] = useState<Starpath[]>([]);
+  const [groups, setGroups] = useState<DashboardGroup[]>([]);
+  const [starpaths, setStarpaths] = useState<StarpathLike[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [focus, setFocus] = useState<FocusKey>("insight");
   const [query, setQuery] = useState("");
 
   const navigate = useNavigate();
-  const { search } = useLocation();
 
-  const mockUI = useMemo(
-    () => new URLSearchParams(search).get("mock") === "1",
-    [search]
-  );
+  const normalizeStarpath = (raw: Starpath): StarpathLike => ({
+    id: raw.starpath_id,
+    name: raw.name,
+    chaptersCompleted: 0,
+    totalChapters: 0,
+    labs: 0,
+    domain: raw.difficulty ?? "unknown",
+  });
+
+  const normalizeGroup = (raw: Group): DashboardGroup => ({
+    id: raw.group_id,
+    name: raw.name,
+    labs: [],
+    starpaths: [],
+  });
 
   /* =================================
      FETCH DATA
@@ -89,8 +117,8 @@ export default function LearnerDashboard() {
 
         if (!cancelled) {
           setLabs(normalizedLabs);
-          setStarpaths(starpathsData as Starpath[]);
-          setGroups(groupsData as any[]);
+          setStarpaths((starpathsData as Starpath[]).map(normalizeStarpath));
+          setGroups((groupsData as Group[]).map(normalizeGroup));
         }
 
       } catch (err) {
@@ -183,8 +211,8 @@ export default function LearnerDashboard() {
               </div>
 
               <PublicLabsSection
-                labs={activeLabs as any}
-                onLabClick={(lab: any) =>
+                labs={activeLabs}
+                onLabClick={(lab) =>
                   navigate(`/learner/labs/${lab.id}`)
                 }
               />
@@ -200,7 +228,7 @@ export default function LearnerDashboard() {
           )}
 
           {focus === "archive" && (
-            <CompletedSection labs={completedLabs as any} />
+            <CompletedSection labs={completedLabs} />
           )}
 
         </div>
@@ -271,7 +299,7 @@ function RailButton({
   icon,
   count,
   onClick,
-}: any) {
+}: RailButtonProps) {
 
   return (
     <button

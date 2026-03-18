@@ -1,8 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { Trash2 } from "lucide-react";
-
 interface CreatorGroupCardProps {
-  group: any;
+  group: {
+    group_id: string;
+    name: string;
+    created_at: string;
+    members_count?: number;
+    labs_count?: number;
+  };
   onDelete?: () => void;
 }
 
