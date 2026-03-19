@@ -31,6 +31,13 @@ export interface Lab {
   
   template_path?: string | null;
   lab_type?: string | null;
+  lab_family?: string | null;
+  lab_delivery?: "terminal" | "web" | "complex" | string | null;
+  runtime?: {
+    app_port?: number | null;
+    services?: unknown[];
+    entrypoints?: unknown[];
+  } | null;
   estimated_duration?: string | null;
 
   path: string | null;         // slug / logical path
