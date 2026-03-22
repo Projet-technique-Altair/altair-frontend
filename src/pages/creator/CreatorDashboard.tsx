@@ -49,7 +49,7 @@ function normalizeLab(
     date_of_creation?: string;
     difficulty?: string | null;
     estimated_duration?: string | null;
-    visibility?: "public" | "private";
+    visibility?: "PUBLIC" | "PRIVATE"; // ✅ FIX
     completed?: boolean;
   },
   stepsCount: number
@@ -57,11 +57,19 @@ function normalizeLab(
   return {
     id: raw.lab_id,
     title: raw.name,
-    createdAt: raw.updated_at ?? raw.date_of_creation ?? new Date().toISOString(),
+    createdAt:
+      raw.updated_at ??
+      raw.date_of_creation ??
+      new Date().toISOString(),
+
     difficulty: raw.difficulty ?? "unknown",
     duration: raw.estimated_duration ?? "—",
     stepsCount,
-    visibility: raw.visibility ?? "private",
+    visibility:
+      raw.visibility === "PUBLIC"
+        ? "public"
+        : "private",
+
     completed: raw.completed ?? false,
   };
 }
@@ -72,6 +80,8 @@ export default function CreatorDashboard() {
   const [labs, setLabs] = useState<CreatorLab[]>([]);
   const [groups, setGroups] = useState<CreatorGroup[]>([]);
   const [starpaths, setStarpaths] = useState<CreatorStarpath[]>([]);
+
+  const KEYCLOAK_LOGOUT = "http://localhost:8080/realms/altair/protocol/openid-connect/logout";
 
   const [loading, setLoading] = useState(true);
 

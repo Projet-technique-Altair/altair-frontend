@@ -181,7 +181,7 @@ export default function CreatorLabDetails() {
             {lab?.description || "No description"}
         </div>
 
-        <div className="grid grid-cols-3 gap-10 text-sm pt-2">
+        <div className="grid grid-cols-4 gap-10 text-sm pt-2">
 
             <div className="space-y-1">
             <div className="text-white/40 text-xs uppercase tracking-widest">
@@ -199,6 +199,15 @@ export default function CreatorLabDetails() {
             <div className="text-white/90">
                 {lab?.lab_type}
             </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-white/40 text-xs uppercase tracking-widest">
+                Visibility
+              </div>
+              <div className="text-white/90">
+                {lab?.visibility}
+              </div>
             </div>
 
             <div className="space-y-1">

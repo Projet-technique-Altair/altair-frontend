@@ -136,6 +136,7 @@ export default function AuthCallback() {
         const data = await res.json();
 
         console.log("Token response data:", data);
+        //console.log("id_token =", data.id_token);
 
 
         if (typeof data.access_token !== "string") {
@@ -147,7 +148,7 @@ export default function AuthCallback() {
         sessionStorage.removeItem(STATE_KEY);
 
         // Hydrate frontend auth state
-        completeLogin(data.access_token);
+        completeLogin(data.access_token, data.id_token);
 
         // 🔁 Neutral redirect – no RBAC decision here
         navigate("/app", { replace: true });

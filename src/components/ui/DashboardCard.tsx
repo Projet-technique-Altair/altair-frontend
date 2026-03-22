@@ -12,7 +12,9 @@
 import React from "react";
 import { ALT_SHADOW } from "@/lib/theme";
 
-
+type DashboardCardProps = React.HTMLAttributes<HTMLDivElement> & {
+  children: React.ReactNode;
+};
 
 /**
  * Renders a styled container for dashboard elements following Altair’s visual identity.
@@ -33,12 +35,11 @@ import { ALT_SHADOW } from "@/lib/theme";
 export default function DashboardCard({
   children,
   className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+  ...props
+}: DashboardCardProps) {
   return (
     <div
+    {...props}
       className={[
         "rounded-2xl p-6 transition-all duration-200",
         "bg-transparent backdrop-blur-sm", // ✅ plus de fond opaque
@@ -47,6 +48,7 @@ export default function DashboardCard({
       ].join(" ")}
       style={{
         boxShadow: ALT_SHADOW.card,
+        ...props.style,
       }}
     >
       {children}

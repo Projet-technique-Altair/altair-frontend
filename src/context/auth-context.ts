@@ -4,7 +4,7 @@ export type AuthContextValue = {
   isAuthenticated: boolean;
   token: string | null;
   loginSSO: () => Promise<void>;
-  completeLogin: (token: string) => void;
+  completeLogin: (token: string, idToken?: string) => void;
   refreshToken: () => Promise<string | null>;
   logout: () => void;
 };

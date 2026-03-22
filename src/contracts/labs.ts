@@ -1,59 +1,35 @@
-/**
- * API Contracts (Gateway) — Labs
- * Aligned with PostgreSQL schema from 001_init.sql
- */
+export type LabVisibility = "PRIVATE" | "PUBLIC";
+export type LabDifficulty = "EASY" | "MEDIUM" | "HARD";
 
-export type LabVisibility = "public" | "private";
-
-/**
- * DB-aligned representation of a lab returned by the Gateway.
- * Note: several fields are nullable in DB, so we model them as `T | null`.
- */
 export interface Lab {
   lab_id: string;
-
   creator_id: string;
 
-  organization_id: string | null;
-  scenario_id: string | null;
-
   name: string;
-  description: string | null;
+  description?: string | null;
 
-  // In SQL: TEXT (comment says could be an enum later)
-  difficulty: string | null;
+  difficulty?: LabDifficulty | null;
   category?: string | null;
-  story?: string | null;
-  objectives?: string | null;
-  prerequisites?: string | null;
 
   visibility: LabVisibility;
-  
+
   template_path?: string | null;
-  lab_type?: string | null;
-  lab_family?: string | null;
-  lab_delivery?: "terminal" | "web" | "complex" | string | null;
-  runtime?: {
+  lab_type: string;
+
+  lab_family: string;
+  lab_delivery: string;
+
+  runtime: {
     app_port?: number | null;
-    services?: unknown[];
-    entrypoints?: unknown[];
-  } | null;
+    services: unknown[];
+    entrypoints: unknown[];
+  };
+
+  objectives?: string | null;
+  prerequisites?: string | null;
+  story?: string | null;
+
   estimated_duration?: string | null;
-
-  path: string | null;         // slug / logical path
-  image: string | null;
-
-  runtime_limit: number | null; // minutes or seconds (as per comment)
-  tags: unknown | null;         // JSONB
-  estimated_time: number | null;
-
-  validated: boolean;
-  version: number;
-
-  note: number | null;          // NUMERIC(3,2) -> number côté TS
-
-  date_of_creation: string;     // ISO timestamp (from gateway)
-  updated_at: string;           // ISO timestamp (from gateway)
 }
 
 /**
@@ -65,17 +41,19 @@ export interface LabUpsertPayload {
   name: string;
   description?: string | null;
   difficulty?: string | null;
-  visibility?: LabVisibility;
+  visibility?: "private" | "public"; // 👈 input = lowercase
 
-  organization_id?: string | null;
-  scenario_id?: string | null;
+  template_path: string;
 
-  path?: string | null;
-  image?: string | null;
+  lab_type?: string;
+  lab_family?: string;
+  lab_delivery?: string;
 
-  runtime_limit?: number | null;
-  tags?: unknown | null;
-  estimated_time?: number | null;
+  runtime?: {
+    app_port?: number | null;
+    services?: unknown[];
+    entrypoints?: unknown[];
+  };
 
-  // validated/version/note/date_of_creation/updated_at -> typically server-managed
+  estimated_duration?: string | null;
 }

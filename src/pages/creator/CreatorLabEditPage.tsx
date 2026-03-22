@@ -20,10 +20,19 @@ export default function CreatorLabEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    name: string;
+    description: string;
+    difficulty: "easy" | "medium" | "hard";
+    visibility: "private" | "public";
+    template_path: string;
+    lab_type: string;
+    estimated_duration: string;
+  }>({
     name: "",
     description: "",
     difficulty: "easy",
+    visibility: "private",
     template_path: "",
     lab_type: "",
     estimated_duration: "",
@@ -63,7 +72,20 @@ export default function CreatorLabEditPage() {
 setForm({
   name: lab.name ?? "",
   description: lab.description ?? "",
-  difficulty: lab.difficulty?.toLowerCase() ?? "easy",
+  difficulty:
+    lab.difficulty === "EASY"
+      ? "easy"
+      : lab.difficulty === "MEDIUM"
+      ? "medium"
+      : lab.difficulty === "HARD"
+      ? "hard"
+      : "easy",
+  visibility:
+    lab.visibility === "PUBLIC"
+      ? "public"
+      : lab.visibility === "PRIVATE"
+      ? "private"
+      : "private",
   template_path: lab.template_path ?? "",
   lab_type: lab.lab_type ?? "",
   estimated_duration: lab.estimated_duration ?? "",
@@ -286,6 +308,26 @@ setForm({
               <option value="easy">easy</option>
               <option value="medium">medium</option>
               <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-white/40 uppercase tracking-widest">
+              Visibility
+            </label>
+
+            <select
+              value={form.visibility}
+              onChange={(e) => handleChange("visibility", e.target.value)}
+              className="
+              mt-2 w-full
+              rounded-xl border border-white/10
+              bg-black/30 px-4 py-3 text-sm
+              outline-none
+              "
+            >
+              <option value="private">private</option>
+              <option value="public">public</option>
             </select>
           </div>
 

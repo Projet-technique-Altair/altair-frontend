@@ -13,32 +13,25 @@ import {
 } from "@/api/starpaths";
 
 import { api } from "@/api";
-import type { SearchLabResult } from "@/api/types";
-import type { GroupLabResult } from "@/api/types";
-import type { Starpath } from "@/contracts/starpaths";
-
-type EditableStarpath = Starpath & {
-  description?: string | null;
-  difficulty?: string | null;
-};
 
 export default function CreatorStarpathPage() {
 
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [starpath, setStarpath] = useState<EditableStarpath | null>(null);
-  const [labs, setLabs] = useState<GroupLabResult[]>([]);
+  const [starpath, setStarpath] = useState<any>(null);
+  const [labs, setLabs] = useState<any[]>([]);
 
   const [labQuery, setLabQuery] = useState("");
-  const [labResults, setLabResults] = useState<SearchLabResult[]>([]);
-  const [selectedLabs, setSelectedLabs] = useState<SearchLabResult[]>([]);
+  const [labResults, setLabResults] = useState<any[]>([]);
+  const [selectedLabs, setSelectedLabs] = useState<any[]>([]);
 
   const [editing, setEditing] = useState(false);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [difficulty, setDifficulty] = useState("");
+  const [visibility, setVisibility] = useState<"PRIVATE" | "PUBLIC">("PRIVATE");
 
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -58,6 +51,7 @@ export default function CreatorStarpathPage() {
         setName(s.name);
         setDescription(s.description ?? "");
         setDifficulty(s.difficulty ?? "");
+        setVisibility(s.visibility ?? "PRIVATE");
 
       } catch (err) {
         console.error("Failed to load starpath:", err);
@@ -97,7 +91,8 @@ export default function CreatorStarpathPage() {
       const updated = await updateStarpath(id!, {
         name,
         description,
-        difficulty
+        difficulty,
+        visibility
       });
 
       setStarpath(updated);
@@ -106,7 +101,6 @@ export default function CreatorStarpathPage() {
     } catch (err) {
       console.error("Failed to update starpath:", err);
     }
-
   };
 
   // ========================
@@ -227,24 +221,48 @@ export default function CreatorStarpathPage() {
           )}
 
           {editing ? (
+            <>
+              <select
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+                className="mt-2 rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm"
+              >
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
 
-            <select
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              className="mt-2 rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm"
-            >
-
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-
-            </select>
+              <select
+                value={visibility}
+                onChange={(e) =>
+                  setVisibility(e.target.value as "PRIVATE" | "PUBLIC")
+                }
+                className="mt-2 rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm"
+              >
+                <option value="private">Private</option>
+                <option value="public">Public</option>
+              </select>
+            </>
 
           ) : (
 
-            <p className="text-white/40 text-sm mt-1">
-              Difficulty: {starpath?.difficulty || "Not set"}
-            </p>
+            <div className="mt-1 space-y-1">
+
+              <p className="text-white/40 text-sm">
+                Difficulty: {starpath?.difficulty || "Not set"}
+              </p>
+
+              <span
+                className={`text-xs px-3 py-1 rounded-full
+                  ${starpath?.visibility === "public"
+                    ? "bg-green-500/10 text-green-300 border border-green-400/30"
+                    : "bg-purple-500/10 text-purple-300 border border-purple-400/30"
+                  }`}
+              >
+                {starpath?.visibility}
+              </span>
+
+            </div>
 
           )}
 

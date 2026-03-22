@@ -7,6 +7,9 @@
  */
 
 import { useNavigate, Outlet } from "react-router-dom";
+import { useAuth } from "@/context/useAuth";
+
+const KEYCLOAK_LOGOUT = "http://localhost:8080/realms/altair/protocol/openid-connect/logout";
 
 import type { LucideIcon } from "lucide-react";
 import {
@@ -53,6 +56,7 @@ function PillItem({ label, to, Icon, onNavigate }: PillItemProps) {
 
 export default function LearnerLayout() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const explorer: NavItem = {
     label: "Explorer",
@@ -83,6 +87,8 @@ export default function LearnerLayout() {
     to: "/learner/collection",
     Icon: Star,
   };
+
+  const handleLogout = () => logout();
 
   return (
     <div
@@ -197,7 +203,7 @@ export default function LearnerLayout() {
 
               {/* LOGOUT */}
               <button
-                onClick={() => navigate("/")}
+                onClick={handleLogout}
                 className="h-10 w-10 rounded-full border border-white/12 bg-white/6 hover:bg-white/10 transition flex items-center justify-center"
               >
                 <LogOut className="h-4 w-4 text-white/80" />

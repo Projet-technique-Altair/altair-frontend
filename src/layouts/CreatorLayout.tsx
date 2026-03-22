@@ -42,15 +42,15 @@ import { motion } from "framer-motion";
  *
  * @public
  */
+
+const KEYCLOAK_LOGOUT = "http://localhost:8080/realms/altair/protocol/openid-connect/logout";
+
 export default function CreatorLayout() {
   const navigate = useNavigate();
   const { logout } = useAuth();
 
   /** Clears the session and navigates back to the login screen. */
-  const handleLogout = () => {
-    logout();
-    navigate("/", { replace: true });
-  };
+  const handleLogout = () => logout();
 
   /** Returns to the learner space; backend remains the RBAC source of truth. */
   const handleReturnToStudent = () => {

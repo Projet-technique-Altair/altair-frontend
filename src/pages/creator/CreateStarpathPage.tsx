@@ -12,10 +12,14 @@ export default function CreateStarpathPage() {
   const [form, setForm] = useState({
     name: "",
     description: "",
-    difficulty: "beginner"
+    difficulty: "beginner",
+    visibility: "PRIVATE" as "PRIVATE" | "PUBLIC",
   });
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = <K extends keyof typeof form>(
+    field: K,
+    value: typeof form[K]
+  ) => {
     setForm(prev => ({
       ...prev,
       [field]: value
@@ -118,6 +122,25 @@ export default function CreateStarpathPage() {
             <option value="beginner">Beginner</option>
             <option value="intermediate">Intermediate</option>
             <option value="advanced">Advanced</option>
+
+          </select>
+
+        </div>
+
+        <div>
+
+          <label className="text-xs text-white/40">
+            Visibility
+          </label>
+
+          <select
+            value={form.visibility}
+            onChange={(e) => handleChange("visibility", e.target.value as "PRIVATE" | "PUBLIC")}
+            className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm"
+          >
+
+            <option value="private">Private</option>
+            <option value="public">Public</option>
 
           </select>
 

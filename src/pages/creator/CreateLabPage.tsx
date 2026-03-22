@@ -12,14 +12,23 @@ import { api } from "@/api";
 export default function CreateLabPage() {
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    difficulty: "easy",
-    template_path: "",
-    lab_type: "ctf_terminal_guided",
-    estimated_duration: "",
-  });
+  const [form, setForm] = useState<{
+  name: string;
+  description: string;
+  difficulty: "easy" | "medium" | "hard";
+  visibility: "private" | "public";
+  template_path: string;
+  lab_type: string;
+  estimated_duration: string;
+}>({
+  name: "",
+  description: "",
+  difficulty: "easy",
+  visibility: "private",
+  template_path: "",
+  lab_type: "ctf_terminal_guided",
+  estimated_duration: "",
+});
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({
@@ -177,6 +186,36 @@ export default function CreateLabPage() {
                 <option value="easy">easy</option>
                 <option value="medium">medium</option>
                 <option value="hard">hard</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[11px] uppercase tracking-widest text-white/35">
+                Visibility
+              </label>
+              <select
+                value={form.visibility}
+                onChange={(e) => handleChange("visibility", e.target.value)}
+                className="
+                mt-1 w-full
+                rounded-2xl
+                border border-white/10
+                bg-black/30
+                px-4 py-3
+                text-sm text-white
+                outline-none
+                transition-all
+
+                hover:border-orange-400/30
+                hover:bg-black/40
+                hover:shadow-[0_0_12px_rgba(255,170,100,0.15)]
+
+                focus:border-orange-400/50
+                focus:shadow-[0_0_18px_rgba(255,170,100,0.25)]
+                "
+              >
+                <option value="private">private</option>
+                <option value="public">public</option>
               </select>
             </div>
 

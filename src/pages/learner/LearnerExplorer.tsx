@@ -18,55 +18,51 @@
  *
  * @packageDocumentation
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import SearchBar from "@/components/ui/SearchBar";
 import SectionTitle from "@/components/ui/SectionTitle";
 import DashboardCard from "@/components/ui/DashboardCard";
 import { Star } from "lucide-react";
 import { ALT_COLORS } from "@/lib/theme";
+import { useNavigate } from "react-router-dom";
 
-const mockNewLabs = [
-  {
-    id: "explorer-lab-1",
-    name: "PATH Hijacking Challenge",
-    level: "Beginner",
-    domain: "Linux Privilege Escalation",
-    rating: 4.7,
-    participants: 182,
-  },
-  {
-    id: "explorer-lab-2",
-    name: "Orbital Console Injection",
-    level: "Intermediate",
-    domain: "Web Security",
-    rating: 4.5,
-    participants: 136,
-  },
-];
+import { getLabs } from "@/api/labs";
+import { getStarpaths } from "@/api/starpaths";
 
-const mockNewStarpaths = [
-  {
-    id: "explorer-sp-1",
-    name: "Blue Team Foundations",
-    domain: "Defensive Security",
+import type { Lab } from "@/contracts/labs";
+import type { Starpath } from "@/contracts/starpaths";
+
+// ===== MAPPERS =====
+function mapLabToExplorer(lab: Lab) {
+  return {
+    id: lab.lab_id,
+    name: lab.name,
+    level:
+      lab.difficulty === "EASY"
+        ? "Beginner"
+        : lab.difficulty === "MEDIUM"
+        ? "Intermediate"
+        : lab.difficulty === "HARD"
+        ? "Advanced"
+        : "Unknown",
+    domain: lab.category ?? "General",
+    rating: 0,
+    participants: 0,
+  };
+}
+
+function mapStarpathToExplorer(sp: Starpath) {
+  return {
+    id: sp.starpath_id,
+    name: sp.name,
+    domain: sp.difficulty ?? "General",
     chaptersCompleted: 0,
-    totalChapters: 6,
-    labs: 12,
-    rating: 4.8,
-    participants: 94,
-  },
-  {
-    id: "explorer-sp-2",
-    name: "Web Exploitation Track",
-    domain: "Offensive Security",
-    chaptersCompleted: 0,
-    totalChapters: 8,
-    labs: 15,
-    rating: 4.6,
-    participants: 121,
-  },
-];
-
+    totalChapters: 0,
+    labs: 0,
+    rating: 0,
+    participants: 0,
+  };
+}
 
 /**
  * Displays the **Explorer** page where learners can browse
@@ -86,25 +82,67 @@ const mockNewStarpaths = [
  *
  * @public
  */
+
+
 export default function LearnerExplorer() {
   const [query, setQuery] = useState("");
+  const navigate = useNavigate();
 
-  // === Filters ===
+  const [labs, setLabs] = useState<any[]>([]);
+  const [starpaths, setStarpaths] = useState<any[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [labsData, starpathsData] = await Promise.all([
+          getLabs(),
+          getStarpaths(),
+        ]);
+
+        // 🔥 FILTRAGE CORRECT (attention MAJUSCULE)
+        const publicLabs = labsData.filter(
+          (lab: Lab) => lab.visibility === "PUBLIC"
+        );
+
+        const publicStarpaths = starpathsData.filter(
+          (sp: Starpath) => sp.visibility === "PUBLIC"
+        );
+
+        setLabs(publicLabs.map(mapLabToExplorer));
+        setStarpaths(publicStarpaths.map(mapStarpathToExplorer));
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load explorer");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // ===== SEARCH =====
   const filteredLabs = useMemo(
     () =>
-      mockNewLabs.filter((lab) =>
+      labs.filter((lab) =>
         lab.name.toLowerCase().includes(query.toLowerCase())
       ),
-    [query]
+    [labs, query]
   );
 
   const filteredStarpaths = useMemo(
     () =>
-      mockNewStarpaths.filter((sp) =>
+      starpaths.filter((sp) =>
         sp.name.toLowerCase().includes(query.toLowerCase())
       ),
-    [query]
+    [starpaths, query]
   );
+
+  if (loading) return <div className="p-10">Loading...</div>;
+  if (error) return <div className="p-10 text-red-400">{error}</div>;
 
   return (
     <div className="min-h-screen w-full px-8 py-8 bg-[#0B0F19] text-white space-y-10">
@@ -134,7 +172,8 @@ export default function LearnerExplorer() {
           {filteredLabs.map((lab) => (
             <DashboardCard
               key={lab.id}
-              className="border border-white/5 hover:border-sky-500/50 transition-all shadow-[0_0_20px_rgba(0,0,0,0.3)]"
+              onClick={() => navigate(`/learner/labs/${lab.id}`)}
+              className="cursor-pointer border border-white/5 hover:border-sky-500/50 transition-all"
             >
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-lg font-semibold">{lab.name}</h3>
@@ -177,7 +216,8 @@ export default function LearnerExplorer() {
           {filteredStarpaths.map((sp) => (
             <DashboardCard
               key={sp.id}
-              className="border border-white/5 hover:border-purple-500/50 transition-all shadow-[0_0_20px_rgba(0,0,0,0.3)]"
+              onClick={() => navigate(`/learner/starpaths/${sp.id}`)}
+              className="cursor-pointer border border-white/5 hover:border-purple-500/50 transition-all"
             >
               <h3 className="text-lg font-semibold mb-1">{sp.name}</h3>
               <p className="text-sm text-gray-400 mb-3">{sp.domain}</p>
