@@ -28,9 +28,7 @@ function mapLabToViewModel(raw: Lab): LabViewModel {
     name: raw.name,
     description: raw.description ?? "No description available.",
     difficulty: raw.difficulty ?? "Unknown",
-    estimatedTime:
-      raw.estimated_duration ??
-      (raw.estimated_time ? `${raw.estimated_time} min` : "Unknown duration"),
+    estimatedTime: raw.estimated_duration ?? "Unknown duration",
     story: raw.story ?? null,
     objectives: raw.objectives ?? null,
   };
