@@ -1,0 +1,44 @@
+name: Frontend CD
+
+on:
+  workflow_run:
+    workflows: ["Frontend CI"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "0 1 * * *"
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    uses: Projet-technique-Altair/altair-ci/.github/workflows/frontend-cd.yml@main
+    with:
+      gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
+      workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+      deploy_service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      frontend_bucket: ${{ vars.FRONTEND_BUCKET }}
+      frontend_url_map: ${{ vars.FRONTEND_URL_MAP }}
+      invalidation_paths: ${{ vars.FRONTEND_INVALIDATION_PATHS }}
+
+      node_version: "20"
+      workdir: .
+      build_command: npm run build
+      dist_dir: dist
+
+  cleanup:
+    if: github.event_name == 'schedule'
+    uses: Projet-technique-Altair/altair-ci/.github/workflows/frontend-cleanup.yml@main
+    with:
+      gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
+      workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+      deploy_service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      frontend_bucket: ${{ vars.FRONTEND_BUCKET }}
+      retention_hours: "24"
