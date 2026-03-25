@@ -118,7 +118,7 @@ This application communicates with backend microservices via the API Gateway and
 
 ### Environment Variables
 
-Create `.env` file at project root:
+Create `.env` file at project ROOT:
 
 ```bash
 # Keycloak Configuration (required)
