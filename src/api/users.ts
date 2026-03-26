@@ -28,16 +28,27 @@ export function getMe() {
  * Get user by id (creator / admin only)
  * GET /users/:id
  */
-export function getUserById(userId: string) {
+/*export function getUserById(userId: string) {
   return request<{
     user_id: string
     email?: string
     roles: string[]
     metadata?: Record<string, unknown>
   }>(`/users/users/${userId}`)
+}*/
+export function getUserById(userId: string) {
+  return request(`/users/users/${userId}`);
 }
 
 
 export function searchUsers(query: string) {
   return request<SearchUserResult[]>(`/users/search?q=${encodeURIComponent(query)}`);
+}
+
+
+export function getUserPseudo(userId: string) {
+  return request<{
+    user_id: string;
+    pseudo: string;
+  }>(`/users/users/${userId}/pseudo`);
 }

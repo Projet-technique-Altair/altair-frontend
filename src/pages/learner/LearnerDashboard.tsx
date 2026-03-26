@@ -224,7 +224,15 @@ export default function LearnerDashboard() {
           )}
 
           {focus === "groups" && (
-            <PrivateGroupsSection groups={groups} />
+            <PrivateGroupsSection
+              groups={groups}
+              setGroups={setGroups}
+              labs={labs.map((lab) => ({ id: lab.id, name: lab.name }))}
+              starpaths={starpaths.map((starpath) => ({
+                id: starpath.id,
+                name: starpath.name,
+              }))}
+            />
           )}
 
           {focus === "archive" && (

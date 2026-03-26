@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
+import { getLab } from "@/api/labs";
+import { getStarpath } from "@/api/starpaths";
+import { getUserPseudo } from "@/api/users";
+
 import DashboardCard from "@/components/ui/DashboardCard";
 import { ALT_COLORS } from "@/lib/theme";
 import { api } from "@/api";
@@ -56,7 +60,7 @@ export default function CreatorGroupPage() {
 
         const g = await api.getGroupById(id!);
         const m = await api.getGroupMembers(id!);
-        const l = await api.getGroupLabs(id!);
+        /*const l = await api.getGroupLabs(id!);
         const sp = await api.getGroupStarpaths(id!);
 
         setGroup(g);
@@ -64,7 +68,83 @@ export default function CreatorGroupPage() {
         setLabs(l);
         setName(g.name);
         setDescription(g.description ?? "");
-        setStarpaths(sp);
+        setStarpaths(sp);*/
+
+        const l = await api.getGroupLabs(id!);
+        const sp = await api.getGroupStarpaths(id!);
+
+        // ===== ENRICH MEMBERS =====
+        const enrichedMembers = await Promise.all(
+          (m ?? []).map(async (member: any) => {
+            try {
+              const fullUser = await getUserPseudo(member.user_id);
+
+              return {
+                ...member,
+                pseudo: fullUser.pseudo,
+              };
+            } catch {
+              return {
+                ...member,
+                pseudo: member.user_id,
+              };
+            }
+          })
+        );
+
+        // ===== ENRICH LABS =====
+        const enrichedLabs = await Promise.all(
+          (l ?? []).map(async (lab: any) => {
+            try {
+              const fullLab = await getLab(lab.lab_id);
+
+              return {
+                ...lab,
+                name: fullLab.name,
+              };
+            } catch {
+              return {
+                ...lab,
+                name: lab.lab_id,
+              };
+            }
+          })
+        );
+
+        // ===== ENRICH STARPATHS =====
+        const enrichedStarpaths = await Promise.all(
+          (sp ?? []).map(async (starpath: any) => {
+            const id = typeof starpath === "string"
+              ? starpath
+              : starpath.starpath_id;
+
+            try {
+              const fullStarpath = await getStarpath(id);
+
+              return {
+                ...(typeof starpath === "string"
+                  ? { starpath_id: id }
+                  : starpath),
+                name: fullStarpath.name,
+              };
+            } catch {
+              return {
+                ...(typeof starpath === "string"
+                  ? { starpath_id: id }
+                  : starpath),
+                name: id,
+              };
+            }
+          })
+        );
+
+        // ===== SET STATE =====
+        setGroup(g);
+        setMembers(enrichedMembers);
+        setLabs(enrichedLabs);
+        setName(g.name);
+        setDescription(g.description ?? "");
+        setStarpaths(enrichedStarpaths);
 
       } catch (err) {
         console.error("Failed to load group:", err);
