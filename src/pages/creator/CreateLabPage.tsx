@@ -1,18 +1,13 @@
-// src/pages/creator/CreateLabPage.tsx
-
-// src/pages/creator/CreateLabPage.tsx
-
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent, type InputHTMLAttributes } from "react";
 import { useNavigate } from "react-router-dom";
 
 import DashboardCard from "@/components/ui/DashboardCard";
+import { ApiError } from "@/api/client";
+import { createBuildFromUpload, type BuildFromUploadResponse } from "@/api/builder";
 import { ALT_COLORS } from "@/lib/theme";
 import { api } from "@/api";
 
-export default function CreateLabPage() {
-  const navigate = useNavigate();
-
-  const [form, setForm] = useState<{
+type CreateLabForm = {
   name: string;
   description: string;
   difficulty: "easy" | "medium" | "hard";
@@ -20,15 +15,44 @@ export default function CreateLabPage() {
   template_path: string;
   lab_type: string;
   estimated_duration: string;
-}>({
-  name: "",
-  description: "",
-  difficulty: "easy",
-  visibility: "private",
-  template_path: "",
-  lab_type: "ctf_terminal_guided",
-  estimated_duration: "",
-});
+};
+
+type UploadedLabFile = {
+  file: File;
+  relativePath: string;
+  sizeBytes: number;
+};
+
+type DirectoryInputProps = InputHTMLAttributes<HTMLInputElement> & {
+  webkitdirectory?: string;
+  directory?: string;
+};
+
+const directoryInputProps: DirectoryInputProps = {
+  webkitdirectory: "",
+  directory: "",
+};
+
+export default function CreateLabPage() {
+  const navigate = useNavigate();
+  const filesInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  const [form, setForm] = useState<CreateLabForm>({
+    name: "",
+    description: "",
+    difficulty: "easy",
+    visibility: "private",
+    template_path: "",
+    lab_type: "ctf_terminal_guided",
+    estimated_duration: "",
+  });
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedLabFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [builderError, setBuilderError] = useState<string | null>(null);
+  const [builderResult, setBuilderResult] = useState<BuildFromUploadResponse | null>(null);
+  const [isCreatingLab, setIsCreatingLab] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({
@@ -37,19 +61,101 @@ export default function CreateLabPage() {
     }));
   };
 
+  const handleFileSelection = (event: ChangeEvent<HTMLInputElement>) => {
+    const pickedFiles = Array.from(event.target.files ?? []);
+
+    if (pickedFiles.length === 0) {
+      return;
+    }
+
+    setBuilderError(null);
+    setBuilderResult(null);
+
+    setUploadedFiles((previous) => {
+      const next = new Map(previous.map((entry) => [entry.relativePath, entry]));
+
+      for (const file of pickedFiles) {
+        const relativePath = file.webkitRelativePath?.trim() || file.name;
+        next.set(relativePath, {
+          file,
+          relativePath,
+          sizeBytes: file.size,
+        });
+      }
+
+      return Array.from(next.values()).sort((left, right) =>
+        left.relativePath.localeCompare(right.relativePath)
+      );
+    });
+
+    event.target.value = "";
+  };
+
+  const handleBuildFiles = async () => {
+    if (uploadedFiles.length === 0) {
+      setBuilderError("Select at least one file before triggering the build.");
+      return;
+    }
+
+    if (!form.name.trim()) {
+      setBuilderError("Set the lab name first so the builder can derive the image name.");
+      return;
+    }
+
+    setIsUploading(true);
+    setBuilderError(null);
+    setCreateError(null);
+
+    try {
+      const payload = new FormData();
+      payload.append("lab_name", form.name.trim());
+      payload.append("dockerfile_path", "Dockerfile");
+
+      for (const uploadedFile of uploadedFiles) {
+        payload.append("file", uploadedFile.file, uploadedFile.relativePath);
+      }
+
+      const response = await createBuildFromUpload(payload);
+
+      setBuilderResult(response);
+      setForm((previous) => ({
+        ...previous,
+        template_path: response.build_job.template_path,
+      }));
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : "Failed to upload files to the builder";
+      setBuilderError(message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleCreate = async () => {
-  try {
-    const lab = await api.createLab(form);
+    if (!form.template_path.trim()) {
+      setCreateError(
+        "A template path is required. Upload files and build them first, or provide one manually."
+      );
+      return;
+    }
 
-    const labId = lab.lab_id;
+    setIsCreatingLab(true);
+    setCreateError(null);
 
-    // redirige vers le builder de steps
-    navigate(`/creator/labs/${labId}/steps`);
+    try {
+      const lab = await api.createLab(form);
+      navigate(`/creator/labs/${lab.lab_id}/steps`);
+    } catch (error) {
+      console.error("Failed to create lab:", error);
+      const message =
+        error instanceof ApiError ? error.message : "Failed to create lab";
+      setCreateError(message);
+    } finally {
+      setIsCreatingLab(false);
+    }
+  };
 
-  } catch (err) {
-    console.error("Failed to create lab:", err);
-  }
-};
+  const totalUploadSize = uploadedFiles.reduce((total, entry) => total + entry.sizeBytes, 0);
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-white px-8 py-10 space-y-8">
@@ -93,16 +199,142 @@ export default function CreateLabPage() {
         hover:border-white/15
         ">
 
-          <div>
-            <h2 className="text-lg font-semibold text-white/90">
-              Lab Information
+	          <div>
+	            <h2 className="text-lg font-semibold text-white/90">
+	              Lab Information
             </h2>
             <p className="text-xs text-white/50 mt-1">
               Define the base metadata of your lab.
-            </p>
-          </div>
+	            </p>
+	          </div>
 
-          <div className="grid grid-cols-2 gap-5">
+            <div className="rounded-3xl border border-white/10 bg-black/20 p-5 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-white/90">
+                    Upload lab files
+                  </h3>
+                  <p className="text-xs text-white/50 mt-1">
+                    Send the Docker context to the lab builder. The returned template path will
+                    be injected into the form automatically.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => filesInputRef.current?.click()}
+                    className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/80 transition hover:border-sky-400/40 hover:text-white"
+                  >
+                    Add files
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => folderInputRef.current?.click()}
+                    className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/80 transition hover:border-purple-400/40 hover:text-white"
+                  >
+                    Add folder
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadedFiles([]);
+                      setBuilderResult(null);
+                      setBuilderError(null);
+                    }}
+                    className="rounded-xl border border-red-400/20 bg-red-500/5 px-4 py-2 text-xs text-red-200 transition hover:border-red-400/40 hover:bg-red-500/10"
+                  >
+                    Clear selection
+                  </button>
+                </div>
+              </div>
+
+              <input
+                ref={filesInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileSelection}
+              />
+
+              <input
+                ref={folderInputRef}
+                {...directoryInputProps}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileSelection}
+              />
+
+              <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4">
+                {uploadedFiles.length === 0 ? (
+                  <p className="text-sm text-white/45">
+                    No file selected yet. Add files or pick a folder containing your lab source.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/55">
+                      <span>{uploadedFiles.length} file(s) selected</span>
+                      <span>{formatBytes(totalUploadSize)}</span>
+                    </div>
+
+                    <div className="max-h-40 space-y-2 overflow-auto pr-2">
+                      {uploadedFiles.map((entry) => (
+                        <div
+                          key={entry.relativePath}
+                          className="flex items-center justify-between gap-4 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-xs"
+                        >
+                          <span className="truncate text-white/80">{entry.relativePath}</span>
+                          <span className="shrink-0 text-white/40">
+                            {formatBytes(entry.sizeBytes)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleBuildFiles}
+                  disabled={isUploading || uploadedFiles.length === 0}
+                  className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-200 transition hover:bg-emerald-500/15 hover:border-emerald-400/50 hover:shadow-[0_0_14px_rgba(52,211,153,0.25)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isUploading ? "Uploading and building..." : "Upload and build files"}
+                </button>
+
+                <span className="text-xs text-white/45">
+                  Root `Dockerfile` expected by default.
+                </span>
+              </div>
+
+              {builderError ? (
+                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {builderError}
+                </div>
+              ) : null}
+
+              {builderResult ? (
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100 space-y-2">
+                  <p className="font-medium">Builder completed successfully.</p>
+                  <p>
+                    Template path generated:{" "}
+                    <span className="font-mono text-emerald-200">
+                      {builderResult.build_job.template_path}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-emerald-100/80">
+                    <span>Status: {builderResult.build_job.status}</span>
+                    <span>Mode: {builderResult.build_job.dispatch_mode}</span>
+                    <span>Files: {builderResult.source_bundle.file_count}</span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+	          <div className="grid grid-cols-2 gap-5">
 
             <div className="col-span-2">
               <label className="text-[11px] uppercase tracking-widest text-white/35">
@@ -246,13 +478,14 @@ export default function CreateLabPage() {
               />
             </div>
 
-            <div className="col-span-2">
-              <label className="text-[11px] uppercase tracking-widest text-white/35">
-                Template path
-              </label>
-              <input
-                value={form.template_path}
-                onChange={(e) => handleChange("template_path", e.target.value)}
+	            <div className="col-span-2">
+	              <label className="text-[11px] uppercase tracking-widest text-white/35">
+	                Template path
+	              </label>
+	              <input
+                  placeholder="Generated by the builder after upload, or set manually"
+	                value={form.template_path}
+	                onChange={(e) => handleChange("template_path", e.target.value)}
                 className="
                 mt-1 w-full
                 rounded-2xl
@@ -270,8 +503,12 @@ export default function CreateLabPage() {
                 focus:border-orange-400/50
                 focus:shadow-[0_0_18px_rgba(255,170,100,0.25)]
                 "
-              />
-            </div>
+	              />
+                  <p className="mt-2 text-xs text-white/45">
+                    This value is auto-filled after a successful upload/build, but it can still
+                    be overridden manually if needed.
+                  </p>
+	            </div>
 
             <div className="col-span-2">
               <label className="text-[11px] uppercase tracking-widest text-white/35">
@@ -302,7 +539,7 @@ export default function CreateLabPage() {
 
           </div>
 
-          <div className="flex gap-4 pt-2">
+	          <div className="flex gap-4 pt-2">
 
             <button
               onClick={() => navigate("/creator/labs/ai")}
@@ -323,10 +560,11 @@ export default function CreateLabPage() {
               Generate with AI Prof
             </button>
 
-            <button
-              onClick={handleCreate}
-              className="
-              px-5 py-2
+	            <button
+	              onClick={handleCreate}
+                  disabled={isCreatingLab}
+	              className="
+	              px-5 py-2
               rounded-xl
               border border-sky-400/30
               bg-sky-500/10
@@ -338,14 +576,33 @@ export default function CreateLabPage() {
               hover:bg-sky-500/15
               hover:border-sky-400/50
               hover:shadow-[0_0_14px_rgba(120,200,255,0.35)]
-              "
-            >
-              Create manually
-            </button>
+	              disabled:cursor-not-allowed disabled:opacity-50
+	              "
+	            >
+	              {isCreatingLab ? "Creating..." : "Create manually"}
+	            </button>
 
-          </div>
+	          </div>
 
-        </DashboardCard>
-      </div>
-    );
+              {createError ? (
+                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {createError}
+                </div>
+              ) : null}
+
+	        </DashboardCard>
+	      </div>
+	    );
+	  }
+
+function formatBytes(value: number) {
+  if (value < 1024) {
+    return `${value} B`;
   }
+
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
