@@ -156,6 +156,9 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { RotateCcw, ChevronLeft } from "lucide-react";
 
 import { getStarpath } from "@/api/starpaths";
+import type { Starpath } from "@/contracts/starpaths";
+import { getStarpathLabs } from "@/api/starpaths";
+import { getLab } from "@/api/labs";
 
 import StarpathWorldCanvas, {
   type StarpathWorldCanvasHandle,
@@ -164,16 +167,6 @@ import StarpathWorldBackground from "@/components/starpath/StarpathWorldBackgrou
 import StarpathStarLayer from "@/components/starpath/StarpathStarLayer";
 import StarpathLabLayer from "@/components/starpath/StarpathPanZoomCanvas";
 
-// =========================
-// TYPES
-// =========================
-type Starpath = {
-  starpath_id: string;
-  name: string;
-  description?: string;
-  visibility?: string;
-  creator_id?: string;
-};
 
 // =========================
 // MOCK FLAG
@@ -211,6 +204,7 @@ export default function StarpathView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<"ACCESS_DENIED" | "FAILED" | null>(null);
   const [starpath, setStarpath] = useState<Starpath | null>(null);
+  const [labs, setLabs] = useState<any[]>([]);
 
   // =========================
   // FETCH
@@ -224,15 +218,42 @@ export default function StarpathView() {
 
     const starpathId = id; // ✅ SAFE
 
-    async function load() {
+        async function load() {
       try {
         const res = await getStarpath(starpathId);
 
         // compatible avec ton client API
         const data = (res as any)?.data ?? res;
-
         setStarpath(data);
 
+        const labsRes = await getStarpathLabs(starpathId);
+        const labsData = (labsRes as any)?.data ?? labsRes;
+
+        // 🔥 récupérer les noms
+        const fullLabs = await Promise.all(
+          labsData.map(async (l: any) => {
+            try {
+              const res = await getLab(l.lab_id);
+              const data = (res as any)?.data ?? res;
+
+              return {
+                lab_id: l.lab_id,
+                position: l.position,
+                name: data.name, // 🔥 IMPORTANT
+              };
+            } catch {
+              return {
+                lab_id: l.lab_id,
+                position: l.position,
+                name: l.lab_id, // fallback
+              };
+            }
+          })
+        );
+
+        setLabs(fullLabs);
+
+        console.log("STARPATH LABS:", labsData);
       } catch (err: any) {
         console.error("Starpath fetch failed:", err);
 
@@ -341,12 +362,11 @@ export default function StarpathView() {
 
           <StarpathStarLayer seed={id ?? "unknown"} density={3} />
 
-          {mock && (
-            <StarpathLabLayer
-              seed={id ?? "unknown"}
-              completedCount={5}
-            />
-          )}
+          <StarpathLabLayer
+            seed={id ?? "unknown"}
+            labs={labs}
+            completedCount={5}
+          />
         </StarpathWorldCanvas>
       </div>
 
