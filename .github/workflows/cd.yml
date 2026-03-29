@@ -30,6 +30,12 @@ jobs:
       node_version: "20"
       workdir: .
       build_command: npm run build
+      build_env_vars: |
+        VITE_GATEWAY_URL=${{ vars.VITE_GATEWAY_URL }}
+        VITE_API_URL=${{ vars.VITE_API_URL }}
+        VITE_KEYCLOAK_URL=${{ vars.VITE_KEYCLOAK_URL }}
+        VITE_KEYCLOAK_REALM=${{ vars.VITE_KEYCLOAK_REALM }}
+        VITE_KEYCLOAK_CLIENT_ID=${{ vars.VITE_KEYCLOAK_CLIENT_ID }}
       dist_dir: dist
 
   cleanup:
