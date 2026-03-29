@@ -5,6 +5,7 @@
 
 import React, { useMemo } from "react";
 import { Check, Lock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import starPng from "@/assets/star.png";
 import { WORLD_H, WORLD_W } from "./StarpathWorldBackground";
@@ -13,15 +14,16 @@ type LabType = "course" | "guided" | "challenge" | "unguided";
 
 type Props = {
   seed: string;
-  /** ex: 5 => terminé jusqu’au lab 2 du chapitre 2 (ordre global) */
+  labs: { lab_id: string; position: number; name?: string }[];
   completedCount?: number;
 };
 
 type MockLab = {
-  order: number; // 1..9
+  lab_id: string; // 🔥 AJOUT
+  order: number;
   chapterIndex: 1 | 2 | 3;
   chapterName: string;
-  chapterRgb: string; // "r,g,b"
+  chapterRgb: string;
   title: string;
   type: LabType;
   description: string;
@@ -91,7 +93,7 @@ function maskStarStyle(color: string) {
   } as const;
 }
 
-function buildMockLabs(): MockLab[] {
+/*function buildMockLabs(): MockLab[] {
   const chapters = [
     {
       idx: 1 as const,
@@ -180,12 +182,35 @@ function buildMockLabs(): MockLab[] {
   }
 
   return out;
-}
+}*/
 
-export default function StarpathLabLayer({ seed, completedCount = 5 }: Props) {
+export default function StarpathLabLayer({ seed, labs, completedCount = 5 }: Props) {
+  const navigate = useNavigate();
   const { placed, chapterLabels } = useMemo(() => {
     const rng = mulberry32(hashStringToUint32(seed + "|labs-layer"));
-    const labs = buildMockLabs();
+    const labsMapped: MockLab[] = (labs ?? [])
+      .sort((a, b) => a.position - b.position)
+      .map((lab, i) => {
+        const order = i + 1;
+        const chapterIndex = Math.ceil(order / 3) as 1 | 2 | 3;
+
+        const chapterMeta = {
+          1: { name: "Foundations", rgb: "56,189,248" },
+          2: { name: "Web & Systems", rgb: "122,44,243" },
+          3: { name: "Operations", rgb: "236,72,153" },
+        }[chapterIndex];
+
+        return {
+          lab_id: lab.lab_id, // 🔥 AJOUT
+          order,
+          chapterIndex,
+          chapterName: chapterMeta.name,
+          chapterRgb: chapterMeta.rgb,
+          title: lab.name ?? lab.lab_id,
+          type: "guided",
+          description: "",
+        };
+      });
 
     const baseCenters = [
       { x: WORLD_W * 0.40, y: WORLD_H * 0.58 },
@@ -220,7 +245,7 @@ export default function StarpathLabLayer({ seed, completedCount = 5 }: Props) {
       const dir = { x: Math.cos(angle), y: Math.sin(angle) };
       const perp = { x: -dir.y, y: dir.x };
 
-      const list = labs.filter((l) => l.chapterIndex === chapterIndex);
+      const list = labsMapped.filter((l) => l.chapterIndex === chapterIndex);
       const spacing = 310;
 
       for (let i = 0; i < list.length; i++) {
@@ -307,7 +332,7 @@ export default function StarpathLabLayer({ seed, completedCount = 5 }: Props) {
     });
 
     return { placed: placedAll, chapterLabels: labels };
-  }, [seed, completedCount]);
+  }, [seed, completedCount, labs]);
 
   return (
     <div className="absolute left-0 top-0" style={{ width: WORLD_W, height: WORLD_H }}>
@@ -392,7 +417,12 @@ export default function StarpathLabLayer({ seed, completedCount = 5 }: Props) {
         return (
           <div
             key={lab.order}
-            className="absolute group"
+            className="absolute group cursor-pointer"
+            onClick={() => {
+              if (!locked) {
+                navigate(`/learner/labs/${lab.lab_id}`);
+              }
+            }}
             style={{
               left: lab.x,
               top: lab.y,

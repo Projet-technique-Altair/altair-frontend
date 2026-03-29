@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { getLab } from "@/api/labs";
 
 import DashboardCard from "@/components/ui/DashboardCard";
 import { ALT_COLORS } from "@/lib/theme";
@@ -45,8 +46,27 @@ export default function CreatorStarpathPage() {
         const s = await getStarpath(id!);
         const l = await getStarpathLabs(id!);
 
+        // ===== ENRICH LABS =====
+        const enrichedLabs = await Promise.all(
+          (l ?? []).map(async (lab: any) => {
+            try {
+              const fullLab = await getLab(lab.lab_id);
+
+              return {
+                ...lab,
+                name: fullLab.name,
+              };
+            } catch {
+              return {
+                ...lab,
+                name: lab.lab_id,
+              };
+            }
+          })
+        );
+
+        setLabs(enrichedLabs);
         setStarpath(s);
-        setLabs(l);
 
         setName(s.name);
         setDescription(s.description ?? "");
@@ -119,8 +139,15 @@ export default function CreatorStarpathPage() {
         });
         position++;
       }
+      
+      const enrichedNewLabs = selectedLabs.map((lab, index) => ({
+        ...lab,
+        position: labs.length + index,
+      }));
 
-      setLabs(prev => [...prev, ...selectedLabs]);
+      setLabs(prev => [...prev, ...enrichedNewLabs]);
+
+      //setLabs(prev => [...prev, ...selectedLabs]);
 
       setSelectedLabs([]);
       setLabQuery("");
