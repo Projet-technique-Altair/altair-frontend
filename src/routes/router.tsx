@@ -1,9 +1,6 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 
-// SplashIntro volontairement mis de côté pour plus tard
-// import SplashIntro from "@/components/SplashIntro";
-
 import Landing from "@/pages/landing/Landing";
 import RouteError from "@/pages/RouteError";
 
@@ -22,7 +19,7 @@ import GachaPage from "@/pages/gamification/GachaPage";
 import MarketplacePage from "@/pages/gamification/MarketplacePage";
 import CollectionPage from "@/pages/gamification/CollectionPage";
 
-import { CreatorDashboard } from "@/pages/creator";
+import { CreatorDashboard, CreatorWorkspace } from "@/pages/creator";
 import CreateLabPage from "@/pages/creator/CreateLabPage";
 import CreateStepPage from "@/pages/creator/CreateStepPage";
 import CreateGroupPage from "@/pages/creator/CreateGroupPage";
@@ -51,7 +48,7 @@ export const router = createBrowserRouter([
       // ================= PUBLIC =================
       {
         path: "/",
-        element: <Landing />, // Page de présentation + redirection Keycloak
+        element: <Landing />,
       },
 
       // ================= AUTH =================
@@ -70,6 +67,7 @@ export const router = createBrowserRouter([
             errorElement: null,
           },
 
+          // ================= LEARNER =================
           {
             path: "/learner",
             element: (
@@ -87,11 +85,9 @@ export const router = createBrowserRouter([
               { path: "marketplace", element: <MarketplacePage /> },
               { path: "collection", element: <CollectionPage /> },
 
-              // ✅ Groups (list + detail)
               { path: "groups", element: <GroupsView /> },
               { path: "groups/:id", element: <GroupsView /> },
 
-              // ✅ Starpaths (optional list + detail)
               { path: "starpaths", element: <StarpathView /> },
               { path: "starpaths/:id", element: <StarpathView /> },
 
@@ -102,6 +98,7 @@ export const router = createBrowserRouter([
             ],
           },
 
+          // ================= CREATOR =================
           {
             path: "/creator",
             element: (
@@ -110,22 +107,40 @@ export const router = createBrowserRouter([
               </ProtectedRoute>
             ),
             children: [
+              /* ===== CORE ===== */
               { path: "dashboard", element: <CreatorDashboard /> },
 
-              { path: "lab/:id", element: <CreatorLabDetails /> },
+              // 🔥 NEW WORKSPACE
+              { path: "workspace", element: <CreatorWorkspace /> },
+              { path: "profile", element: <ProfilePage /> },
+              { path: "settings", element: <SettingsPage /> },
+
+              /* ===== GAMIFICATION (mirror learner) ===== */
+              { path: "gacha", element: <GachaPage /> },
+              { path: "marketplace", element: <MarketplacePage /> },
+              { path: "collection", element: <CollectionPage /> },
+
+              /* ===== LABS ===== */
               { path: "labs/new", element: <CreateLabPage /> },
-              { path: "labs/:id/steps", element: <CreateStepPage />},
+              { path: "lab/:id", element: <CreatorLabDetails /> },
               { path: "lab/:id/edit", element: <CreatorLabEditPage /> },
+              { path: "labs/:id/steps", element: <CreateStepPage /> },
               { path: "lab/:id/analytics", element: <LabAnalyticsPage /> },
 
+              /* ===== GROUPS ===== */
               { path: "groups/new", element: <CreateGroupPage /> },
               { path: "group/:id", element: <CreatorGroupPage /> },
 
-              { path: "/creator/starpaths/new", element: <CreateStarpathPage />},
-              { path: "/creator/starpath/:id", element: <CreatorStarpathPage />},
+              /* ===== STARPATHS ===== */
+              { path: "starpaths/new", element: <CreateStarpathPage /> },
+              { path: "starpath/:id", element: <CreatorStarpathPage /> },
+
+              /* ===== DEFAULT ===== */
+              { index: true, element: <Navigate to="dashboard" replace /> },
             ],
           },
 
+          // ================= ADMIN =================
           {
             path: "/admin",
             element: (

@@ -1,114 +1,260 @@
 // src/layouts/CreatorLayout.tsx
 
-
-/**
- * @file Layout wrapper for the Altair Creator Dashboard.
- *
- * @remarks
- * The `CreatorLayout` component defines the main structure and navigation bar
- * for users operating in “creator” mode within the Altair platform.
- * It provides access to creator-specific routes, a consistent header,
- * and quick actions for switching roles or logging out.
- *
- * The layout includes:
- * - Gradient header with branding
- * - Role switching between “creator” and “learner”
- * - Session management via {@link useAuth}
- * - Page routing through React Router’s {@link Outlet}
- *
- * @packageDocumentation
- */
 import { Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/useAuth";
-import { LogOut, User, ArrowLeft } from "lucide-react";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 
+import { motion, AnimatePresence } from "framer-motion";
 
+import {
+  User,
+  LogOut,
+  Sparkles,
+  ShoppingCart,
+  Star,
+  Settings,
+  Compass,
+} from "lucide-react";
 
-/**
- * Renders the Creator Dashboard layout, providing header navigation and
- * role management controls.
- *
- * @remarks
- * Features:
- * - Top header with gradient title and interactive buttons
- * - “Return to Student Mode” toggle back to learner routes
- * - Logout action that clears session data and redirects to `/`
- * - Embedded route rendering through React Router’s `<Outlet />`
- *
- * Used as the root layout for all `/creator/*` routes.
- *
- * @returns A React JSX element rendering the Creator Dashboard interface shell.
- *
- * @public
- */
+import type { LucideIcon } from "lucide-react";
 
-const KEYCLOAK_LOGOUT = "http://localhost:8080/realms/altair/protocol/openid-connect/logout";
+import titleLogo from "@/assets/titre.png";
+import orionBase from "@/assets/Orion-base.png";
+import backgroundimage from "@/assets/banniere.png";
 
+/* ================= TYPES ================= */
+type NavItem = {
+  label: string;
+  to: string;
+  Icon: LucideIcon;
+};
+
+type PillItemProps = NavItem & {
+  onNavigate: (to: string) => void;
+};
+
+/* ================= COMPONENT ================= */
+function PillItem({ label, to, Icon, onNavigate }: PillItemProps) {
+  return (
+    <button
+      onClick={() => onNavigate(to)}
+      className="flex flex-col items-center gap-1 text-white/55 hover:text-white/80 transition"
+    >
+      <div className="flex h-11 w-11 items-center justify-center rounded-full">
+        <Icon className="h-5 w-5" />
+      </div>
+
+      <span className="text-[10px] tracking-wide text-white/45">
+        {label}
+      </span>
+    </button>
+  );
+}
+
+/* ================= MAIN ================= */
 export default function CreatorLayout() {
   const navigate = useNavigate();
   const { logout } = useAuth();
 
-  /** Clears the session and navigates back to the login screen. */
+  const [showSwitchOverlay, setShowSwitchOverlay] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  /* ================= NAV ================= */
+  const leftNav: NavItem[] = [
+    { label: "Workspace", to: "/creator/workspace", Icon: Compass },
+    { label: "Settings", to: "/creator/settings", Icon: Settings },
+  ];
+
+  const rightNav: NavItem[] = [
+    { label: "Gacha", to: "/creator/gacha", Icon: Sparkles },
+    { label: "Market", to: "/creator/marketplace", Icon: ShoppingCart },
+    { label: "Collection", to: "/creator/collection", Icon: Star },
+  ];
+
+  /* ================= HANDLERS ================= */
   const handleLogout = () => logout();
 
-  /** Returns to the learner space; backend remains the RBAC source of truth. */
-  const handleReturnToStudent = () => {
-    navigate("/learner/dashboard", { replace: true });
+  const handleSwitchToLearner = () => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      navigate("/learner/dashboard");
+    }, 900);
   };
 
+  /* ================= UX ================= */
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isTransitioning) {
+        setShowSwitchOverlay(false);
+      }
+    };
+
+    if (showSwitchOverlay) {
+      document.body.style.overflow = "hidden";
+      window.addEventListener("keydown", onKeyDown);
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [showSwitchOverlay, isTransitioning]);
+
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-white flex flex-col">
-      {/* === HEADER BAR === */}
-      <header className="flex justify-between items-center px-8 py-4 border-b border-white/10 bg-[#111827]/60 backdrop-blur-sm sticky top-0 z-50">
-        <motion.h1
-          className="text-xl font-semibold tracking-wide"
-          style={{
-            background:
-              "linear-gradient(90deg, #7DD3FC, #C084FC, #F59E0B)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          Altaïr Creator Dashboard
-        </motion.h1>
+    <div
+      className="min-h-screen text-white font-sans"
+      style={{
+        backgroundImage: `url(${backgroundimage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      {/* ================= HEADER ================= */}
+      <header className="sticky top-0 z-50 bg-[#070B16]/70 backdrop-blur-xl border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-6 py-7">
+          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-8">
 
-        <div className="flex items-center gap-4">
-          {/* === RETURN TO STUDENT MODE === */}
-          <button
-            onClick={handleReturnToStudent}
-            className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm bg-gradient-to-r from-orange-400 to-purple-500 hover:opacity-90 transition shadow-[0_0_8px_rgba(255,140,0,0.3)]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Return to Student Mode
-          </button>
+            {/* TITLE */}
+            <button onClick={() => navigate("/creator/dashboard")}>
+              <img src={titleLogo} alt="Altaïr" className="h-9" />
+            </button>
 
-          {/* === PROFILE === */}
-          <button
-            onClick={() => navigate("/learner/profile")}
-            className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm bg-[#1A1F2E] hover:bg-[#23283a] transition"
-          >
-            <User className="h-4 w-4" />
-            Profile
-          </button>
+            {/* NAV */}
+            <div className="flex justify-center">
+              <nav className="w-full max-w-[720px] relative">
 
-          {/* === LOGOUT === */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm bg-[#1A1F2E] hover:bg-[#2b1a1a] transition"
-          >
-            <LogOut className="h-4 w-4 text-red-400" />
-            Logout
-          </button>
+                <div className="h-20 rounded-full bg-white/6 border border-white/12 backdrop-blur-xl flex items-center justify-between px-10 py-4">
+
+                  {/* LEFT */}
+                  <div className="flex items-center gap-6">
+                    <button
+                      onClick={() => navigate("/creator/profile")}
+                      className="h-10 w-10 rounded-full border border-white/12 bg-white/6 flex items-center justify-center"
+                    >
+                      <User className="h-5 w-5 text-white/80" />
+                    </button>
+
+                    {leftNav.map((item) => (
+                      <PillItem key={item.to} {...item} onNavigate={navigate} />
+                    ))}
+                  </div>
+
+                  {/* RIGHT */}
+                  <div className="flex items-center gap-6">
+                    {rightNav.map((item) => (
+                      <PillItem key={item.to} {...item} onNavigate={navigate} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* ORION (Dashboard) */}
+                <button
+                  onClick={() => navigate("/creator/dashboard")}
+                  className="absolute left-1/2 -translate-x-1/2 -top-4 flex flex-col items-center"
+                >
+                  <div className="h-20 w-20 rounded-full bg-white/8 flex items-center justify-center">
+                    <img src={orionBase} className="scale-[3]" />
+                  </div>
+
+                  <span className="mt-4 text-[10px] text-white/45">
+                    Dashboard
+                  </span>
+                </button>
+
+              </nav>
+            </div>
+
+            {/* RIGHT USER */}
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-white/80">
+                creator mode
+              </span>
+
+              {/* SWITCH */}
+              <button
+                onClick={() => setShowSwitchOverlay(true)}
+                className="h-10 w-10 rounded-full border border-white/12 bg-white/6 flex items-center justify-center"
+              >
+                <Sparkles className="h-4 w-4 text-white/80" />
+              </button>
+
+              {/* LOGOUT */}
+              <button
+                onClick={handleLogout}
+                className="h-10 w-10 rounded-full border border-white/12 bg-white/6 flex items-center justify-center"
+              >
+                <LogOut className="h-4 w-4 text-white/80" />
+              </button>
+            </div>
+
+          </div>
         </div>
       </header>
 
-      {/* === MAIN CONTENT === */}
-      <main className="flex-1 px-8 py-10">
+      {/* ================= MAIN ================= */}
+      <main className="px-12 py-14">
         <Outlet />
       </main>
+
+      {/* ================= OVERLAY ================= */}
+      <AnimatePresence>
+        {showSwitchOverlay && (
+          <motion.div
+            className="fixed inset-0 z-[999] flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => !isTransitioning && setShowSwitchOverlay(false)}
+          >
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-2xl" />
+
+            {isTransitioning && (
+              <motion.div
+                className="absolute h-[220px] w-[220px] rounded-full"
+                initial={{ scale: 0.4, opacity: 0 }}
+                animate={{ scale: 9, opacity: 1 }}
+                transition={{ duration: 0.9 }}
+                style={{
+                  background:
+                    "radial-gradient(circle, rgba(56,189,248,0.6), transparent)",
+                  filter: "blur(25px)",
+                }}
+              />
+            )}
+
+            <motion.div
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0F1A]/80 backdrop-blur-2xl p-8 text-center"
+            >
+              <h2 className="text-xl text-white mb-2">
+                Learner Mode
+              </h2>
+
+              <p className="text-sm text-white/60 mb-6">
+                Return to your learning journey.
+              </p>
+
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => setShowSwitchOverlay(false)}
+                  className="px-4 py-2 rounded-lg bg-white/5"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleSwitchToLearner}
+                  className="px-6 py-2 rounded-lg bg-gradient-to-r from-sky-500 to-indigo-500"
+                >
+                  Enter Learner
+                </button>
+              </div>
+            </motion.div>
+
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
