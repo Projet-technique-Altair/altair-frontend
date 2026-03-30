@@ -24,6 +24,7 @@ import {
 
 import titleLogo from "@/assets/titre.png";
 import orionBase from "@/assets/Orion-base.png";
+import backgroundimage from "@/assets/banniere.png";
 
 type NavItem = {
   label: string;
@@ -94,7 +95,7 @@ export default function LearnerLayout() {
     <div
       className="min-h-screen text-white font-sans"
       style={{
-        backgroundImage: "url(/src/assets/banniere.png)",
+        backgroundImage: `url(${backgroundimage})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
