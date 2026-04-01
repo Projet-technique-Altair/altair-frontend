@@ -15,7 +15,7 @@ import FutureSection from "./FutureSection";
 import GamificationTeaser from "./GamificationTeaser";
 import TeamSection from "./TeamSection";
 
-import bgImg from "@/assets/banniere.png";
+import bgImg from "@/assets/altair-bg-presentation.png";
 
 export default function Landing() {
   return (

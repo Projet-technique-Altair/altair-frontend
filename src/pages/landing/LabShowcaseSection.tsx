@@ -1,147 +1,154 @@
 /*
  * @file LabShowcaseSection
  *
- * Labs showcase — soft showcase (text + image side-by-side).
- * Unique vs Hero/Explorer:
- * - Split layout (left aligned, not centered)
- * - 2 stacked cards (Terminal / Web)
- * - Right-side "porthole" image (visual proof), no CTA / link
+ * FINAL PRO+ VERSION:
+ * - Improved visual density (no empty feeling)
+ * - Subtle progression line + nodes
+ * - Better hierarchy
  */
 
-import labView from "@/assets/lab-view.png";
-
 type LabCardProps = {
-  label: string;
+  index: string;
   title: string;
   description: string;
-  accent?: "sky" | "violet";
+  accent?: "sky" | "violet" | "orange";
 };
 
 export default function LabShowcaseSection() {
   return (
-    <section id="labs" className="relative overflow-hidden px-8 py-28">
-      {/* Labs BG filter: glass bands + subtle vertical fade (unique) */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        {/* Bands */}
-        <div className="absolute left-0 right-0 top-20 h-28 bg-white/6 backdrop-blur-[2px]" />
-        <div className="absolute left-0 right-0 top-60 h-44 bg-white/4 backdrop-blur-[2px]" />
-        <div className="absolute left-0 right-0 bottom-24 h-28 bg-white/5 backdrop-blur-[2px]" />
+    <section id="labs" className="relative isolate overflow-hidden px-8 py-32">
 
-        {/* Fade to keep readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#070B18]/35 via-transparent to-[#070B18]/70" />
-      </div>
+      {/* TOP TRANSITION */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#070B18] to-transparent" />
 
-      <div className="relative z-10 mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 md:grid-cols-2 md:gap-16">
-        {/* ===== Left: copy ===== */}
-        <div className="text-left">
+      {/* BOTTOM TRANSITION */}
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#070B18] to-transparent" />
+
+      {/* CENTRAL FOCUS */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(7,11,24,0.4)_0%,transparent_60%)]" />
+
+      <div className="relative z-10 mx-auto max-w-6xl">
+
+        {/* HEADER */}
+        <div className="text-center max-w-2xl mx-auto">
           <p className="text-xs uppercase tracking-[0.35em] text-slate-400/90">
-            Guided labs
+            Learning modes
           </p>
 
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white md:text-4xl">
-            Guided labs, in real conditions.
+          <h2 className="mt-4 text-3xl md:text-4xl font-semibold text-white">
+            Three ways to learn.
+            <br />
+            One way to progress.
           </h2>
 
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-300">
-            Altaïr lets you practice on concrete environments, with a clear
-            progression — without ready-made recipes.
+          <p className="mt-5 text-slate-300">
+            Start from scratch, train freely, or validate your skills.
           </p>
+        </div>
 
-          <div className="mt-10 grid gap-5">
+        {/* WRAPPER */}
+        <div className="
+          relative mt-24
+          bg-white/[0.04]
+          backdrop-blur-md
+          border border-white/10
+          rounded-[2rem]
+          px-6 py-16 md:px-12
+          shadow-[0_40px_120px_rgba(0,0,0,0.6)]
+        ">
+
+          {/* INNER GLOW */}
+          <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-gradient-to-b from-white/5 to-transparent" />
+
+          {/* 🔗 PROGRESSION LINE */}
+          <div className="pointer-events-none absolute left-0 right-0 top-[90px] hidden md:block">
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+          </div>
+
+          {/* CARDS */}
+          <div className="relative grid grid-cols-1 gap-14 md:grid-cols-3">
+
             <LabCard
+              index="01"
               accent="sky"
-              label="Available"
-              title="Terminal Lab — guided"
-              description="Diagnosis, commands, frequent mistakes. You move forward step by step, staying in control."
+              title="Guided Lab"
+              description="Validate your skills under pressure. No hints. No shortcuts."
             />
 
             <LabCard
+              index="02"
               accent="violet"
-              label="Available"
-              title="Web Lab — guided"
-              description="Explore an application, test properly, understand what’s happening — and validate your result."
+              title="Practice Lab"
+              description="Train freely. Use hints if needed. Experiment and iterate."
+              featured
             />
+
+            <LabCard
+              index="03"
+              accent="orange"
+              title="Course Lab"
+              description="Discover new concepts step by step and build strong foundations."
+            />
+
           </div>
 
-          <p className="mt-10 max-w-xl text-sm leading-relaxed text-slate-400/90">
-            The catalog grows progressively, without sacrificing the quality of
-            guidance.
-          </p>
         </div>
 
-        {/* ===== Right: image (porthole) ===== */}
-        <div className="relative">
-          {/* Frame / porthole */}
-          <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
-            {/* Subtle halo behind the image */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -inset-24 bg-gradient-to-br from-sky-400/10 via-violet-400/10 to-transparent"
-            />
+        {/* FOOT */}
+        <p className="mt-16 text-center text-sm text-slate-400/90 max-w-xl mx-auto">
+          The catalog evolves progressively — keeping depth and clarity at its core.
+        </p>
 
-            <img
-              src={labView}
-              alt="Preview of a lab in progress on Altaïr"
-              className="relative z-10 h-[320px] w-full object-contain bg-[#070B18]/35 md:h-[420px]"
-              loading="lazy"
-            />
-
-            {/* Subtle caption */}
-            <div className="relative z-10 border-t border-white/10 bg-[#070B18]/40 px-5 py-4">
-              <p className="text-xs text-slate-300/80">
-                Excerpt from a guided lab — clear progression, concrete goal.
-              </p>
-            </div>
-          </div>
-
-          {/* Very subtle decorative details (unique, not constellation) */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-8 -top-10 hidden h-40 w-40 rounded-full bg-violet-400/10 blur-3xl md:block"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-10 -bottom-10 hidden h-44 w-44 rounded-full bg-sky-400/10 blur-3xl md:block"
-          />
-        </div>
       </div>
     </section>
   );
 }
 
-function LabCard({ label, title, description, accent = "sky" }: LabCardProps) {
-  const ring = accent === "violet" ? "ring-violet-400/20" : "ring-sky-400/20";
+function LabCard({
+  index,
+  title,
+  description,
+  accent = "sky",
+  featured,
+}: LabCardProps & { featured?: boolean }) {
 
-  const badge =
-    accent === "violet"
-      ? "bg-violet-400/10 text-violet-200/90 border-violet-400/20"
-      : "bg-sky-400/10 text-sky-200/90 border-sky-400/20";
-
-  const dot = accent === "violet" ? "bg-violet-300" : "bg-sky-300";
-
-  const line =
-    accent === "violet"
-      ? "from-violet-400/35 via-violet-400/15 to-transparent"
-      : "from-sky-400/35 via-sky-400/15 to-transparent";
+  const accentStyles = {
+    sky: "bg-sky-300 shadow-[0_0_18px_rgba(56,189,248,0.4)]",
+    violet: "bg-violet-300 shadow-[0_0_24px_rgba(139,92,246,0.5)]",
+    orange: "bg-orange-300 shadow-[0_0_18px_rgba(251,146,60,0.4)]",
+  };
 
   return (
-    <div className={`rounded-2xl bg-white/5 p-6 ring-1 ${ring}`}>
-      <div className="flex items-center justify-between gap-4">
-        <div className="inline-flex items-center gap-3">
-          <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden />
-          <span className="text-sm font-semibold text-white">{title}</span>
-        </div>
+    <div
+      className={[
+        "relative mx-auto max-w-sm text-center transition-all duration-300",
+        featured ? "md:-translate-y-4 scale-[1.05]" : "opacity-90",
+      ].join(" ")}
+    >
+      {/* NODE */}
+      <div className="relative mx-auto mb-8 flex h-16 w-16 items-center justify-center">
 
-        <span
-          className={`shrink-0 rounded-full border px-3 py-1 text-[11px] uppercase tracking-widest ${badge}`}
-        >
-          {label}
-        </span>
+        {/* halo */}
+        {featured && (
+          <div className="absolute inset-0 rounded-full bg-violet-400/20 blur-xl" />
+        )}
+
+        {/* dot */}
+        <div className={`h-3 w-3 rounded-full ${accentStyles[accent]}`} />
       </div>
 
-      <div className={`mt-4 h-px w-full bg-gradient-to-r ${line}`} />
+      {/* INDEX */}
+      <div className="text-xs tracking-[0.25em] text-slate-400/90">
+        {index}
+      </div>
 
-      <p className="mt-4 text-sm leading-relaxed text-slate-300/90">
+      {/* TITLE */}
+      <h3 className="mt-2 text-lg font-semibold text-white">
+        {title}
+      </h3>
+
+      {/* DESC */}
+      <p className="mt-4 text-sm leading-relaxed text-slate-400">
         {description}
       </p>
     </div>

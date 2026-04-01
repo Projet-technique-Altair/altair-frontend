@@ -1,126 +1,144 @@
 /*
  * @file StarpathSection
  *
- * Starpaths — pedagogical differentiator (no technical description).
- * Unique style:
- * - Exhibit layout: big map preview (left) + legend column (right)
- * - Typography: mono labels + uppercase tracking header
- * - BG filter: observatory spotlight + vignette (no flat opacity veil)
+ * DISTINCT VERSION:
+ * - Horizontal flow (NOT cards)
+ * - Narrative progression
+ * - Strong differentiation vs Labs
  */
 
 import starpathView from "@/assets/starpath-view.png";
 
-type PrincipleProps = {
-  index: string;
-  title: string;
-  description: string;
-};
-
 export default function StarpathSection() {
   return (
-    <section id="starpaths" className="relative overflow-hidden px-8 py-28">
-      {/* BG filter: spotlight (focus on map) + gentle vignette */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0
-                   bg-[radial-gradient(70%_55%_at_60%_45%,rgba(56,189,248,0.14)_0%,rgba(7,11,24,0.00)_60%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0
-                   bg-[radial-gradient(ellipse_at_center,rgba(7,11,24,0.18)_0%,rgba(7,11,24,0.68)_62%,rgba(7,11,24,0.88)_100%)]"
-      />
+    <section id="starpaths" className="relative isolate overflow-hidden px-8 py-32">
+
+      {/* TRANSITIONS */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-[#070B18] to-transparent" />
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#070B18] to-transparent" />
 
       <div className="relative z-10 mx-auto max-w-6xl">
-        {/* Header (different vibe: mono label + uppercase tracking) */}
-        <div className="max-w-3xl">
+
+        {/* HEADER */}
+        <div className="text-center max-w-3xl mx-auto">
           <p className="font-mono text-[11px] uppercase tracking-[0.45em] text-slate-400/90">
             Starpaths
           </p>
 
-          <h2 className="mt-4 text-3xl font-semibold uppercase tracking-[0.06em] text-white md:text-4xl">
+          <h2 className="mt-4 text-3xl md:text-4xl font-semibold text-white">
             A progression designed for mastery.
           </h2>
 
-          <p className="mt-5 text-base leading-relaxed text-slate-300">
-            Not a simple collection of exercises: a path that clarifies
-            prerequisites, guides the method without spoiling, and strengthens
-            skills through reuse in different contexts.
+          <p className="mt-5 text-slate-300">
+            Not a collection — a structured path that builds real expertise.
           </p>
         </div>
 
-        {/* Exhibit layout: map + legend */}
-        <div className="mt-14 grid grid-cols-1 gap-10 md:grid-cols-[1.35fr_0.65fr] md:items-start">
-          {/* Left: map preview (dominant) */}
-          <div className="relative">
-            <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-              {/* subtle sheen */}
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-transparent"
-              />
+        {/* ===== FLOW LINE ===== */}
+        <div className="relative mt-24">
 
-              <img
-                src={starpathView}
-                alt="Starpath preview: learning path"
-                className="relative z-10 h-[360px] w-full object-contain bg-[#070B18]/35 md:h-[500px]"
-                loading="lazy"
-              />
+          {/* LINE */}
+          <div className="
+            pointer-events-none absolute left-0 right-0 top-6
+            h-px bg-gradient-to-r from-transparent via-white/15 to-transparent
+          " />
+
+          {/* NODES */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-16 items-start text-center">
+
+            {/* NODE 1 */}
+            <div>
+              <Node color="sky" />
+
+              <h3 className="mt-6 text-lg font-semibold text-white">
+                Explicit prerequisites
+              </h3>
+
+              <p className="mt-3 text-sm text-slate-400">
+                Each step builds a solid foundation before unlocking the next.
+              </p>
             </div>
 
-            {/* Small caption (editorial, not like Labs caption bar) */}
-            <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.35em] text-slate-400/80">
-              Path preview
-            </p>
+            {/* NODE 2 (IMAGE CORE) */}
+            <div className="relative">
+
+              <Node color="violet" active />
+
+              <div className="
+                mt-6
+                rounded-2xl
+                border border-white/10
+                bg-white/[0.04]
+                backdrop-blur-md
+                shadow-[0_40px_120px_rgba(0,0,0,0.7)]
+                overflow-hidden
+              ">
+                <img
+                  src={starpathView}
+                  alt="Starpath preview"
+                  className="h-[220px] w-full object-contain"
+                />
+              </div>
+
+              <p className="mt-4 text-sm text-slate-400">
+                A clear visual path — no guessing, no chaos.
+              </p>
+            </div>
+
+            {/* NODE 3 */}
+            <div>
+              <Node color="orange" />
+
+              <h3 className="mt-6 text-lg font-semibold text-white">
+                Transferable skills
+              </h3>
+
+              <p className="mt-3 text-sm text-slate-400">
+                You build reusable reflexes, not isolated knowledge.
+              </p>
+            </div>
+
           </div>
 
-          {/* Right: legend column (distinct from cards/callouts) */}
-          <aside className="rounded-2xl border border-white/10 bg-[#070B18]/30 p-6 backdrop-blur-[2px]">
-            <p className="font-mono text-[11px] uppercase tracking-[0.45em] text-slate-400/90">
-              Pedagogical legend
-            </p>
-
-            <div className="mt-6 space-y-6">
-              <Principle
-                index="01"
-                title="Explicit prerequisites"
-                description="Each step reinforces a precise foundation before opening the next one."
-              />
-              <Principle
-                index="02"
-                title="Guidance without spoilers"
-                description="Hints that steer your reasoning without giving the answer."
-              />
-              <Principle
-                index="03"
-                title="Transferable skills"
-                description="You train reusable reflexes, not an isolated exercise."
-              />
-            </div>
-
-            {/* A calm finishing line (soft showcase) */}
-            <p className="mt-8 text-sm leading-relaxed text-slate-300/80">
-              The goal: progress with confidence, without learning at random.
-            </p>
-          </aside>
         </div>
+
+        {/* FOOT */}
+        <p className="mt-20 text-center text-sm text-slate-400 max-w-xl mx-auto">
+          Progress with clarity and structure — never at random.
+        </p>
+
       </div>
     </section>
   );
 }
 
-function Principle({ index, title, description }: PrincipleProps) {
+function Node({
+  color,
+  active,
+}: {
+  color: "sky" | "violet" | "orange";
+  active?: boolean;
+}) {
+
+  const styles = {
+    sky: "bg-sky-300 shadow-[0_0_14px_rgba(56,189,248,0.4)]",
+    violet: "bg-violet-300 shadow-[0_0_20px_rgba(139,92,246,0.5)]",
+    orange: "bg-orange-300 shadow-[0_0_14px_rgba(251,146,60,0.4)]",
+  };
+
   return (
-    <div className="border-l border-white/10 pl-4">
-      <div className="flex items-baseline gap-3">
-        <span className="font-mono text-[11px] uppercase tracking-[0.35em] text-slate-400/90">
-          {index}
-        </span>
-        <h3 className="text-sm font-semibold text-white">{title}</h3>
+    <div className="flex justify-center">
+      <div className="
+        relative flex h-12 w-12 items-center justify-center
+      ">
+        {/* halo */}
+        {active && (
+          <div className="absolute inset-0 rounded-full bg-violet-400/20 blur-xl" />
+        )}
+
+        {/* dot */}
+        <div className={`h-3 w-3 rounded-full ${styles[color]}`} />
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-slate-300/85">
-        {description}
-      </p>
     </div>
   );
 }

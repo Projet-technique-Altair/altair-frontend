@@ -1,34 +1,31 @@
 /**
- * @file Creator Lab Card — interactive dashboard item representing a single lab.
- *
- * @remarks
- * This component is used inside the **Altair Creator Dashboard** to display
- * summarized information about each lab created by the user.
- *
- * Each card provides:
- * - Key metadata (title, creation date, rating, views, participants).
- * - Quick action buttons for toggling visibility or deleting the lab.
- * - Navigation to the detailed lab analytics or management page on click.
- *
- * The card integrates dynamic styling and hover effects consistent with
- * the Altair visual theme.
- *
- * @packageDocumentation
+ * @file Creator Lab Card — dashboard-aligned version (Altair Creator UI)
  */
 
 import { useNavigate } from "react-router-dom";
-import { Trash2, Eye, EyeOff } from "lucide-react";
-import type { CreatorLab } from "../CreatorDashboard";
+import { Eye, EyeOff, ChevronRight } from "lucide-react";
+import { motion } from "framer-motion";
 
+import DashboardCard from "@/components/ui/DashboardCard";
+
+/* =========================
+   TYPES (LOCAL — NO IMPORT)
+========================= */
+
+type CreatorLab = {
+  id: string;
+  title: string;
+  createdAt: string;
+
+  difficulty: "beginner" | "intermediate" | "advanced";
+  stepsCount: number;
+
+  visibility: "public" | "private";
+  duration?: string;
+};
 
 /**
- * Props for the {@link CreatorLabCard} component.
- *
- * @property lab - The lab metadata to display, including title, date, views, and rating.
- * @property onDelete - Handler triggered when the delete button is pressed.
- * @property onToggleVisibility - Handler triggered when the visibility (public/private) is toggled.
- *
- * @public
+ * Props
  */
 interface CreatorLabCardProps {
   lab: CreatorLab;
@@ -36,109 +33,123 @@ interface CreatorLabCardProps {
   onToggleVisibility: () => void;
 }
 
+/* =========================
+   COMPONENT
+========================= */
 
-/**
- * Displays an interactive lab card within the Creator Dashboard grid.
- *
- * @remarks
- * - Clicking the card navigates to `/creator/lab/:id`.
- * - The top-right buttons allow for quick management actions:
- *   - Toggle public/private state.
- *   - Delete the lab.
- * - Shows computed mock participants count for visual variety.
- *
- * The card’s visuals use gradient hover borders and smooth transitions,
- * following the Altair dashboard design guidelines.
- *
- * @param lab - The lab information to render.
- * @param onDelete - Deletes the selected lab.
- * @param onToggleVisibility - Toggles between public and private visibility.
- *
- * @returns React component representing a single lab entry in the dashboard.
- *
- * @public
- */
 export default function CreatorLabCard({
   lab,
   onDelete,
   onToggleVisibility,
 }: CreatorLabCardProps) {
   const navigate = useNavigate();
+  const isPublic = lab.visibility === "public";
+
   return (
-    <div
-      onClick={() => navigate(`/creator/lab/${lab.id}`)}
-      className="
-        group relative flex flex-col justify-between
-        rounded-2xl bg-[#111827]/70 border border-white/10 p-6
-        shadow-[0_0_15px_rgba(0,0,0,0.25)]
-        hover:border-purple-400/40 hover:shadow-[0_0_25px_rgba(168,85,247,0.35)]
-        transition-all duration-300 cursor-pointer h-[230px]
-      "
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
     >
-      {/* HEADER */}
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <h3 className="text-lg font-semibold text-white leading-tight group-hover:text-purple-400 transition">
-            {lab.title}
-          </h3>
-          <p className="text-xs text-gray-400 mt-1">
-            Created on {new Date(lab.createdAt).toLocaleDateString("en-GB")}
-          </p>
-        </div>
+      <DashboardCard
+        onClick={() => navigate(`/creator/lab/${lab.id}`)}
+        className="
+          group relative overflow-hidden p-5 cursor-pointer
+          hover:bg-white/[0.06] transition
+          border border-white/10
+        "
+      >
+        {/* GLOW */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-violet-400/8 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition" />
 
-        {/* ACTION BUTTONS (prevent click propagation) */}
-        <div
-          className="flex gap-2"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={onToggleVisibility}
-            className="p-2 rounded-lg bg-[#1A1F2E] hover:bg-[#23283a] transition"
-            title={
-              lab.visibility === "public"
-                ? "Make private"
-                : "Publish this lab"
-            }
+        {/* HEADER */}
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/35">
+              Lab
+            </p>
+
+            <h3 className="mt-1 text-sm font-medium text-white truncate group-hover:text-violet-300 transition">
+              {lab.title}
+            </h3>
+
+            <p className="mt-2 text-xs text-white/40">
+              {lab.createdAt
+                ? new Date(lab.createdAt).toLocaleDateString("en-GB")
+                : "—"}
+            </p>
+          </div>
+
+          {/* ACTION */}
+          <div
+            className="flex items-center gap-2 shrink-0"
+            onClick={(e) => e.stopPropagation()}
           >
-            {lab.visibility === "public" ? (
-              <Eye className="h-4 w-4 text-green-400" />
-            ) : (
-              <EyeOff className="h-4 w-4 text-gray-400" />
-            )}
-          </button>
-
-          
-        </div>
-      </div>
-
-      {/* BODY */}
-      <div className="flex-1 flex flex-col justify-center gap-2 text-sm text-gray-300">
-
-        <div className="flex gap-2">
-          <span className="text-gray-400">Difficulty:</span>
-          <span className="text-white capitalize">{lab.difficulty}</span>
-        </div>
-
-        <div className="flex gap-2">
-          <span className="text-gray-400">Steps:</span>
-          <span className="text-white">{lab.stepsCount}</span>
+            <button
+              onClick={onToggleVisibility}
+              className="
+                flex h-9 w-9 items-center justify-center
+                rounded-xl border border-white/10 bg-white/[0.04]
+                hover:bg-white/[0.08] transition
+              "
+              title={isPublic ? "Make private" : "Publish"}
+            >
+              {isPublic ? (
+                <Eye className="h-4 w-4 text-emerald-300" />
+              ) : (
+                <EyeOff className="h-4 w-4 text-white/40" />
+              )}
+            </button>
+          </div>
         </div>
 
-        <div className="flex gap-2">
-          <span className="text-gray-400">Visibility:</span>
-          <span className="text-white capitalize">{lab.visibility}</span>
+        {/* BODY */}
+        <div className="relative mt-5 space-y-2 text-xs text-white/55">
+          <InfoRow label="Difficulty" value={lab.difficulty} capitalize />
+          <InfoRow label="Steps" value={lab.stepsCount} />
+          <InfoRow label="Visibility" value={lab.visibility} capitalize />
+          <InfoRow
+            label="Duration"
+            value={
+              lab.duration && lab.duration.trim() !== ""
+                ? lab.duration
+                : "—"
+            }
+          />
         </div>
 
-        <div className="flex gap-2">
-          <span className="text-gray-400">Duration:</span>
-          <span className="text-white">{lab.duration || "—"}</span>
-        </div>
+        {/* FOOTER */}
+        <div className="relative mt-5 flex items-center justify-between">
+          <div className="text-[11px] text-white/30 truncate">
+            {lab.id}
+          </div>
 
-      </div>
-      {/* FOOTER */}
-      <div className="mt-3 text-xs text-gray-500">
-        ID: <span className="text-white/70">{lab.id}</span>
-      </div>
+          <ChevronRight className="h-4 w-4 text-white/25 group-hover:text-white/60 transition" />
+        </div>
+      </DashboardCard>
+    </motion.div>
+  );
+}
+
+/* =========================
+   SUB COMPONENT
+========================= */
+
+function InfoRow({
+  label,
+  value,
+  capitalize = false,
+}: {
+  label: string;
+  value: string | number | undefined;
+  capitalize?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-white/40">{label}</span>
+      <span className={`text-white ${capitalize ? "capitalize" : ""}`}>
+        {value ?? "—"}
+      </span>
     </div>
   );
 }
