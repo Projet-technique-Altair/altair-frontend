@@ -1,6 +1,4 @@
-/**
- * @file LearnerLayout
- */
+// src/layouts/LearnerLayout.tsx
 
 import { useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/useAuth";
@@ -37,9 +35,9 @@ type PillItemProps = NavItem & {
 /* ================= COMPONENT ================= */
 function PillItem({ label, to, Icon, onNavigate }: PillItemProps) {
   return (
-    <div
+    <button
       onClick={() => onNavigate(to)}
-      className="flex flex-col items-center gap-1 cursor-pointer text-white/55 hover:text-white/80 transition"
+      className="flex flex-col items-center gap-1 text-white/55 hover:text-white/80 transition"
     >
       <div className="flex h-11 w-11 items-center justify-center rounded-full">
         <Icon className="h-5 w-5" />
@@ -48,7 +46,7 @@ function PillItem({ label, to, Icon, onNavigate }: PillItemProps) {
       <span className="text-[10px] tracking-wide text-white/45">
         {label}
       </span>
-    </div>
+    </button>
   );
 }
 
@@ -77,9 +75,10 @@ export default function LearnerLayout() {
 
   const handleSwitchToCreator = () => {
     setIsTransitioning(true);
+
     setTimeout(() => {
       navigate("/creator/dashboard");
-    }, 900);
+    }, 850);
   };
 
   /* ================= UX ================= */
@@ -129,12 +128,12 @@ export default function LearnerLayout() {
 
                   {/* LEFT */}
                   <div className="flex items-center gap-6">
-                    <div
+                    <button
                       onClick={() => navigate("/learner/profile")}
-                      className="h-10 w-10 rounded-full border border-white/12 bg-white/6 flex items-center justify-center cursor-pointer"
+                      className="h-10 w-10 rounded-full border border-white/12 bg-white/6 flex items-center justify-center"
                     >
                       <User className="h-5 w-5 text-white/80" />
-                    </div>
+                    </button>
 
                     {leftNav.map((item) => (
                       <PillItem key={item.to} {...item} onNavigate={navigate} />
@@ -150,19 +149,18 @@ export default function LearnerLayout() {
                 </div>
 
                 {/* ORION */}
-                <div
+                <button
                   onClick={() => navigate("/learner/dashboard")}
-                  className="absolute left-1/2 -translate-x-1/2 -top-4 flex flex-col items-center cursor-pointer"
+                  className="absolute left-1/2 -translate-x-1/2 -top-4 flex flex-col items-center"
                 >
                   <div className="h-20 w-20 rounded-full bg-white/8 flex items-center justify-center">
                     <img src={orionBase} className="scale-[3]" />
                   </div>
 
-                  {/* 🔥 TEXT ABAISSÉ */}
                   <span className="mt-4 text-[10px] text-white/45">
                     Dashboard
                   </span>
-                </div>
+                </button>
 
               </nav>
             </div>
@@ -170,7 +168,7 @@ export default function LearnerLayout() {
             {/* RIGHT USER */}
             <div className="flex items-center gap-4">
               <span className="text-sm text-white/80">
-                guest • student
+                learner mode
               </span>
 
               {/* SWITCH */}
@@ -194,10 +192,17 @@ export default function LearnerLayout() {
         </div>
       </header>
 
-      {/* ================= MAIN ================= */}
-      <main className="px-12 py-14">
+      {/* ================= MAIN (FIX ICI) ================= */}
+      <motion.main
+        className="px-12 py-14"
+        animate={{
+          opacity: isTransitioning ? 0 : 1,
+          filter: isTransitioning ? "blur(8px)" : "blur(0px)",
+        }}
+        transition={{ duration: 0.4 }}
+      >
         <Outlet />
-      </main>
+      </motion.main>
 
       {/* ================= OVERLAY ================= */}
       <AnimatePresence>
@@ -209,42 +214,34 @@ export default function LearnerLayout() {
             exit={{ opacity: 0 }}
             onClick={() => !isTransitioning && setShowCreatorOverlay(false)}
           >
-            {/* BACKDROP */}
             <div className="absolute inset-0 bg-black/80 backdrop-blur-2xl" />
 
-            {/* PORTAL */}
+            {/* GLOW */}
             {isTransitioning && (
               <motion.div
-                className="absolute h-[220px] w-[220px] rounded-full"
-                initial={{ scale: 0.4, opacity: 0 }}
-                animate={{ scale: 9, opacity: 1 }}
-                transition={{ duration: 0.9 }}
+                className="absolute h-[240px] w-[240px] rounded-full"
+                initial={{ scale: 0.3, opacity: 0 }}
+                animate={{ scale: 10, opacity: 1 }}
+                transition={{ duration: 0.9, ease: "easeOut" }}
                 style={{
                   background:
-                    "radial-gradient(circle, rgba(139,92,246,0.6), transparent)",
-                  filter: "blur(25px)",
+                    "radial-gradient(circle, rgba(139,92,246,0.7), transparent)",
+                  filter: "blur(40px)",
                 }}
               />
             )}
 
-            {/* CARD */}
+            {/* MODAL */}
             <motion.div
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0F1A]/80 backdrop-blur-2xl p-8 text-center overflow-hidden"
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{
+                scale: isTransitioning ? 0.9 : 1,
                 opacity: isTransitioning ? 0 : 1,
               }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0F1A]/80 backdrop-blur-2xl p-8 text-center"
             >
-              {/* GLOW */}
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-sky-400/10 blur-2xl" />
-
-              {/* ICON */}
-              <div className="flex justify-center mb-6">
-                <div className="h-16 w-16 rounded-full border border-white/10 bg-white/5 flex items-center justify-center">
-                  <Sparkles className="h-6 w-6 text-white/90" />
-                </div>
-              </div>
-
               <h2 className="text-xl text-white mb-2">
                 Creator Mode
               </h2>
@@ -256,7 +253,7 @@ export default function LearnerLayout() {
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => setShowCreatorOverlay(false)}
-                  className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10"
+                  className="px-4 py-2 rounded-lg bg-white/5"
                 >
                   Cancel
                 </button>

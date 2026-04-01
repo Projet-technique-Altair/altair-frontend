@@ -76,9 +76,10 @@ export default function CreatorLayout() {
 
   const handleSwitchToLearner = () => {
     setIsTransitioning(true);
+
     setTimeout(() => {
       navigate("/learner/dashboard");
-    }, 900);
+    }, 850);
   };
 
   /* ================= UX ================= */
@@ -148,7 +149,7 @@ export default function CreatorLayout() {
                   </div>
                 </div>
 
-                {/* ORION (Dashboard) */}
+                {/* ORION */}
                 <button
                   onClick={() => navigate("/creator/dashboard")}
                   className="absolute left-1/2 -translate-x-1/2 -top-4 flex flex-col items-center"
@@ -192,10 +193,17 @@ export default function CreatorLayout() {
         </div>
       </header>
 
-      {/* ================= MAIN ================= */}
-      <main className="px-12 py-14">
+      {/* ================= MAIN (FIX ICI) ================= */}
+      <motion.main
+        className="px-12 py-14"
+        animate={{
+          opacity: isTransitioning ? 0 : 1,
+          filter: isTransitioning ? "blur(8px)" : "blur(0px)",
+        }}
+        transition={{ duration: 0.4 }}
+      >
         <Outlet />
-      </main>
+      </motion.main>
 
       {/* ================= OVERLAY ================= */}
       <AnimatePresence>
@@ -209,22 +217,30 @@ export default function CreatorLayout() {
           >
             <div className="absolute inset-0 bg-black/80 backdrop-blur-2xl" />
 
+            {/* GLOW */}
             {isTransitioning && (
               <motion.div
-                className="absolute h-[220px] w-[220px] rounded-full"
-                initial={{ scale: 0.4, opacity: 0 }}
-                animate={{ scale: 9, opacity: 1 }}
-                transition={{ duration: 0.9 }}
+                className="absolute h-[240px] w-[240px] rounded-full"
+                initial={{ scale: 0.3, opacity: 0 }}
+                animate={{ scale: 10, opacity: 1 }}
+                transition={{ duration: 0.9, ease: "easeOut" }}
                 style={{
                   background:
-                    "radial-gradient(circle, rgba(56,189,248,0.6), transparent)",
-                  filter: "blur(25px)",
+                    "radial-gradient(circle, rgba(56,189,248,0.7), transparent)",
+                  filter: "blur(40px)",
                 }}
               />
             )}
 
+            {/* MODAL */}
             <motion.div
               onClick={(e) => e.stopPropagation()}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{
+                scale: isTransitioning ? 0.9 : 1,
+                opacity: isTransitioning ? 0 : 1,
+              }}
+              exit={{ scale: 0.95, opacity: 0 }}
               className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0F1A]/80 backdrop-blur-2xl p-8 text-center"
             >
               <h2 className="text-xl text-white mb-2">

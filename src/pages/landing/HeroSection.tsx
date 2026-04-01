@@ -1,3 +1,5 @@
+// src/components/HeroSection.tsx
+
 /*
  * @file HeroSection
  *
@@ -14,7 +16,7 @@ export default function HeroSection() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
 
-      {/* 🌌 RADIAL FOCUS (amélioré) */}
+      {/* 🌌 RADIAL FOCUS */}
       <div
         className="pointer-events-none absolute inset-0 
         bg-[radial-gradient(circle_at_center,rgba(0,0,0,0)_0%,rgba(7,11,24,0.85)_70%)]"
@@ -55,28 +57,37 @@ export default function HeroSection() {
           </span>
         </h1>
 
-        {/* SUBTEXT (simplifié) */}
+        {/* SUBTEXT */}
         <p className="mx-auto mt-6 max-w-xl text-lg text-slate-300">
           Train on real scenarios. Progress step by step. Build skills that matter.
         </p>
 
-        {/* CTA + HALO */}
+        {/* CTA (FIXED) */}
         <div className="relative mt-12 inline-block">
-          {/* glow subtil */}
-          <div className="absolute inset-0 blur-xl bg-violet-500/20 rounded-full" />
+
+          {/* halo subtil (neutral) */}
+          <div className="absolute inset-0 blur-2xl bg-white/5 rounded-full" />
 
           <button
             onClick={loginSSO}
             className="
               relative
-              rounded-full px-14 py-4 text-lg font-semibold text-white
-              bg-gradient-to-r from-[#2AA7FF] via-[#7A2CF3] to-[#FF8C4A]
+              rounded-full px-14 py-4 text-lg font-semibold
 
-              shadow-[0_0_40px_rgba(122,44,243,0.6)]
-              hover:shadow-[0_0_70px_rgba(122,44,243,0.9)]
+              text-white
+
+              bg-white/[0.06]
+              border border-white/15
+              backdrop-blur-xl
+
+              shadow-[0_0_25px_rgba(255,255,255,0.05)]
+              hover:shadow-[0_0_40px_rgba(255,255,255,0.12)]
+
+              hover:bg-white/[0.10]
+              hover:border-white/25
 
               transition-all duration-300
-              hover:scale-[1.05]
+              hover:scale-[1.04]
               active:scale-[0.97]
             "
           >
@@ -84,7 +95,7 @@ export default function HeroSection() {
           </button>
         </div>
 
-        {/* TRUST LINE (plus discrète) */}
+        {/* TRUST */}
         <p className="mt-4 text-xs text-slate-500">
           Secure authentication via SSO · No passwords stored
         </p>
@@ -113,10 +124,11 @@ export default function HeroSection() {
         </div>
 
       </div>
-      {/* TRANSITION FADE VERS LA SECTION SUIVANTE */}
-<div className="pointer-events-none absolute bottom-0 left-0 w-full h-40 
-  bg-gradient-to-b from-transparent to-[#070B18]" 
-/>
+
+      {/* FADE */}
+      <div className="pointer-events-none absolute bottom-0 left-0 w-full h-40 
+        bg-gradient-to-b from-transparent to-[#070B18]" 
+      />
     </section>
   );
 }
