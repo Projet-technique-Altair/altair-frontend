@@ -100,3 +100,5 @@ __pycache__/
 tmp/
 sandbox/
 local/
+
+tsconfig.tsbuildinfo

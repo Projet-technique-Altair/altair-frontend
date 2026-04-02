@@ -4,28 +4,24 @@ import {
   Layers,
   Orbit,
   Users,
-  Archive,
   Search,
   X,
   Activity,
 } from "lucide-react";
 
-import { getLabs } from "@/api/labs";
-import type { Lab } from "@/contracts/labs";
-
 import { getGroups } from "@/api/groups";
 import { getStarpaths } from "@/api/starpaths";
 import type { Starpath } from "@/contracts/starpaths";
 import type { Group } from "@/contracts/groups";
+import { getLearnerDashboardLabs, type LearnerDashboardLab } from "@/api/sessions";
 
-import PublicLabsSection from "./sections/PublicLabsSection";
-import CompletedSection from "./sections/CompletedSection";
 import ProgressSection from "./sections/ProgressSection";
 import PrivateGroupsSection from "./sections/PrivateGroupsSection";
 import ChartsSection from "./sections/ChartsSection";
 import type { StarpathLike } from "./sections/ProgressSection";
+import LearnerStatusSection from "./sections/LearnerStatusSection";
 
-type FocusKey = "insight" | "labs" | "starpaths" | "groups" | "archive";
+type FocusKey = "insight" | "labs" | "starpaths" | "groups";
 
 type UILab = {
   id: string;
@@ -35,7 +31,8 @@ type UILab = {
   visibility: string;
   completed: boolean;
   progress: number;
-  raw: Lab;
+  status: "TODO" | "IN_PROGRESS" | "FINISHED";
+  lastActivityAt: string;
 };
 
 type DashboardGroup = {
@@ -54,16 +51,18 @@ type RailButtonProps = {
   onClick: () => void;
 };
 
-function normalizeLab(raw: Lab): UILab {
+// The dashboard now consumes the learner-specific projection returned by sessions-ms.
+function normalizeLab(raw: LearnerDashboardLab): UILab {
   return {
     id: raw.lab_id,
     name: raw.name ?? "Untitled lab",
     description: raw.description ?? "",
     difficulty: raw.difficulty ?? "unknown",
     visibility: raw.visibility ?? "public",
-    completed: false,
-    progress: 0,
-    raw,
+    completed: raw.status === "FINISHED",
+    progress: Number(raw.progress ?? 0),
+    status: raw.status,
+    lastActivityAt: raw.last_activity_at,
   };
 }
 
@@ -108,12 +107,12 @@ export default function LearnerDashboard() {
 
     async function load() {
       try {
-
-        const labsData = await getLabs();
+        // The dashboard intentionally reads learner-linked labs only.
+        const labsData = await getLearnerDashboardLabs();
         const starpathsData = await getStarpaths();
         const groupsData = await getGroups();
 
-        const normalizedLabs = (labsData as Lab[]).map(normalizeLab);
+        const normalizedLabs = (labsData as LearnerDashboardLab[]).map(normalizeLab);
 
         if (!cancelled) {
           setLabs(normalizedLabs);
@@ -152,15 +151,16 @@ export default function LearnerDashboard() {
     l.name.toLowerCase().includes(query.toLowerCase())
   );
 
-  const activeLabs = filteredLabs.filter((l) => !l.completed);
-  const completedLabs = filteredLabs.filter((l) => l.completed);
+  // Keep the same card language as before, but split the board into learner status sections.
+  const inProgressLabs = filteredLabs.filter((l) => l.status === "IN_PROGRESS");
+  const todoLabs = filteredLabs.filter((l) => l.status === "TODO");
+  const finishedLabs = filteredLabs.filter((l) => l.status === "FINISHED");
 
   const counts = {
     insight: 1,
-    labs: activeLabs.length,
+    labs: filteredLabs.length,
     starpaths: starpaths.length,
     groups: groups.length,
-    archive: completedLabs.length,
   };
 
   /* =================================
@@ -210,12 +210,37 @@ export default function LearnerDashboard() {
 
               </div>
 
-              <PublicLabsSection
-                labs={activeLabs}
-                onLabClick={(lab) =>
-                  navigate(`/learner/labs/${lab.id}`)
-                }
-              />
+              <div className="space-y-6">
+                <LearnerStatusSection
+                  eyebrow="Learner Board"
+                  title="Transmission: In Progress"
+                  subtitle="Labs you already started and can continue."
+                  emptyTitle="No active lab in progress"
+                  emptySubtitle="Start a followed lab or launch one from the explorer."
+                  labs={inProgressLabs}
+                  onLabClick={(lab) => navigate(`/learner/labs/${lab.id}`)}
+                />
+
+                <LearnerStatusSection
+                  eyebrow="Learner Board"
+                  title="Queue: To Do"
+                  subtitle="Labs you followed and kept for later."
+                  emptyTitle="No lab in TO DO"
+                  emptySubtitle="Use the explorer follow toggle to add labs here."
+                  labs={todoLabs}
+                  onLabClick={(lab) => navigate(`/learner/labs/${lab.id}`)}
+                />
+
+                <LearnerStatusSection
+                  eyebrow="Learner Board"
+                  title="Archive: Finished"
+                  subtitle="Completed labs remain visible as part of your history."
+                  emptyTitle="No finished lab yet"
+                  emptySubtitle="Finish a lab to move it into your completed history."
+                  labs={finishedLabs}
+                  onLabClick={(lab) => navigate(`/learner/labs/${lab.id}`)}
+                />
+              </div>
             </>
           )}
 
@@ -225,10 +250,6 @@ export default function LearnerDashboard() {
 
           {focus === "groups" && (
             <PrivateGroupsSection groups={groups} />
-          )}
-
-          {focus === "archive" && (
-            <CompletedSection labs={completedLabs} />
           )}
 
         </div>
@@ -273,15 +294,6 @@ export default function LearnerDashboard() {
             icon={<Users size={18}/>}
             count={counts.groups}
             onClick={()=>setFocus("groups")}
-          />
-
-          <RailButton
-            active={focus==="archive"}
-            title="Archive"
-            description="Completed labs"
-            icon={<Archive size={18}/>}
-            count={counts.archive}
-            onClick={()=>setFocus("archive")}
           />
 
         </div>
