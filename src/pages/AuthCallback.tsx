@@ -148,7 +148,7 @@ export default function AuthCallback() {
         sessionStorage.removeItem(STATE_KEY);
 
         // Hydrate frontend auth state
-        completeLogin(data.access_token, data.id_token);
+        completeLogin(data.access_token, data.id_token, data.refresh_token);
 
         // 🔁 Neutral redirect – no RBAC decision here
         navigate("/app", { replace: true });

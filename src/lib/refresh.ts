@@ -1,8 +1,10 @@
-const REFRESH_KEY = "refresh_token";
+const TOKEN_KEY = "altair_token";
+const REFRESH_KEY = "altair_refresh_token";
 
 type RefreshTokenResponse = {
   access_token: string;
   refresh_token?: string;
+  id_token?: string;
 };
 
 function isRefreshTokenResponse(value: unknown): value is RefreshTokenResponse {
@@ -59,6 +61,12 @@ export async function refreshAccessToken(): Promise<string | null> {
 
   if (typeof data.refresh_token === "string") {
     sessionStorage.setItem(REFRESH_KEY, data.refresh_token);
+  }
+
+  sessionStorage.setItem(TOKEN_KEY, data.access_token);
+
+  if (typeof data.id_token === "string") {
+    sessionStorage.setItem("altair_id_token", data.id_token);
   }
 
   return data.access_token;

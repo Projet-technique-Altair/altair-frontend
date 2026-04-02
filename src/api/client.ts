@@ -1,3 +1,5 @@
+import { refreshAccessToken } from "@/lib/refresh";
+
 export class ApiError extends Error {
   status: number
   code?: string
@@ -15,9 +17,9 @@ export async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = sessionStorage.getItem("altair_token")
+  let token = sessionStorage.getItem("altair_token")
 
-  const res = await fetch(`${GATEWAY_URL}${path}`, {
+  let res = await fetch(`${GATEWAY_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -25,6 +27,21 @@ export async function request<T>(
       ...options.headers,
     },
   })
+
+  if (res.status === 401) {
+    token = await refreshAccessToken()
+
+    if (token) {
+      res = await fetch(`${GATEWAY_URL}${path}`, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          ...options.headers,
+        },
+      })
+    }
+  }
 
   const body = await res.json()
 

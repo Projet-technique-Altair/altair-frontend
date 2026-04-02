@@ -1,8 +1,16 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useMemo, useState, useEffect } from "react";
-import { ArrowLeft, Play, Timer, Signal } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Play, Rocket, Signal, Timer } from "lucide-react";
 
+import { ApiError } from "@/api/client";
 import { getLab } from "@/api/labs";
+import {
+  followLab,
+  getLearnerDashboardLabs,
+  type LearnerDashboardLab,
+  type LearnerLabStatus,
+  unfollowLab,
+} from "@/api/sessions";
 import type { Lab } from "@/contracts/labs";
 import { ALT_COLORS } from "@/lib/theme";
 
@@ -95,6 +103,10 @@ export default function LabView() {
   const [lab, setLab] = useState<LabViewModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [learnerStatus, setLearnerStatus] = useState<LearnerLabStatus | null>(null);
+  const [followPending, setFollowPending] = useState(false);
+  const [followError, setFollowError] = useState<string | null>(null);
+  const [followAvailable, setFollowAvailable] = useState(true);
 
   useEffect(() => {
     if (!id) return;
@@ -102,6 +114,8 @@ export default function LabView() {
     // ✅ MOCK MODE: skip backend
     if (mockUI) {
       setLab(mockLabFromId(id));
+      setLearnerStatus(null);
+      setFollowAvailable(false);
       setLoading(false);
       setError(null);
       return;
@@ -110,10 +124,32 @@ export default function LabView() {
     // normal mode (backend)
     setLoading(true);
     setError(null);
+    setFollowError(null);
+    setFollowAvailable(true);
 
-    getLab(id)
-      .then((data) => {
-        setLab(mapLabToViewModel(data));
+    // The lab detail must stay readable even when learner-only endpoints are unavailable for the
+    // current account, so the learner status request is intentionally non-blocking.
+    Promise.allSettled([getLab(id), getLearnerDashboardLabs()])
+      .then(([labResult, learnerLabsResult]) => {
+        if (labResult.status === "rejected") {
+          throw labResult.reason;
+        }
+
+        setLab(mapLabToViewModel(labResult.value));
+
+        if (learnerLabsResult.status === "fulfilled") {
+          const matched = (learnerLabsResult.value as LearnerDashboardLab[]).find(
+            (entry) => entry.lab_id === id
+          );
+          setLearnerStatus(matched?.status ?? null);
+        } else {
+          // A 403 here usually means the account is not a learner. The lab page should still render.
+          if (learnerLabsResult.reason instanceof ApiError && learnerLabsResult.reason.status === 403) {
+            setFollowAvailable(false);
+          }
+          setLearnerStatus(null);
+        }
+
         setLoading(false);
       })
       .catch(() => {
@@ -121,6 +157,59 @@ export default function LabView() {
         setLoading(false);
       });
   }, [id, mockUI]);
+
+  async function handleToggleFollow() {
+    if (!lab || followPending) return;
+    // Once a lab is started or finished, follow is no longer the right control surface.
+    if (learnerStatus === "IN_PROGRESS" || learnerStatus === "FINISHED") return;
+
+    setFollowPending(true);
+    setFollowError(null);
+
+    try {
+      if (learnerStatus === "TODO") {
+        await unfollowLab(lab.id);
+        setLearnerStatus(null);
+      } else {
+        await followLab(lab.id);
+        setLearnerStatus("TODO");
+      }
+    } catch (err) {
+      console.error(err);
+      if (err instanceof ApiError && err.status === 403) {
+        // If the backend rejects the action as non-learner, remove the CTA instead of leaving a
+        // broken button on screen.
+        setFollowAvailable(false);
+        setFollowError("Follow is only available for learner accounts");
+      } else {
+        setFollowError("Failed to update followed lab state");
+      }
+    } finally {
+      setFollowPending(false);
+    }
+  }
+
+  function renderLearnerMarker(status: LearnerLabStatus | null) {
+    if (status === "IN_PROGRESS") {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 text-sky-300 border border-sky-400/25 px-2 py-1 text-[10px] font-semibold">
+          <Rocket className="h-3.5 w-3.5" />
+          IN PROGRESS
+        </span>
+      );
+    }
+
+    if (status === "FINISHED") {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 text-green-300 border border-green-400/25 px-2 py-1 text-[10px] font-semibold">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          FINISHED
+        </span>
+      );
+    }
+
+    return null;
+  }
 
   // ===== UI Helpers
   const headerGradient = useMemo(
@@ -194,6 +283,7 @@ export default function LabView() {
 
                   <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-white/70">
                     <DifficultyPill difficulty={lab.difficulty} />
+                    {renderLearnerMarker(learnerStatus)}
 
                     <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px]">
                       <Timer className="h-3.5 w-3.5 text-white/55" />
@@ -211,6 +301,22 @@ export default function LabView() {
 
                 {/* action cluster */}
                 <div className="flex items-center gap-3 shrink-0">
+                  {/* The detail page follows the same follow rules as the explorer. */}
+                  {followAvailable && (learnerStatus === null || learnerStatus === "TODO") && (
+                    <button
+                      onClick={() => void handleToggleFollow()}
+                      disabled={followPending}
+                      className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold border transition ${
+                        learnerStatus === "TODO"
+                          ? "border-orange-300/25 bg-orange-500/15 text-orange-100 hover:bg-orange-500/20"
+                          : "border-white/10 bg-black/20 text-white/80 hover:bg-white/5 hover:border-white/15"
+                      } ${followPending ? "opacity-60 cursor-not-allowed" : ""}`}
+                      type="button"
+                    >
+                      {followPending ? "..." : learnerStatus === "TODO" ? "Following" : "Follow"}
+                    </button>
+                  )}
+
                   <button
                     onClick={() => navigate(`/learner/labs/${lab.id}/session`)}
                     className="inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white
@@ -232,6 +338,12 @@ export default function LabView() {
                   </button>
                 </div>
               </div>
+
+              {followError && (
+                <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {followError}
+                </div>
+              )}
 
               {/* short description preview */}
               <div className="mt-7 rounded-2xl border border-white/10 bg-black/20 p-6">
