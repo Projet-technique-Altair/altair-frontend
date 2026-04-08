@@ -3,6 +3,7 @@
 import { useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/context/useAuth";
 import { useState, useEffect } from "react";
+import { request } from "@/api/client";
 
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -73,12 +74,22 @@ export default function LearnerLayout() {
   /* ================= HANDLERS ================= */
   const handleLogout = () => logout();
 
-  const handleSwitchToCreator = () => {
-    setIsTransitioning(true);
+  const handleSwitchToCreator = async () => {
+    try {
+      setIsTransitioning(true);
 
-    setTimeout(() => {
-      navigate("/creator/dashboard");
-    }, 850);
+      // 🔥 call backend
+      await request("/users/me/toggle-role", {
+        method: "POST",
+      });
+
+      // 🔥 reset auth (obligatoire)
+      logout();
+
+    } catch (e) {
+      console.error("Toggle role failed", e);
+      setIsTransitioning(false);
+    }
   };
 
   /* ================= UX ================= */
