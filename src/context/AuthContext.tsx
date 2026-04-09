@@ -104,9 +104,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Also stores the id token if provided — it is required later
    * by logout() to perform a valid Keycloak SSO logout (id_token_hint).
    */
-  const completeLogin = useCallback((accessToken: string, idToken?: string) => {
+  const completeLogin = useCallback(
+    (accessToken: string, idToken?: string, refreshTokenValue?: string) => {
     sessionStorage.setItem(TOKEN_KEY, accessToken);
     if (idToken) sessionStorage.setItem(ID_TOKEN_KEY, idToken);
+    if (refreshTokenValue) sessionStorage.setItem(REFRESH_KEY, refreshTokenValue);
     setToken(accessToken);
   }, []);
 
@@ -184,7 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (typeof data.refresh_token === "string")
         sessionStorage.setItem(REFRESH_KEY, data.refresh_token);
 
-      completeLogin(data.access_token, data.id_token); // Forward id_token to keep it up to date
+      completeLogin(data.access_token, data.id_token, data.refresh_token); // Keep tokens in sync
       return data.access_token;
     } catch {
       logout();

@@ -14,13 +14,11 @@ import {
 
 import { motion, AnimatePresence } from "framer-motion";
 
-import { getLabs } from "@/api/labs";
-import type { Lab } from "@/contracts/labs";
-
 import { getGroups } from "@/api/groups";
 import { getStarpaths } from "@/api/starpaths";
 import type { Starpath } from "@/contracts/starpaths";
 import type { Group } from "@/contracts/groups";
+import { getLearnerDashboardLabs, type LearnerDashboardLab } from "@/api/sessions";
 
 import PublicLabsSection from "./sections/PublicLabsSection";
 import CompletedSection from "./sections/CompletedSection";
@@ -57,7 +55,8 @@ type UILab = {
   visibility: string;
   completed: boolean;
   progress: number;
-  raw: Lab;
+  status: "TODO" | "IN_PROGRESS" | "FINISHED";
+  lastActivityAt: string;
 };
 
 type DashboardGroup = {
@@ -78,16 +77,17 @@ type RailButtonProps = {
 
 /* ================= NORMALIZE ================= */
 
-function normalizeLab(raw: Lab): UILab {
+function normalizeLab(raw: LearnerDashboardLab): UILab {
   return {
     id: raw.lab_id,
     name: raw.name ?? "Untitled lab",
     description: raw.description ?? "",
     difficulty: raw.difficulty ?? "unknown",
     visibility: raw.visibility ?? "public",
-    completed: false,
-    progress: 0,
-    raw,
+    completed: raw.status === "FINISHED",
+    progress: Number(raw.progress ?? 0),
+    status: raw.status,
+    lastActivityAt: raw.last_activity_at,
   };
 }
 
@@ -128,14 +128,14 @@ export default function LearnerDashboard() {
     async function load() {
       try {
         const [labsData, starpathsData, groupsData] = await Promise.all([
-          getLabs(),
+          getLearnerDashboardLabs(),
           getStarpaths(),
           getGroups(),
         ]);
 
         if (cancelled) return;
 
-        setLabs((labsData as Lab[]).map(normalizeLab));
+        setLabs((labsData as LearnerDashboardLab[]).map(normalizeLab));
         setStarpaths((starpathsData as Starpath[]).map(normalizeStarpath));
         setGroups((groupsData as Group[]).map(normalizeGroup));
 
@@ -241,7 +241,10 @@ export default function LearnerDashboard() {
                   groups={groups}
                   setGroups={setGroups}
                   labs={labs.map((lab) => ({ id: lab.id, name: lab.name }))}
-                  starpaths={starpaths.map((s) => ({ id: s.id, name: s.name }))}
+                  starpaths={starpaths.map((starpath) => ({
+                    id: starpath.id,
+                    name: starpath.name,
+                  }))}
                 />
               </motion.div>
             )}

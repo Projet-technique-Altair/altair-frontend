@@ -21,7 +21,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardCard from "@/components/ui/DashboardCard";
 import { ALT_COLORS } from "@/lib/theme";
-import CreatorActivationModal from "@/components/user/CreatorActivationModal";
+import { request } from "@/api/client";
+import { useAuth } from "@/context/useAuth";
+import { useEffect } from "react";
 
 
 /**
@@ -44,23 +46,57 @@ import CreatorActivationModal from "@/components/user/CreatorActivationModal";
  */
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const [showModal, setShowModal] = useState(false);
   const [username, setUsername] = useState("guest");
   const [language, setLanguage] = useState("en");
-  const [creatorModeRequested, setCreatorModeRequested] = useState(false);
 
-  const handleSave = () => {
-    console.log("Settings updated:", { username, language });
+  const { logout } = useAuth();
+
+  const [email, setEmail] = useState("");
+
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const user = await request<{
+          pseudo: string;
+          email: string;
+        }>("/users/me");
+
+        setUsername(user.pseudo || "");
+        setEmail(user.email || "");
+
+      } catch (e) {
+        console.error("Failed to load user", e);
+      }
+    };
+
+    loadUser();
+  }, []);
+
+  const handleSave = async () => {
+    if (username && username.length < 3) {
+      alert("Username too short");
+      return;
+    }
+    try {
+      await request("/users/me", {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...(email && { email: email }),
+        }),
+      });
+
+      alert("Profile updated");
+
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update profile");
+    }
   };
 
-  const handleActivateCreator = () => {
-    setShowModal(false);
-    setCreatorModeRequested(true);
-
-    // Redirect to creator space; backend remains the source of truth for access.
-    navigate("/creator/dashboard");
-  };
-
+  
   return (
     <div className="min-h-screen bg-[#0B0F19] text-white px-8 py-10 space-y-10">
       {/* === HEADER === */}
@@ -76,7 +112,7 @@ export default function SettingsPage() {
           Account Settings
         </h1>
         <p className="text-gray-400 mt-1 text-sm">
-          Update your personal information and activate Creator Mode.
+          Update your personal information and security settings.
         </p>
       </div>
 
@@ -90,7 +126,23 @@ export default function SettingsPage() {
           <input
             type="text"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            disabled
+            className="bg-[#1A1F2E] border border-white/10 rounded-lg px-4 py-2 w-full opacity-50 cursor-not-allowed"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Username cannot be changed.
+          </p>
+        </div>
+
+        {/* === MAIL === */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Email
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="bg-[#1A1F2E] border border-white/10 rounded-lg px-4 py-2 w-full focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
           />
         </div>
@@ -116,51 +168,56 @@ export default function SettingsPage() {
         >
           Save changes
         </button>
-      </DashboardCard>
+        <div className="space-y-3 pt-4 border-t border-white/10">
+        <h3 className="text-sm text-gray-300">Security</h3>
 
-      {/* === CREATOR MODE === */}
-      <DashboardCard
-        className="p-8 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 border border-purple-400/10"
-      >
-        <div className="flex-1">
-          <h2 className="text-xl font-semibold text-purple-400 mb-1">
-            Creator Mode
-          </h2>
-          {creatorModeRequested ? (
-            <p className="text-sm text-green-400">
-              Creator mode has been requested for this session.
-            </p>
-          ) : (
-            <p className="text-sm text-gray-400">
-              Become an Altaïr Creator to design your own labs, scenarios, and interactive starpaths.
-            </p>
-          )}
-        </div>
-
-        {creatorModeRequested ? (
-          <button
-            onClick={() => navigate("/creator/dashboard")}
-            className="px-6 py-2 rounded-lg bg-gradient-to-r from-green-500 to-sky-400 hover:opacity-90 font-semibold text-white transition"
-          >
-            Go to Creator Dashboard
-          </button>
-        ) : (
-          <button
-            onClick={() => setShowModal(true)}
-            className="px-6 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-orange-400 hover:opacity-90 font-semibold text-white transition"
-          >
-            Activate Creator Mode
-          </button>
-        )}
-      </DashboardCard>
-
-      {/* === CREATOR ACTIVATION MODAL === */}
-      {showModal && (
-        <CreatorActivationModal
-          onClose={() => setShowModal(false)}
-          onActivate={handleActivateCreator}
+        <input
+          type="password"
+          placeholder="New password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="bg-[#1A1F2E] border border-white/10 rounded-lg px-4 py-2 w-full"
         />
-      )}
+
+        <input
+          type="password"
+          placeholder="Confirm password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className="bg-[#1A1F2E] border border-white/10 rounded-lg px-4 py-2 w-full"
+        />
+
+        <button
+          onClick={async () => {
+            if (password !== confirmPassword) {
+              alert("Passwords do not match");
+              return;
+            }
+
+            try {
+              await request("/users/me/password", {
+                method: "POST",
+                body: JSON.stringify({ new_password: password }),
+              });
+
+              alert("Password updated");
+              setPassword("");
+              setConfirmPassword("");
+
+              logout(); // refresh token
+
+            } catch (e) {
+              console.error(e);
+              alert("Failed to update password");
+            }
+          }}
+          className="px-6 py-2 rounded-lg bg-gradient-to-r from-red-500 to-pink-500"
+        >
+          Update password
+        </button>
+      </div>
+      </DashboardCard>
+
     </div>
   );
 }

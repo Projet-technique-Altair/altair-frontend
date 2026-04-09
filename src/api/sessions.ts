@@ -16,6 +16,25 @@ export type SessionSummary = {
   app_url?: string | null
 }
 
+export type LearnerLabStatus = "TODO" | "IN_PROGRESS" | "FINISHED"
+
+export type LearnerDashboardLab = {
+  lab_id: string
+  name: string
+  description?: string | null
+  difficulty?: string | null
+  category?: string | null
+  visibility?: string | null
+  lab_delivery?: string | null
+  estimated_duration?: string | null
+  template_path?: string | null
+  status: LearnerLabStatus
+  started_at?: string | null
+  finished_at?: string | null
+  last_activity_at: string
+  progress: number
+}
+
 export type SessionProgress = {
   progress_id: string
   session_id: string
@@ -67,4 +86,20 @@ export function stopSession(sessionId: string) {
   return request(`/sessions/sessions/${sessionId}`, {
     method: "DELETE",
   })
+}
+
+export function followLab(labId: string) {
+  return request(`/sessions/learner/labs/${labId}/follow`, {
+    method: "POST",
+  })
+}
+
+export function unfollowLab(labId: string) {
+  return request(`/sessions/learner/labs/${labId}/follow`, {
+    method: "DELETE",
+  })
+}
+
+export function getLearnerDashboardLabs() {
+  return request<LearnerDashboardLab[]>("/sessions/learner/dashboard/labs")
 }
