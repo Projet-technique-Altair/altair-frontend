@@ -14,6 +14,7 @@ type CreateLabForm = {
   visibility: "private" | "public";
   lab_family: "course" | "guided" | "non_guided";
   lab_delivery: "terminal" | "web";
+  app_port: string;
   template_path: string;
   estimated_duration: string;
 };
@@ -46,6 +47,7 @@ export default function CreateLabPage() {
     visibility: "private",
     lab_family: "guided",
     lab_delivery: "terminal",
+    app_port: "",
     template_path: "",
     estimated_duration: "",
   });
@@ -56,8 +58,30 @@ export default function CreateLabPage() {
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({
       ...prev,
+      // Web-only runtime settings are cleared as soon as the lab switches back to terminal mode.
+      ...(field === "lab_delivery" && value !== "web" ? { app_port: "" } : {}),
       [field]: value,
     }));
+  };
+
+  const parseAppPort = () => {
+    const normalized = form.app_port.trim();
+
+    if (form.lab_delivery !== "web") {
+      return null;
+    }
+
+    if (!normalized) {
+      throw new Error("Set the application port for web labs.");
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new Error("Application port must be a positive integer.");
+    }
+
+    return parsed;
   };
 
   const handleFileSelection = (event: ChangeEvent<HTMLInputElement>) => {
@@ -131,6 +155,7 @@ export default function CreateLabPage() {
     setCreateError(null);
 
     try {
+      const appPort = parseAppPort();
       const templatePath = await buildFilesInBackground();
 
       const lab = await api.createLab({
@@ -141,6 +166,12 @@ export default function CreateLabPage() {
         template_path: templatePath,
         lab_family: form.lab_family,
         lab_delivery: form.lab_delivery,
+        runtime:
+          form.lab_delivery === "web"
+            ? {
+                app_port: appPort,
+              }
+            : undefined,
         estimated_duration: form.estimated_duration,
       });
       navigate(`/creator/labs/${lab.lab_id}/steps`);
@@ -386,6 +417,37 @@ export default function CreateLabPage() {
                 <option value="web">web</option>
               </select>
             </div>
+
+            {form.lab_delivery === "web" ? (
+              <div>
+                <label className="text-[11px] uppercase tracking-widest text-white/35">
+                  Application port
+                </label>
+                <input
+                  value={form.app_port}
+                  onChange={(e) => handleChange("app_port", e.target.value)}
+                  inputMode="numeric"
+                  placeholder="3000"
+                  className="
+                  mt-1 w-full
+                  rounded-2xl
+                  border border-white/10
+                  bg-black/30
+                  px-4 py-3
+                  text-sm text-white
+                  outline-none
+                  transition-all
+
+                  hover:border-orange-400/30
+                  hover:bg-black/40
+                  hover:shadow-[0_0_12px_rgba(255,170,100,0.15)]
+
+                  focus:border-orange-400/50
+                  focus:shadow-[0_0_18px_rgba(255,170,100,0.25)]
+                  "
+                />
+              </div>
+            ) : null}
 
             <div>
               <label className="text-[11px] uppercase tracking-widest text-white/35">

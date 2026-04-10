@@ -19,39 +19,54 @@ export async function request<T>(
 ): Promise<T> {
   let token = sessionStorage.getItem("altair_token")
 
-  let res = await fetch(`${GATEWAY_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
-  })
+  const method = options.method?.toUpperCase()
+  const shouldHaveBody = ["POST", "PUT", "PATCH"].includes(method || "")
+
+  const body =
+    options.body ??
+    (shouldHaveBody ? JSON.stringify({}) : undefined)
+
+  const makeRequest = async (authToken?: string) => {
+    console.log("BODY SENT =", body)
+    return fetch(`${GATEWAY_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken && { Authorization: `Bearer ${authToken}` }),
+        ...options.headers,
+      },
+      body,
+    })
+  }
+
+  let res = await makeRequest(token || undefined)
 
   if (res.status === 401) {
     token = await refreshAccessToken()
 
     if (token) {
-      res = await fetch(`${GATEWAY_URL}${path}`, {
-        ...options,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          ...options.headers,
-        },
-      })
+      res = await makeRequest(token)
     }
   }
 
-  const body = await res.json()
+  const contentType = res.headers.get("content-type") || ""
+
+  let parsed: any = null
+
+  if (contentType.includes("application/json")) {
+    parsed = await res.json()
+  } else {
+    const text = await res.text()
+    throw new ApiError(res.status, text)
+  }
 
   if (!res.ok) {
     throw new ApiError(
       res.status,
-      body?.error?.message ?? "Unknown error",
-      body?.error?.code
+      parsed?.error?.message ?? "Unknown error",
+      parsed?.error?.code
     )
   }
 
-  return body.data
+  return parsed.data
 }
