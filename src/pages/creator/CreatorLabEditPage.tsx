@@ -73,6 +73,28 @@ export default function CreatorLabEditPage() {
     return parsed;
   };
 
+  const parseEstimatedDuration = () => {
+    const normalized = form.estimated_duration.trim();
+
+    if (!normalized) {
+      return undefined;
+    }
+
+    // labs-ms still stores estimated_duration as text, so edit mode keeps sending
+    // a normalized numeric string instead of widening the backend contract here.
+    if (!/^\d+$/.test(normalized)) {
+      throw new Error("Estimated duration must be a positive integer.");
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new Error("Estimated duration must be a positive integer.");
+    }
+
+    return String(parsed);
+  };
+
   // LOAD LAB
   useEffect(() => {
     async function loadLab() {
@@ -133,6 +155,7 @@ setForm({
   const handleSave = async () => {
     try {
         const appPort = parseAppPort();
+        const estimatedDuration = parseEstimatedDuration();
 
         await api.updateLab(id!, {
           name: form.name,
@@ -146,9 +169,13 @@ setForm({
             form.lab_delivery === "web"
               ? {
                   app_port: appPort,
+                  // labs-ms expects the runtime shape to stay complete even when these
+                  // advanced fields are not configured from the creator UI yet.
+                  services: [],
+                  entrypoints: [],
                 }
               : undefined,
-          estimated_duration: form.estimated_duration,
+          estimated_duration: estimatedDuration,
         });
 
         for (const step of steps) {
@@ -388,6 +415,11 @@ setForm({
               onChange={(e) =>
                 handleChange("estimated_duration", e.target.value)
               }
+              inputMode="numeric"
+              type="number"
+              min="1"
+              step="1"
+              placeholder="30"
               className="
               mt-2 w-full
               rounded-xl border border-white/10
