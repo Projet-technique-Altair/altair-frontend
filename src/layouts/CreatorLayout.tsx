@@ -7,6 +7,8 @@ import { request } from "@/api/client";
 
 import { motion, AnimatePresence } from "framer-motion";
 
+import { refreshAccessToken } from "@/lib/refresh";
+
 import {
   User,
   LogOut,
@@ -76,22 +78,29 @@ export default function CreatorLayout() {
   const handleLogout = () => logout();
 
   const handleSwitchToLearner = async () => {
-    try {
-      setIsTransitioning(true);
+  try {
+    setIsTransitioning(true);
 
-      // 🔥 call backend
-      await request("/users/me/toggle-role", {
-        method: "POST",
-      });
+    await request("/users/me/toggle-role", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
 
-      // 🔥 reset auth (obligatoire)
-      logout();
+    await refreshAccessToken();
 
-    } catch (e) {
-      console.error("Toggle role failed", e);
-      setIsTransitioning(false);
+    const me = await request<{ role: string }>("/users/me");
+
+    if (me.role === "creator") {
+      navigate("/creator/dashboard");
+    } else {
+      navigate("/learner/dashboard");
     }
-  };
+
+  } catch (e) {
+    console.error("Toggle role failed", e);
+    setIsTransitioning(false);
+  }
+};
 
   /* ================= UX ================= */
   useEffect(() => {
