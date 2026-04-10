@@ -665,7 +665,7 @@ export default function LabSession() {
                     <span className="truncate">{webLabLaunchUrl}</span>
                     <button
                       type="button"
-                      onClick={() => window.open(webLabLaunchUrl, "_blank")}
+                      onClick={() => window.open(webLabLaunchUrl, "_blank", "noopener,noreferrer")}
                       className="rounded-md border border-white/10 px-3 py-1 text-white hover:bg-white/5"
                     >
                       Open Web Lab

@@ -35,6 +35,8 @@ export default function OpenWebLabPage() {
       } catch (e) {
         if (e instanceof ApiError && e.status === 409 && sessionId) {
           try {
+            // A stale cached session should send the learner back to the lab page
+            // so the normal start/resume flow can create a fresh runtime.
             const session = await getSession(sessionId);
             if (cancelled) return;
 
