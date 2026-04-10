@@ -84,6 +84,28 @@ export default function CreateLabPage() {
     return parsed;
   };
 
+  const parseEstimatedDuration = () => {
+    const normalized = form.estimated_duration.trim();
+
+    if (!normalized) {
+      return undefined;
+    }
+
+    // labs-ms still stores estimated_duration as text, so the frontend only enforces
+    // an integer-only contract and keeps the serialized payload compatible.
+    if (!/^\d+$/.test(normalized)) {
+      throw new Error("Estimated duration must be a positive integer.");
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new Error("Estimated duration must be a positive integer.");
+    }
+
+    return String(parsed);
+  };
+
   const handleFileSelection = (event: ChangeEvent<HTMLInputElement>) => {
     const pickedFiles = Array.from(event.target.files ?? []);
 
@@ -156,6 +178,7 @@ export default function CreateLabPage() {
 
     try {
       const appPort = parseAppPort();
+      const estimatedDuration = parseEstimatedDuration();
       const templatePath = await buildFilesInBackground();
 
       const lab = await api.createLab({
@@ -170,9 +193,13 @@ export default function CreateLabPage() {
           form.lab_delivery === "web"
             ? {
                 app_port: appPort,
+                // labs-ms expects the runtime shape to stay complete even when these
+                // advanced fields are not configured from the creator UI yet.
+                services: [],
+                entrypoints: [],
               }
             : undefined,
-        estimated_duration: form.estimated_duration,
+        estimated_duration: estimatedDuration,
       });
       navigate(`/creator/labs/${lab.lab_id}/steps`);
     } catch (error) {
@@ -456,6 +483,11 @@ export default function CreateLabPage() {
               <input
                 value={form.estimated_duration}
                 onChange={(e) => handleChange("estimated_duration", e.target.value)}
+                inputMode="numeric"
+                type="number"
+                min="1"
+                step="1"
+                placeholder="30"
                 className="
                 mt-1 w-full
                 rounded-2xl
