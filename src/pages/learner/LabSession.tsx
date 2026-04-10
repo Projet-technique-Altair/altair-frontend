@@ -13,6 +13,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { getHints, getLab, getSteps, startLab } from "@/api/labs";
 import {
+  completeSession,
   getSession,
   getSessionProgress,
   requestSessionHint,
@@ -287,6 +288,8 @@ export default function LabSession() {
   const [currentStep, setCurrentStep] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [userInput, setUserInput] = useState("");
+  const [completionInFlight, setCompletionInFlight] = useState(false);
+  const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
 
   const { formatted } = useLabTimer();
 
@@ -298,6 +301,8 @@ export default function LabSession() {
     setSessionProgress(null);
     setSteps([]);
     setRevealedHints({});
+    setCompletionInFlight(false);
+    setCompletedSessionId(null);
   }, [id]);
 
   // ✅ Clamp currentStep when steps change (avoid "no step" when index is out of range)
@@ -414,6 +419,61 @@ export default function LabSession() {
   const webLabLaunchUrl = session?.sessionId
     ? `/learner/sessions/${session.sessionId}/open-web-lab`
     : null;
+
+  useEffect(() => {
+    const sessionId = session?.sessionId;
+    const labId = session?.labId;
+
+    if (mockUI || !sessionId || !labId || !sessionProgress || steps.length === 0) return;
+    if (completionInFlight || completedSessionId === sessionId) return;
+
+    const activeSessionId = sessionId;
+    const activeLabId = labId;
+
+    const completedSteps = sessionProgress.completed_steps?.length ?? 0;
+    if (completedSteps !== steps.length) return;
+
+    let cancelled = false;
+
+    async function finalizeSession() {
+      setCompletionInFlight(true);
+
+      try {
+        const stats = await completeSession(activeSessionId);
+        if (cancelled) return;
+
+        clearStoredSessionId(activeLabId);
+        setSession((prev) =>
+          prev ? { ...prev, status: "finished" } : prev
+        );
+        setCompletedSessionId(activeSessionId);
+        setFeedback(
+          `✅ Lab completed. Final score: ${stats.final_score}/${stats.max_score}`
+        );
+      } catch (e) {
+        if (cancelled) return;
+
+        const msg = getErrorMessage(e, "Failed to mark the lab as completed.");
+        setFeedback(`⚠️ All steps are done, but completion failed: ${msg}`);
+      } finally {
+        if (!cancelled) setCompletionInFlight(false);
+      }
+    }
+
+    finalizeSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    mockUI,
+    session?.sessionId,
+    session?.labId,
+    sessionProgress,
+    steps.length,
+    completionInFlight,
+    completedSessionId,
+  ]);
 
 
   if (loading) {
