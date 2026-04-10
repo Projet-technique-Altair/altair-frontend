@@ -9,11 +9,13 @@ export type SessionSummary = {
   session_id: string
   user_id: string
   lab_id: string
-  container_id?: string | null
   status?: string
   runtime_kind?: "terminal" | "web" | string | null
   webshell_url?: string | null
-  app_url?: string | null
+}
+
+export type OpenWebLabResponse = {
+  redirect_url: string
 }
 
 export type LearnerLabStatus = "TODO" | "IN_PROGRESS" | "FINISHED"
@@ -48,6 +50,13 @@ export type SessionProgress = {
 
 export function getSession(id: string) {
   return request<SessionRecord>(`/sessions/sessions/${id}`)
+}
+
+export function openWebLabSession(sessionId: string) {
+  return request<OpenWebLabResponse>(`/lab-api/web/open-session/${sessionId}`, {
+    method: "POST",
+    credentials: "include",
+  })
 }
 
 export function getSessionProgress(id: string) {

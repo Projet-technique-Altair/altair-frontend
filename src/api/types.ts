@@ -63,7 +63,6 @@ export type SessionRecord = {
   status?: string;
   runtime_kind?: "terminal" | "web" | string | null;
   webshell_url?: string | null;
-  app_url?: string | null;
 };
 
 export type SessionStepValidation = {

@@ -55,7 +55,6 @@ type SessionRuntime = {
   status?: string | null;
   runtimeKind?: string | null;
   webshellUrl?: string | null;
-  appUrl?: string | null;
 };
 
 type MockLabVM = {
@@ -230,16 +229,14 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
       const status = String(existing?.status ?? "").toLowerCase();
       const runtimeKind = existing?.runtime_kind ?? null;
       const webshellUrl = existing?.webshell_url ?? null;
-      const appUrl = existing?.app_url ?? null;
 
-      if (status === "created" || status === "running" || webshellUrl || appUrl) {
+      if (status === "created" || status === "running" || webshellUrl) {
         return {
           sessionId: cached,
           labId,
           status,
           runtimeKind,
           webshellUrl,
-          appUrl,
         };
       }
 
@@ -263,7 +260,6 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
     status: started?.status ?? null,
     runtimeKind: started?.runtime_kind ?? null,
     webshellUrl: started?.webshell_url ?? null,
-    appUrl: started?.app_url ?? null,
   };
 }
 
@@ -415,7 +411,9 @@ export default function LabSession() {
     if (lab && "lab_delivery" in lab && lab.lab_delivery) return lab.lab_delivery;
     return "terminal";
   }, [lab, session?.runtimeKind]);
-  const webAppUrl = session?.appUrl ?? null;
+  const webLabLaunchUrl = session?.sessionId
+    ? `/learner/sessions/${session.sessionId}/open-web-lab`
+    : null;
 
 
   if (loading) {
@@ -657,32 +655,31 @@ export default function LabSession() {
               <div>
                 <h2 className="text-lg font-semibold text-white">Lab Application</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  This lab exposes a web interface instead of a terminal.
+                  This lab opens in a dedicated browser tab instead of an embedded terminal.
                 </p>
               </div>
 
-              {webAppUrl ? (
+              {webLabLaunchUrl ? (
                 <>
                   <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
-                    <span className="truncate">{webAppUrl}</span>
-                    <a
-                      href={webAppUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                    <span className="truncate">{webLabLaunchUrl}</span>
+                    <button
+                      type="button"
+                      onClick={() => window.open(webLabLaunchUrl, "_blank")}
                       className="rounded-md border border-white/10 px-3 py-1 text-white hover:bg-white/5"
                     >
-                      Open in new tab
-                    </a>
+                      Open Web Lab
+                    </button>
                   </div>
-                  <iframe
-                    src={webAppUrl}
-                    title={`${labName} application`}
-                    className="min-h-[28rem] w-full flex-1 rounded-lg border border-white/10 bg-white"
-                  />
+                  <div className="flex min-h-[28rem] flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 px-6 text-center text-sm text-slate-400">
+                    Keep this page open for hints, answers and progress. Use{" "}
+                    <span className="mx-1 font-medium text-white">Open Web Lab</span>
+                    to launch the web runtime in a new tab.
+                  </div>
                 </>
               ) : (
                 <div className="flex min-h-[28rem] flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 text-sm text-slate-400">
-                  Runtime started but no `app_url` was returned by the backend.
+                  Runtime started but no session id was available for the web launcher.
                 </div>
               )}
             </div>
