@@ -15,6 +15,7 @@ import { getHints, getLab, getSteps, startLab } from "@/api/labs";
 import {
   completeSession,
   getSession,
+  openWebLabSession,
   getSessionProgress,
   requestSessionHint,
   stopSession,
@@ -416,9 +417,37 @@ export default function LabSession() {
     if (lab && "lab_delivery" in lab && lab.lab_delivery) return lab.lab_delivery;
     return "terminal";
   }, [lab, session?.runtimeKind]);
-  const webLabLaunchUrl = session?.sessionId
-    ? `/learner/sessions/${session.sessionId}/open-web-lab`
-    : null;
+
+  const handleOpenWebLab = async () => {
+    if (!session?.sessionId) {
+      setFeedback("❌ No session id available for the web launcher.");
+      return;
+    }
+
+    const popup = window.open("", "_blank");
+    if (!popup) {
+      setFeedback("❌ Browser blocked the new tab.");
+      return;
+    }
+
+    popup.document.write("Opening web lab...");
+
+    try {
+      const result = await openWebLabSession(session.sessionId);
+
+      if (!result?.redirect_url) {
+        popup.close();
+        setFeedback("❌ Missing redirect_url from backend.");
+        return;
+      }
+
+      popup.location.replace(result.redirect_url);
+    } catch (e) {
+      popup.close();
+      const msg = getErrorMessage(e, "Failed to open web lab.");
+      setFeedback(`❌ ${msg}`);
+    }
+  };
 
   useEffect(() => {
     const sessionId = session?.sessionId;
@@ -719,13 +748,13 @@ export default function LabSession() {
                 </p>
               </div>
 
-              {webLabLaunchUrl ? (
+              {session?.sessionId ? (
                 <>
                   <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
-                    <span className="truncate">{webLabLaunchUrl}</span>
+                    <span className="truncate">Launches a dedicated tab after backend bootstrap.</span>
                     <button
                       type="button"
-                      onClick={() => window.open(webLabLaunchUrl, "_blank")}
+                      onClick={handleOpenWebLab}
                       className="rounded-md border border-white/10 px-3 py-1 text-white hover:bg-white/5"
                     >
                       Open Web Lab
