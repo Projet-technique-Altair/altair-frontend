@@ -1,4 +1,4 @@
-import { request, requestNoContent } from "./client";
+import { request } from "./client";
 import type { Lab, LabUpsertPayload } from "@/contracts/labs";
 import type { SessionSummary } from "./sessions";
 import type { LabHint, LabStep, SearchLabResult } from "./types";
@@ -46,13 +46,6 @@ export function deleteLab(id: string) {
 export function startLab(labId: string) {
   return request<SessionSummary>(`/sessions/labs/${labId}/start`, {
     method: "POST",
-  });
-}
-
-export function bootstrapWebSession(containerId: string) {
-  return requestNoContent(`/lab-api/web/session/${containerId}`, {
-    method: "POST",
-    credentials: "include",
   });
 }
 

@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { bootstrapWebSession, getHints, getLab, getSteps, startLab } from "@/api/labs";
+import { getHints, getLab, getSteps, startLab } from "@/api/labs";
 import {
   getSession,
   getSessionProgress,
@@ -52,7 +52,6 @@ type LabStep = {
 type SessionRuntime = {
   sessionId?: string;
   labId: string;
-  containerId?: string | null;
   status?: string | null;
   runtimeKind?: string | null;
   webshellUrl?: string | null;
@@ -237,7 +236,6 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
         return {
           sessionId: cached,
           labId,
-          containerId: existing?.container_id ?? null,
           status,
           runtimeKind,
           webshellUrl,
@@ -262,7 +260,6 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
   return {
     sessionId,
     labId,
-    containerId: started?.container_id ?? null,
     status: started?.status ?? null,
     runtimeKind: started?.runtime_kind ?? null,
     webshellUrl: started?.webshell_url ?? null,
@@ -290,8 +287,6 @@ export default function LabSession() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [webSessionReady, setWebSessionReady] = useState(false);
-  const [webSessionError, setWebSessionError] = useState<string | null>(null);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -307,52 +302,7 @@ export default function LabSession() {
     setSessionProgress(null);
     setSteps([]);
     setRevealedHints({});
-    setWebSessionReady(false);
-    setWebSessionError(null);
   }, [id]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function prepareWebSession() {
-      if (!session || session.runtimeKind !== "web") {
-        setWebSessionReady(false);
-        setWebSessionError(null);
-        return;
-      }
-
-      if (!session.containerId || !session.appUrl) {
-        setWebSessionReady(false);
-        setWebSessionError("Runtime started but no web session bootstrap target is available.");
-        return;
-      }
-
-      setWebSessionReady(false);
-      setWebSessionError(null);
-
-      try {
-        // The iframe browser navigation needs its dedicated cookie before the
-        // first /lab-api/web request can succeed through the gateway.
-        await bootstrapWebSession(session.containerId);
-
-        if (!cancelled) {
-          setWebSessionReady(true);
-        }
-      } catch (bootstrapError) {
-        if (!cancelled) {
-          setWebSessionError(
-            getErrorMessage(bootstrapError, "Unable to prepare the web lab session.")
-          );
-        }
-      }
-    }
-
-    void prepareWebSession();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session?.appUrl, session?.containerId, session?.runtimeKind, session?.sessionId]);
 
   // ✅ Clamp currentStep when steps change (avoid "no step" when index is out of range)
   useEffect(() => {
@@ -715,32 +665,20 @@ export default function LabSession() {
                 <>
                   <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
                     <span className="truncate">{webAppUrl}</span>
-                    {webSessionReady ? (
-                      <a
-                        href={webAppUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-md border border-white/10 px-3 py-1 text-white hover:bg-white/5"
-                      >
-                        Open in new tab
-                      </a>
-                    ) : null}
+                    <a
+                      href={webAppUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-md border border-white/10 px-3 py-1 text-white hover:bg-white/5"
+                    >
+                      Open in new tab
+                    </a>
                   </div>
-                  {webSessionError ? (
-                    <div className="flex min-h-[28rem] flex-1 items-center justify-center rounded-lg border border-dashed border-red-500/30 bg-red-500/5 p-6 text-sm text-red-200">
-                      {webSessionError}
-                    </div>
-                  ) : webSessionReady ? (
-                    <iframe
-                      src={webAppUrl}
-                      title={`${labName} application`}
-                      className="min-h-[28rem] w-full flex-1 rounded-lg border border-white/10 bg-white"
-                    />
-                  ) : (
-                    <div className="flex min-h-[28rem] flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 text-sm text-slate-400">
-                      Preparing secure web session...
-                    </div>
-                  )}
+                  <iframe
+                    src={webAppUrl}
+                    title={`${labName} application`}
+                    className="min-h-[28rem] w-full flex-1 rounded-lg border border-white/10 bg-white"
+                  />
                 </>
               ) : (
                 <div className="flex min-h-[28rem] flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 text-sm text-slate-400">
