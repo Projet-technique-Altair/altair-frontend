@@ -27,6 +27,8 @@ export default function CreatorLabEditPage() {
     visibility: "private" | "public";
     template_path: string;
     lab_type: string;
+    lab_delivery: "terminal" | "web";
+    app_port: string;
     estimated_duration: string;
   }>({
     name: "",
@@ -35,6 +37,8 @@ export default function CreatorLabEditPage() {
     visibility: "private",
     template_path: "",
     lab_type: "",
+    lab_delivery: "terminal",
+    app_port: "",
     estimated_duration: "",
   });
 
@@ -43,8 +47,30 @@ export default function CreatorLabEditPage() {
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({
       ...prev,
+      // Terminal labs keep their current payload shape and should not send a stale web port.
+      ...(field === "lab_delivery" && value !== "web" ? { app_port: "" } : {}),
       [field]: value,
     }));
+  };
+
+  const parseAppPort = () => {
+    const normalized = form.app_port.trim();
+
+    if (form.lab_delivery !== "web") {
+      return null;
+    }
+
+    if (!normalized) {
+      throw new Error("Set the application port for web labs.");
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new Error("Application port must be a positive integer.");
+    }
+
+    return parsed;
   };
 
   // LOAD LAB
@@ -88,6 +114,11 @@ setForm({
       : "private",
   template_path: lab.template_path ?? "",
   lab_type: lab.lab_type ?? "",
+  lab_delivery: lab.lab_delivery === "web" ? "web" : "terminal",
+  app_port:
+    lab.lab_delivery === "web" && lab.runtime?.app_port != null
+      ? String(lab.runtime.app_port)
+      : "",
   estimated_duration: lab.estimated_duration ?? "",
 });
 
@@ -101,8 +132,24 @@ setForm({
 
   const handleSave = async () => {
     try {
+        const appPort = parseAppPort();
 
-        await api.updateLab(id!, form);
+        await api.updateLab(id!, {
+          name: form.name,
+          description: form.description,
+          difficulty: form.difficulty,
+          visibility: form.visibility,
+          template_path: form.template_path,
+          lab_type: form.lab_type,
+          lab_delivery: form.lab_delivery,
+          runtime:
+            form.lab_delivery === "web"
+              ? {
+                  app_port: appPort,
+                }
+              : undefined,
+          estimated_duration: form.estimated_duration,
+        });
 
         for (const step of steps) {
 
@@ -349,6 +396,27 @@ setForm({
             "
             />
           </div>
+
+          {form.lab_delivery === "web" ? (
+            <div>
+              <label className="text-xs text-white/40 uppercase tracking-widest">
+                Application port
+              </label>
+
+              <input
+                value={form.app_port}
+                onChange={(e) => handleChange("app_port", e.target.value)}
+                inputMode="numeric"
+                placeholder="3000"
+                className="
+                mt-2 w-full
+                rounded-xl border border-white/10
+                bg-black/30 px-4 py-3 text-sm
+                outline-none
+              "
+              />
+            </div>
+          ) : null}
 
         </div>
 
