@@ -417,6 +417,7 @@ export default function LabSession() {
     if (lab && "lab_delivery" in lab && lab.lab_delivery) return lab.lab_delivery;
     return "terminal";
   }, [lab, session?.runtimeKind]);
+  const isWebRuntime = runtimeKind === "web";
 
   const handleOpenWebLab = async () => {
     if (!session?.sessionId) {
@@ -660,9 +661,39 @@ export default function LabSession() {
       </div>
 
       {/* GRID */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-6 p-6">
+      <div
+        className={`flex-1 grid grid-cols-1 gap-6 p-6 ${
+          isWebRuntime ? "" : "lg:grid-cols-[1fr_1.2fr]"
+        }`}
+      >
         {/* LEFT */}
         <div className="bg-[#0E1323] border border-white/5 rounded-xl p-6">
+          {isWebRuntime && (
+            <div className="mb-6 flex flex-col gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Web Lab</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Keep this page open for hints and answers. The lab application opens in a
+                  separate tab.
+                </p>
+              </div>
+
+              {session?.sessionId ? (
+                <button
+                  type="button"
+                  onClick={handleOpenWebLab}
+                  className="rounded-md border border-white/10 px-4 py-2 text-sm text-white hover:bg-white/5"
+                >
+                  Open Web Lab
+                </button>
+              ) : (
+                <div className="text-sm text-slate-500">
+                  Runtime started but no session id was available for the web launcher.
+                </div>
+              )}
+            </div>
+          )}
+
           <LabInstructions
             stepIndex={currentStep}
             totalSteps={steps.length}
@@ -738,48 +769,15 @@ export default function LabSession() {
         </div>
 
         {/* RIGHT */}
-        <div className="bg-[#0E1323] border border-white/5 rounded-xl p-6 flex flex-col">
-          {runtimeKind === "web" ? (
-            <div className="flex h-full flex-col gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-white">Lab Application</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  This lab opens in a dedicated browser tab instead of an embedded terminal.
-                </p>
-              </div>
-
-              {session?.sessionId ? (
-                <>
-                  <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
-                    <span className="truncate">Launches a dedicated tab after backend bootstrap.</span>
-                    <button
-                      type="button"
-                      onClick={handleOpenWebLab}
-                      className="rounded-md border border-white/10 px-3 py-1 text-white hover:bg-white/5"
-                    >
-                      Open Web Lab
-                    </button>
-                  </div>
-                  <div className="flex min-h-[28rem] flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 px-6 text-center text-sm text-slate-400">
-                    Keep this page open for hints, answers and progress. Use{" "}
-                    <span className="mx-1 font-medium text-white">Open Web Lab</span>
-                    to launch the web runtime in a new tab.
-                  </div>
-                </>
-              ) : (
-                <div className="flex min-h-[28rem] flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 text-sm text-slate-400">
-                  Runtime started but no session id was available for the web launcher.
-                </div>
-              )}
-            </div>
-          ) : (
+        {!isWebRuntime && (
+          <div className="bg-[#0E1323] border border-white/5 rounded-xl p-6 flex flex-col">
             <Terminal
               step={current}
               sessionId={session?.sessionId ?? ""}
               token={getAuthToken() ?? ""}
             />
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
