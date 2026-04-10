@@ -12,7 +12,6 @@ import GroupsView from "@/pages/learner/GroupsView";
 import StarpathView from "@/pages/learner/StarpathView";
 import LabView from "@/pages/learner/LabView";
 import LabSession from "@/pages/learner/LabSession";
-import OpenWebLabPage from "@/pages/learner/OpenWebLabPage";
 import LearnerExplorer from "@/pages/learner/LearnerExplorer";
 import ProfilePage from "@/pages/learner/ProfilePage";
 import SettingsPage from "@/pages/learner/SettingsPage";
@@ -97,16 +96,6 @@ export const router = createBrowserRouter([
 
               { index: true, element: <Navigate to="dashboard" replace /> },
             ],
-          },
-
-          {
-            path: "/learner/sessions/:sessionId/open-web-lab",
-            element: (
-              <ProtectedRoute allowed={["learner", "creator", "admin"]}>
-                <OpenWebLabPage />
-              </ProtectedRoute>
-            ),
-            errorElement: <RouteError />,
           },
 
           // ================= CREATOR =================
