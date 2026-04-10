@@ -60,6 +60,7 @@ export type LabStep = {
 
 export type SessionRecord = {
   session_id: string;
+  lab_id: string;
   status?: string;
   runtime_kind?: "terminal" | "web" | string | null;
   webshell_url?: string | null;

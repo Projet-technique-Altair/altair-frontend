@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { openWebLabSession } from "@/api/sessions";
+import { ApiError } from "@/api/client";
+import { getSession, openWebLabSession } from "@/api/sessions";
+
+function clearStoredSessionId(labId: string) {
+  sessionStorage.removeItem(`altair_session_${labId}`);
+}
 
 export default function OpenWebLabPage() {
   const navigate = useNavigate();
@@ -28,6 +33,21 @@ export default function OpenWebLabPage() {
 
         window.location.replace(result.redirect_url);
       } catch (e) {
+        if (e instanceof ApiError && e.status === 409 && sessionId) {
+          try {
+            const session = await getSession(sessionId);
+            if (cancelled) return;
+
+            if (session?.lab_id) {
+              clearStoredSessionId(session.lab_id);
+              navigate(`/learner/labs/${session.lab_id}/session`, { replace: true });
+              return;
+            }
+          } catch {
+            // Fallback to the generic error below if the stale session cannot be reloaded.
+          }
+        }
+
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Failed to open web lab.");
         }
