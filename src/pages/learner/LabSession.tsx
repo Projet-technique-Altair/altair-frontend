@@ -13,7 +13,9 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { getHints, getLab, getSteps, startLab } from "@/api/labs";
 import {
+  completeSession,
   getSession,
+  openWebLabSession,
   getSessionProgress,
   requestSessionHint,
   stopSession,
@@ -55,7 +57,6 @@ type SessionRuntime = {
   status?: string | null;
   runtimeKind?: string | null;
   webshellUrl?: string | null;
-  appUrl?: string | null;
 };
 
 type MockLabVM = {
@@ -230,16 +231,14 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
       const status = String(existing?.status ?? "").toLowerCase();
       const runtimeKind = existing?.runtime_kind ?? null;
       const webshellUrl = existing?.webshell_url ?? null;
-      const appUrl = existing?.app_url ?? null;
 
-      if (status === "created" || status === "running" || webshellUrl || appUrl) {
+      if (status === "created" || status === "running" || webshellUrl) {
         return {
           sessionId: cached,
           labId,
           status,
           runtimeKind,
           webshellUrl,
-          appUrl,
         };
       }
 
@@ -263,7 +262,6 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
     status: started?.status ?? null,
     runtimeKind: started?.runtime_kind ?? null,
     webshellUrl: started?.webshell_url ?? null,
-    appUrl: started?.app_url ?? null,
   };
 }
 
@@ -291,6 +289,8 @@ export default function LabSession() {
   const [currentStep, setCurrentStep] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [userInput, setUserInput] = useState("");
+  const [completionInFlight, setCompletionInFlight] = useState(false);
+  const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
 
   const { formatted } = useLabTimer();
 
@@ -302,6 +302,8 @@ export default function LabSession() {
     setSessionProgress(null);
     setSteps([]);
     setRevealedHints({});
+    setCompletionInFlight(false);
+    setCompletedSessionId(null);
   }, [id]);
 
   // ✅ Clamp currentStep when steps change (avoid "no step" when index is out of range)
@@ -415,7 +417,93 @@ export default function LabSession() {
     if (lab && "lab_delivery" in lab && lab.lab_delivery) return lab.lab_delivery;
     return "terminal";
   }, [lab, session?.runtimeKind]);
-  const webAppUrl = session?.appUrl ?? null;
+  const isWebRuntime = runtimeKind === "web";
+
+  const handleOpenWebLab = async () => {
+    if (!session?.sessionId) {
+      setFeedback("❌ No session id available for the web launcher.");
+      return;
+    }
+
+    const popup = window.open("", "_blank");
+    if (!popup) {
+      setFeedback("❌ Browser blocked the new tab.");
+      return;
+    }
+
+    popup.document.write("Opening web lab...");
+
+    try {
+      const result = await openWebLabSession(session.sessionId);
+
+      if (!result?.redirect_url) {
+        popup.close();
+        setFeedback("❌ Missing redirect_url from backend.");
+        return;
+      }
+
+      popup.location.replace(result.redirect_url);
+    } catch (e) {
+      popup.close();
+      const msg = getErrorMessage(e, "Failed to open web lab.");
+      setFeedback(`❌ ${msg}`);
+    }
+  };
+
+  useEffect(() => {
+    const sessionId = session?.sessionId;
+    const labId = session?.labId;
+
+    if (mockUI || !sessionId || !labId || !sessionProgress || steps.length === 0) return;
+    if (completionInFlight || completedSessionId === sessionId) return;
+
+    const activeSessionId = sessionId;
+    const activeLabId = labId;
+
+    const completedSteps = sessionProgress.completed_steps?.length ?? 0;
+    if (completedSteps !== steps.length) return;
+
+    let cancelled = false;
+
+    async function finalizeSession() {
+      setCompletionInFlight(true);
+
+      try {
+        const stats = await completeSession(activeSessionId);
+        if (cancelled) return;
+
+        clearStoredSessionId(activeLabId);
+        setSession((prev) =>
+          prev ? { ...prev, status: "finished" } : prev
+        );
+        setCompletedSessionId(activeSessionId);
+        setFeedback(
+          `✅ Lab completed. Final score: ${stats.final_score}/${stats.max_score}`
+        );
+      } catch (e) {
+        if (cancelled) return;
+
+        const msg = getErrorMessage(e, "Failed to mark the lab as completed.");
+        setFeedback(`⚠️ All steps are done, but completion failed: ${msg}`);
+      } finally {
+        if (!cancelled) setCompletionInFlight(false);
+      }
+    }
+
+    finalizeSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    mockUI,
+    session?.sessionId,
+    session?.labId,
+    sessionProgress,
+    steps.length,
+    completionInFlight,
+    completedSessionId,
+  ]);
 
 
   if (loading) {
@@ -573,9 +661,39 @@ export default function LabSession() {
       </div>
 
       {/* GRID */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-6 p-6">
+      <div
+        className={`flex-1 grid grid-cols-1 gap-6 p-6 ${
+          isWebRuntime ? "" : "lg:grid-cols-[1fr_1.2fr]"
+        }`}
+      >
         {/* LEFT */}
         <div className="bg-[#0E1323] border border-white/5 rounded-xl p-6">
+          {isWebRuntime && (
+            <div className="mb-6 flex flex-col gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Web Lab</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Keep this page open for hints and answers. The lab application opens in a
+                  separate tab.
+                </p>
+              </div>
+
+              {session?.sessionId ? (
+                <button
+                  type="button"
+                  onClick={handleOpenWebLab}
+                  className="rounded-md border border-white/10 px-4 py-2 text-sm text-white hover:bg-white/5"
+                >
+                  Open Web Lab
+                </button>
+              ) : (
+                <div className="text-sm text-slate-500">
+                  Runtime started but no session id was available for the web launcher.
+                </div>
+              )}
+            </div>
+          )}
+
           <LabInstructions
             stepIndex={currentStep}
             totalSteps={steps.length}
@@ -651,49 +769,15 @@ export default function LabSession() {
         </div>
 
         {/* RIGHT */}
-        <div className="bg-[#0E1323] border border-white/5 rounded-xl p-6 flex flex-col">
-          {runtimeKind === "web" ? (
-            <div className="flex h-full flex-col gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-white">Lab Application</h2>
-                <p className="mt-1 text-sm text-slate-400">
-                  This lab exposes a web interface instead of a terminal.
-                </p>
-              </div>
-
-              {webAppUrl ? (
-                <>
-                  <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
-                    <span className="truncate">{webAppUrl}</span>
-                    <a
-                      href={webAppUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-md border border-white/10 px-3 py-1 text-white hover:bg-white/5"
-                    >
-                      Open in new tab
-                    </a>
-                  </div>
-                  <iframe
-                    src={webAppUrl}
-                    title={`${labName} application`}
-                    className="min-h-[28rem] w-full flex-1 rounded-lg border border-white/10 bg-white"
-                  />
-                </>
-              ) : (
-                <div className="flex min-h-[28rem] flex-1 items-center justify-center rounded-lg border border-dashed border-white/10 text-sm text-slate-400">
-                  Runtime started but no `app_url` was returned by the backend.
-                </div>
-              )}
-            </div>
-          ) : (
+        {!isWebRuntime && (
+          <div className="bg-[#0E1323] border border-white/5 rounded-xl p-6 flex flex-col">
             <Terminal
               step={current}
               sessionId={session?.sessionId ?? ""}
               token={getAuthToken() ?? ""}
             />
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

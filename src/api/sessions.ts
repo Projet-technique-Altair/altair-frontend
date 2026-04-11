@@ -9,11 +9,13 @@ export type SessionSummary = {
   session_id: string
   user_id: string
   lab_id: string
-  container_id?: string | null
   status?: string
   runtime_kind?: "terminal" | "web" | string | null
   webshell_url?: string | null
-  app_url?: string | null
+}
+
+export type OpenWebLabResponse = {
+  redirect_url: string
 }
 
 export type LearnerLabStatus = "TODO" | "IN_PROGRESS" | "FINISHED"
@@ -46,8 +48,24 @@ export type SessionProgress = {
   max_score: number
 }
 
+export type CompletedSessionStats = {
+  completed: boolean
+  final_score: number
+  max_score: number
+  completion_time_seconds: number
+  hints_used: number
+  total_attempts: number
+}
+
 export function getSession(id: string) {
   return request<SessionRecord>(`/sessions/sessions/${id}`)
+}
+
+export function openWebLabSession(sessionId: string) {
+  return request<OpenWebLabResponse>(`/lab-api/web/open-session/${sessionId}`, {
+    method: "POST",
+    credentials: "include",
+  })
 }
 
 export function getSessionProgress(id: string) {
@@ -71,6 +89,12 @@ export function requestSessionHint(sessionId: string, stepNumber: number, hintNu
       step_number: stepNumber,
       hint_number: hintNumber,
     }),
+  })
+}
+
+export function completeSession(sessionId: string) {
+  return request<CompletedSessionStats>(`/sessions/sessions/${sessionId}/complete`, {
+    method: "POST",
   })
 }
 
