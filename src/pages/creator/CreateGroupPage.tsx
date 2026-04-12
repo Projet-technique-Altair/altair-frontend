@@ -1,187 +1,223 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Users } from "lucide-react";
 
-import DashboardCard from "@/components/ui/DashboardCard";
-import { ALT_COLORS } from "@/lib/theme";
+import { ApiError } from "@/api/client";
 import { api } from "@/api";
+
+type CreateGroupForm = {
+  name: string;
+  description: string;
+};
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="text-[11px] uppercase tracking-wide text-white/50">
+      {children}
+    </label>
+  );
+}
+
+function InputShell({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border border-white/10 bg-black/20 p-4 ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default function CreateGroupPage() {
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<CreateGroupForm>({
     name: "",
     description: "",
   });
 
-  const handleChange = (field: string, value: string) => {
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [createMessage, setCreateMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const handleChange = (field: keyof CreateGroupForm, value: string) => {
+    setCreateMessage(null);
+
     setForm((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: field === "name" ? value.slice(0, 120) : value.slice(0, 1200),
     }));
   };
 
   const handleCreate = async () => {
+    if (isCreatingGroup) return;
+
+    setIsCreatingGroup(true);
+    setCreateMessage(null);
+
     try {
-      const group = await api.createGroup(form);
+      const payload = {
+        name: form.name.replace(/\s+/g, " ").trim(),
+        description: form.description.trim(),
+      };
 
-      const groupId = group.group_id;
+      if (!payload.name) {
+        throw new Error("Group name cannot be empty.");
+      }
 
-      navigate(`/creator/group/${groupId}`);
+      const group = await api.createGroup(payload);
 
-    } catch (err) {
-      console.error("Failed to create group:", err);
+      setCreateMessage({
+        type: "success",
+        text: "Group created successfully.",
+      });
+
+      window.setTimeout(() => {
+        navigate(`/creator/group/${group.group_id}`, { replace: true });
+      }, 400);
+    } catch (error) {
+      console.error("Failed to create group:", error);
+
+      const message =
+        error instanceof ApiError || error instanceof Error
+          ? error.message
+          : "Failed to create group.";
+
+      setCreateMessage({
+        type: "error",
+        text: message,
+      });
+    } finally {
+      setIsCreatingGroup(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-white px-8 py-10 space-y-8">
-
-      {/* HEADER */}
-      <div className="flex items-center justify-between">
-
+    <div className="min-h-screen w-full text-white">
+      <div className="mx-auto w-full max-w-[1680px] px-6 py-10 xl:px-10 2xl:px-14">
         <div>
-          <h1
-            className="text-3xl font-bold"
-            style={{
-              background: `linear-gradient(90deg, ${ALT_COLORS.purple}, ${ALT_COLORS.orange})`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
+          <button
+            onClick={() => navigate("/creator/workspace")}
+            className="inline-flex items-center gap-2 text-sm text-white/55 transition hover:text-white/80"
+            type="button"
           >
-            Create a new group
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
+
+          <div className="mt-5 text-[11px] uppercase tracking-[0.22em] text-white/45">
+            Creator group
+          </div>
+
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/92 sm:text-4xl">
+            Create group
           </h1>
 
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/70">
             Create a group to organize learners and assign labs or starpaths.
           </p>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleCreate}
+              disabled={isCreatingGroup}
+              className={`inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold text-white/85 transition hover:border-sky-400/40 hover:bg-white/5 hover:shadow-[0_0_40px_rgba(56,189,248,0.25)] active:scale-[0.98] ${
+                isCreatingGroup ? "cursor-not-allowed opacity-60" : ""
+              }`}
+              type="button"
+            >
+              {isCreatingGroup ? "Creating…" : "Create group"}
+            </button>
+          </div>
+
+          {createMessage && (
+            <div
+              className={`mt-5 rounded-2xl px-4 py-3 text-sm ${
+                createMessage.type === "success"
+                  ? "border border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                  : "border border-red-400/20 bg-red-500/10 text-red-200"
+              }`}
+            >
+              {createMessage.text}
+            </div>
+          )}
+
+          <div className="mt-6 h-px w-full bg-white/10" />
         </div>
 
-        <button
-          onClick={() => navigate("/creator/dashboard")}
-          className="text-sm text-slate-300 hover:text-white transition"
-        >
-          ← Back to creator dashboard
-        </button>
+        <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <div className="space-y-6 xl:col-span-8">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-md">
+              <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-white/50">
+                <Users className="h-3.5 w-3.5" />
+                Group content
+              </div>
 
+              <div className="mt-4 space-y-4">
+                <InputShell>
+                  <FieldLabel>Name</FieldLabel>
+                  <input
+                    value={form.name}
+                    onChange={(e) => handleChange("name", e.target.value)}
+                    className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none placeholder:text-white/28"
+                    placeholder="Group name"
+                  />
+                </InputShell>
+
+                <InputShell>
+                  <FieldLabel>Description</FieldLabel>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => handleChange("description", e.target.value)}
+                    rows={5}
+                    className="mt-3 w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed text-white/82 outline-none placeholder:text-white/28"
+                    placeholder="Describe the purpose and framing of this group"
+                  />
+                </InputShell>
+              </div>
+            </div>
+          </div>
+
+          <div className="xl:col-span-4">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-md">
+              <div className="text-[11px] uppercase tracking-wide text-white/50">
+                Summary
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <InputShell>
+                  <FieldLabel>Status</FieldLabel>
+                  <div className="mt-3 text-sm text-white/76">
+                    New group
+                  </div>
+                </InputShell>
+
+                <InputShell>
+                  <FieldLabel>Members</FieldLabel>
+                  <div className="mt-3 text-sm text-white/76">
+                    0 member
+                  </div>
+                </InputShell>
+
+                <InputShell>
+                  <FieldLabel>Assignments</FieldLabel>
+                  <div className="mt-3 text-sm text-white/76">
+                    Labs and starpaths can be assigned after creation.
+                  </div>
+                </InputShell>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      {/* FORM */}
-      <DashboardCard
-        className="
-        rounded-3xl
-        border border-white/10
-        bg-white/[0.04]
-        backdrop-blur-xl
-        p-8
-        shadow-[0_25px_80px_rgba(0,0,0,0.45)]
-        space-y-6
-      "
-      >
-
-        <div>
-          <h2 className="text-lg font-semibold text-white/90">
-            Group Information
-          </h2>
-
-          <p className="text-xs text-white/50 mt-1">
-            Basic metadata for your group.
-          </p>
-        </div>
-
-        <div className="space-y-5">
-
-          {/* NAME */}
-          <div>
-            <label className="text-[11px] uppercase tracking-widest text-white/35">
-              Group name
-            </label>
-
-            <input
-              value={form.name}
-              onChange={(e) => handleChange("name", e.target.value)}
-              className="
-              mt-1 w-full
-              rounded-2xl
-              border border-white/10
-              bg-black/30
-              px-4 py-3
-              text-sm text-white
-              outline-none
-              transition-all
-
-              hover:border-sky-400/30
-              focus:border-sky-400/50
-              "
-            />
-          </div>
-
-          {/* DESCRIPTION */}
-          <div>
-            <label className="text-[11px] uppercase tracking-widest text-white/35">
-              Description
-            </label>
-
-            <textarea
-              value={form.description}
-              onChange={(e) => handleChange("description", e.target.value)}
-              className="
-              mt-1 w-full
-              rounded-2xl
-              border border-white/10
-              bg-black/30
-              px-4 py-3
-              text-sm text-white
-              outline-none
-              transition-all
-
-              hover:border-purple-400/30
-              focus:border-purple-400/50
-              "
-            />
-          </div>
-
-        </div>
-
-        {/* ACTIONS */}
-        <div className="flex gap-4 pt-2">
-
-          <button
-            onClick={() => navigate("/creator/dashboard")}
-            className="
-            px-5 py-2
-            rounded-xl
-            border border-white/10
-            bg-white/5
-            text-white/70
-            text-sm
-            hover:bg-white/10
-            "
-          >
-            Cancel
-          </button>
-
-          <button
-            onClick={handleCreate}
-            className="
-            px-5 py-2
-            rounded-xl
-            border border-purple-400/30
-            bg-purple-500/10
-            text-purple-200
-            text-sm
-            font-medium
-
-            hover:bg-purple-500/15
-            hover:border-purple-400/50
-            "
-          >
-            Create group
-          </button>
-
-        </div>
-
-      </DashboardCard>
-
     </div>
   );
 }

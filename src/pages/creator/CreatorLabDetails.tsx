@@ -1,436 +1,650 @@
-import { useParams, useNavigate } from "react-router-dom";
+// src/pages/creator/CreatorLabEditPage.tsx
+
 import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
-import {
-  deleteLab,
-  getEditableSteps,
-  getHints,
-  getLab,
-} from "@/api/labs";
+import { api } from "@/api";
+import { getEditableSteps } from "@/api/labs";
+import type { LabHint, LabStep } from "@/api/types";
 
-import DashboardCard from "@/components/ui/DashboardCard";
-import { ALT_COLORS } from "@/lib/theme";
-import type { Lab } from "@/contracts/labs";
-import type { LabStep } from "@/api/types";
+type Hint = LabHint;
 
-type Hint = {
-  hint_id?: string;
-  hint_number: number;
-  text: string;
-  cost: number;
-};
-
-type Step = {
-  step_id?: string;
-  step_number: number;
-  title: string;
-  description: string;
-  question: string;
-  expected_answer: string;
+type Step = LabStep & {
+  validation_type: "exact_match" | "contains" | "regex";
+  points: number;
   hints: Hint[];
 };
 
-export default function CreatorLabDetails() {
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="text-[11px] uppercase tracking-wide text-white/50">
+      {children}
+    </label>
+  );
+}
+
+function InputShell({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border border-white/10 bg-black/20 p-4 ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+export default function CreatorLabEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [lab, setLab] = useState<Lab | null>(null);
+  const [form, setForm] = useState<{
+    name: string;
+    description: string;
+    difficulty: "easy" | "medium" | "hard";
+    visibility: "private" | "public";
+    template_path: string;
+    lab_type: string;
+    lab_delivery: "terminal" | "web";
+    app_port: string;
+    estimated_duration: string;
+  }>({
+    name: "",
+    description: "",
+    difficulty: "easy",
+    visibility: "private",
+    template_path: "",
+    lab_type: "",
+    lab_delivery: "terminal",
+    app_port: "",
+    estimated_duration: "",
+  });
+
   const [steps, setSteps] = useState<Step[]>([]);
   const [loading, setLoading] = useState(true);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleChange = (field: string, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      ...(field === "lab_delivery" && value !== "web" ? { app_port: "" } : {}),
+      [field]: value,
+    }));
+  };
+
+  const parseAppPort = () => {
+    const normalized = form.app_port.trim();
+
+    if (form.lab_delivery !== "web") {
+      return null;
+    }
+
+    if (!normalized) {
+      throw new Error("Set the application port for web labs.");
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new Error("Application port must be a positive integer.");
+    }
+
+    return parsed;
+  };
+
+  const parseEstimatedDuration = () => {
+    const normalized = form.estimated_duration.trim();
+
+    if (!normalized) {
+      return undefined;
+    }
+
+    if (!/^\d+$/.test(normalized)) {
+      throw new Error("Estimated duration must be a positive integer.");
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new Error("Estimated duration must be a positive integer.");
+    }
+
+    return String(parsed);
+  };
 
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
+    async function loadLab() {
       try {
-
-        const labData = await getLab(id!);
-
+        const lab = await api.getLab(id!);
         const stepsData = await getEditableSteps(id!);
 
         const stepsWithHints = await Promise.all(
-          stepsData.map(async (step: LabStep) => {
-            const hints = step.step_id ? await getHints(id!, step.step_id) : [];
+          stepsData.map(async (step) => {
+            const hints = step.step_id ? await api.getHints(id!, step.step_id) : [];
 
             return {
               ...step,
-              hints: Array.isArray(hints) ? hints : [],
-            };
-          })
+              validation_type: step.validation_type ?? "exact_match",
+              points: step.points ?? 0,
+              hints,
+            } as Step;
+          }),
         );
 
-        if (!cancelled) {
-          setLab(labData);
-          setSteps(stepsWithHints);
-        }
+        if (cancelled) return;
 
+        setSteps(stepsWithHints);
+
+        setForm({
+          name: lab.name ?? "",
+          description: lab.description ?? "",
+          difficulty:
+            lab.difficulty === "EASY"
+              ? "easy"
+              : lab.difficulty === "MEDIUM"
+                ? "medium"
+                : lab.difficulty === "HARD"
+                  ? "hard"
+                  : "easy",
+          visibility:
+            lab.visibility === "PUBLIC"
+              ? "public"
+              : lab.visibility === "PRIVATE"
+                ? "private"
+                : "private",
+          template_path: lab.template_path ?? "",
+          lab_type: lab.lab_type ?? "",
+          lab_delivery: lab.lab_delivery === "web" ? "web" : "terminal",
+          app_port:
+            lab.lab_delivery === "web" && lab.runtime?.app_port != null
+              ? String(lab.runtime.app_port)
+              : "",
+          estimated_duration: lab.estimated_duration ?? "",
+        });
       } catch (err) {
-        console.error("Failed to load lab details:", err);
+        console.error("Failed to load lab", err);
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
-    load();
+    loadLab();
 
     return () => {
       cancelled = true;
     };
   }, [id]);
 
-  const handleDelete = async () => {
+  const handleSave = async () => {
     try {
+      const appPort = parseAppPort();
+      const estimatedDuration = parseEstimatedDuration();
 
-      await deleteLab(id!);
+      await api.updateLab(id!, {
+        name: form.name,
+        description: form.description,
+        difficulty: form.difficulty,
+        visibility: form.visibility,
+        template_path: form.template_path,
+        lab_type: form.lab_type,
+        lab_delivery: form.lab_delivery,
+        runtime:
+          form.lab_delivery === "web"
+            ? {
+                app_port: appPort,
+                services: [],
+                entrypoints: [],
+              }
+            : undefined,
+        estimated_duration: estimatedDuration,
+      });
 
-      navigate("/creator/dashboard");
+      for (const step of steps) {
+        let stepId = step.step_id;
 
+        if (stepId) {
+          await api.updateStep(id!, stepId, step);
+        } else {
+          const created = await api.createStep(id!, step);
+          stepId = created.step_id;
+          if (!stepId) {
+            throw new Error("Created step is missing step_id");
+          }
+        }
+
+        for (const hint of step.hints) {
+          if (hint.hint_id) {
+            await api.updateHint(id!, stepId, hint.hint_id, hint);
+          } else {
+            await api.createHint(id!, stepId, hint);
+          }
+        }
+      }
+
+      navigate(`/creator/lab/${id}`);
     } catch (err) {
-      console.error("Failed to delete lab:", err);
+      console.error("Failed to update lab", err);
+    }
+  };
+
+  const handleDeleteStep = async (stepIndex: number) => {
+    const step = steps[stepIndex];
+
+    try {
+      if (step.step_id) {
+        await api.deleteStep(id!, step.step_id);
+      }
+
+      const copy = [...steps];
+      copy.splice(stepIndex, 1);
+
+      copy.forEach((s, i) => {
+        s.step_number = i + 1;
+      });
+
+      setSteps(copy);
+    } catch (err) {
+      console.error("Failed to delete step", err);
+    }
+  };
+
+  const handleDeleteHint = async (stepIndex: number, hintIndex: number) => {
+    const step = steps[stepIndex];
+    const hint = step.hints[hintIndex];
+
+    try {
+      if (hint.hint_id) {
+        await api.deleteHint(id!, step.step_id!, hint.hint_id);
+      }
+
+      const copy = [...steps];
+      copy[stepIndex].hints.splice(hintIndex, 1);
+
+      copy[stepIndex].hints.forEach((h, i) => {
+        h.hint_number = i + 1;
+      });
+
+      setSteps(copy);
+    } catch (err) {
+      console.error("Failed to delete hint", err);
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        <div className="animate-pulse text-white/60">
-          Loading lab details...
+      <div className="flex min-h-[70vh] w-full items-center justify-center text-white">
+        <div className="rounded-3xl border border-white/10 bg-white/5 px-8 py-6 shadow-[0_24px_90px_rgba(0,0,0,0.45)] backdrop-blur-md">
+          <div className="animate-pulse text-white/70">Loading editor…</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-white px-8 py-10 space-y-10">
-
-        {/* HEADER */}
-
-        <div className="flex items-center justify-between">
-
+    <div className="min-h-screen w-full text-white">
+      <div className="mx-auto w-full max-w-[1680px] px-6 py-10 xl:px-10 2xl:px-14">
         <div>
-            <h1
-            className="text-3xl font-bold"
-            style={{
-                background: `linear-gradient(90deg, ${ALT_COLORS.purple}, ${ALT_COLORS.orange})`,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-            }}
-            >
-            {lab?.name}
-            </h1>
-
-            <p className="text-white/50 text-sm mt-1">
-            Lab details and structure
-            </p>
-        </div>
-
-        <div className="flex gap-3">
-
-            <button
-            onClick={() => navigate(`/creator/lab/${id}/edit`)}
-            className="
-            px-4 py-2
-            rounded-xl
-            border border-sky-400/30
-            bg-sky-500/10
-            text-sky-200
-            text-sm
-            hover:bg-sky-500/15
-            hover:border-sky-400/50
-            transition
-            "
-            >
-            Edit lab
-            </button>
-
-            <button
-            onClick={() => navigate("/creator/dashboard")}
-            className="
-            px-4 py-2
-            rounded-xl
-            border border-white/10
-            text-sm
-            text-white/70
-            hover:bg-white/5
-            transition
-            "
-            >
+          <button
+            onClick={() => navigate(`/creator/workspace`)}
+            className="inline-flex items-center gap-2 text-sm text-white/55 transition hover:text-white/80"
+            type="button"
+          >
+            <ArrowLeft className="h-4 w-4" />
             Back
-            </button>
+          </button>
 
-        </div>
+          <div className="mt-5 text-[11px] uppercase tracking-[0.22em] text-white/45">
+            Creator lab
+          </div>
 
-        </div>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/92 sm:text-4xl">
+            Edit lab
+          </h1>
 
-        {/* LAB INFO */}
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/70">
+            Update the lab configuration, content structure, steps, and hints.
+          </p>
 
-        <DashboardCard
-        className="
-        rounded-3xl
-        border border-white/10
-        bg-white/[0.04]
-        backdrop-blur-xl
-        p-8
-        shadow-[0_25px_80px_rgba(0,0,0,0.45)]
-        space-y-6
-        "
-        >
-
-        <div className="text-sm text-white/70 leading-relaxed max-w-3xl">
-            {lab?.description || "No description"}
-        </div>
-
-        <div className="grid grid-cols-4 gap-10 text-sm pt-2">
-
-            <div className="space-y-1">
-            <div className="text-white/40 text-xs uppercase tracking-widest">
-                Difficulty
-            </div>
-            <div className="text-white/90">
-                {lab?.difficulty}
-            </div>
-            </div>
-
-            <div className="space-y-1">
-            <div className="text-white/40 text-xs uppercase tracking-widest">
-                Lab type
-            </div>
-            <div className="text-white/90">
-                {lab?.lab_type}
-            </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-white/40 text-xs uppercase tracking-widest">
-                Visibility
-              </div>
-              <div className="text-white/90">
-                {lab?.visibility}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-            <div className="text-white/40 text-xs uppercase tracking-widest">
-                Duration
-            </div>
-            <div className="text-white/90">
-                {lab?.estimated_duration}
-            </div>
-            </div>
-
-        </div>
-
-        </DashboardCard>
-
-        {/* STEPS */}
-
-        <DashboardCard
-        className="
-        rounded-3xl
-        border border-white/10
-        bg-white/[0.04]
-        backdrop-blur-xl
-        p-8
-        shadow-[0_25px_80px_rgba(0,0,0,0.45)]
-        space-y-8
-        "
-        >
-
-        <div className="text-sm text-white/60 uppercase tracking-widest">
-            Steps
-        </div>
-
-        {steps.map((step) => (
-
-            <div
-            key={step.step_id}
-            className="
-            border border-white/10
-            rounded-2xl
-            p-6
-            bg-black/30
-            shadow-[0_10px_30px_rgba(0,0,0,0.35)]
-            space-y-4
-            transition
-            "
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleSave}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold text-white/85 transition hover:border-sky-400/40 hover:bg-white/5 hover:shadow-[0_0_40px_rgba(56,189,248,0.25)] active:scale-[0.98]"
+              type="button"
             >
+              Save changes
+            </button>
+          </div>
 
-            <div className="text-xs text-white/40 uppercase tracking-widest">
-                Step {step.step_number}
+          <div className="mt-6 h-px w-full bg-white/10" />
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <div className="space-y-6 xl:col-span-8">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-md">
+              <div className="text-[11px] uppercase tracking-wide text-white/50">
+                Lab content
+              </div>
+
+              <div className="mt-4 space-y-4">
+                <InputShell>
+                  <FieldLabel>Name</FieldLabel>
+                  <input
+                    value={form.name}
+                    onChange={(e) => handleChange("name", e.target.value)}
+                    className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none placeholder:text-white/28"
+                    placeholder="Lab name"
+                  />
+                </InputShell>
+
+                <InputShell>
+                  <FieldLabel>Description</FieldLabel>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => handleChange("description", e.target.value)}
+                    rows={5}
+                    className="mt-3 w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed text-white/82 outline-none placeholder:text-white/28"
+                    placeholder="Describe the purpose and framing of this lab"
+                  />
+                </InputShell>
+              </div>
             </div>
 
-            <div className="text-base font-semibold text-white/90">
-                {step.title}
-            </div>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-md">
+              <div className="text-[11px] uppercase tracking-wide text-white/50">
+                Steps
+              </div>
 
-            <div className="text-sm text-white/60 leading-relaxed">
-                {step.description}
-            </div>
+              <div className="mt-4 space-y-4">
+                {steps.map((step, stepIndex) => (
+                  <div
+                    key={step.step_id ?? stepIndex}
+                    className="rounded-2xl border border-white/10 bg-black/20 p-5"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-[11px] uppercase tracking-wide text-white/45">
+                        Step {step.step_number}
+                      </div>
 
-            {step.question && (
-                <div className="text-sm text-orange-300">
-                Question: {step.question}
-                </div>
-            )}
-
-            {/* HINTS */}
-
-            {step.hints.length > 0 && (
-
-                <div className="pt-4 space-y-3">
-
-                <div className="text-xs text-purple-300 uppercase tracking-widest">
-                    💡 Hints
-                </div>
-
-                {step.hints.map((hint) => (
-
-                    <div
-                    key={hint.hint_id}
-                    className="
-                    border border-white/10
-                    rounded-xl
-                    p-4
-                    bg-black/40
-                    text-sm
-                    space-y-1
-                    "
-                    >
-
-                    <div className="text-white/80 leading-relaxed">
-                        Hint {hint.hint_number}: {hint.text}
+                      <button
+                        disabled={steps.length === 1}
+                        onClick={() => handleDeleteStep(stepIndex)}
+                        className="text-xs font-medium text-red-300 transition hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-30"
+                        type="button"
+                      >
+                        Delete
+                      </button>
                     </div>
 
-                    <div className="text-xs text-white/40">
-                        Cost: {hint.cost}
-                    </div>
+                    <div className="mt-4 space-y-4">
+                      <InputShell>
+                        <FieldLabel>Title</FieldLabel>
+                        <input
+                          value={step.title}
+                          onChange={(e) => {
+                            const copy = [...steps];
+                            copy[stepIndex].title = e.target.value;
+                            setSteps(copy);
+                          }}
+                          className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none placeholder:text-white/28"
+                          placeholder="Step title"
+                        />
+                      </InputShell>
 
-                    </div>
+                      <InputShell>
+                        <FieldLabel>Description</FieldLabel>
+                        <textarea
+                          value={step.description}
+                          onChange={(e) => {
+                            const copy = [...steps];
+                            copy[stepIndex].description = e.target.value;
+                            setSteps(copy);
+                          }}
+                          rows={4}
+                          className="mt-3 w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed text-white/82 outline-none placeholder:text-white/28"
+                          placeholder="Step description"
+                        />
+                      </InputShell>
 
+                      <InputShell>
+                        <FieldLabel>Question</FieldLabel>
+                        <input
+                          value={step.question}
+                          onChange={(e) => {
+                            const copy = [...steps];
+                            copy[stepIndex].question = e.target.value;
+                            setSteps(copy);
+                          }}
+                          className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none placeholder:text-white/28"
+                          placeholder="Validation question"
+                        />
+                      </InputShell>
+
+                      <InputShell>
+                        <FieldLabel>Expected answer</FieldLabel>
+                        <input
+                          value={step.expected_answer}
+                          onChange={(e) => {
+                            const copy = [...steps];
+                            copy[stepIndex].expected_answer = e.target.value;
+                            setSteps(copy);
+                          }}
+                          className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none placeholder:text-white/28"
+                          placeholder="Expected answer"
+                        />
+                      </InputShell>
+
+                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                        <div className="text-[11px] uppercase tracking-wide text-white/50">
+                          Hints
+                        </div>
+
+                        <div className="mt-4 space-y-3">
+                          {step.hints.length > 0 ? (
+                            step.hints.map((hint, hintIndex) => (
+                              <div
+                                key={hint.hint_id ?? `${stepIndex}-${hintIndex}`}
+                                className="rounded-xl border border-white/10 bg-black/20 p-4"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <input
+                                    value={hint.text}
+                                    onChange={(e) => {
+                                      const copy = [...steps];
+                                      copy[stepIndex].hints[hintIndex].text =
+                                        e.target.value;
+                                      setSteps(copy);
+                                    }}
+                                    className="w-full border-0 bg-transparent p-0 text-sm text-white/82 outline-none placeholder:text-white/28"
+                                    placeholder={`Hint ${hintIndex + 1}`}
+                                  />
+
+                                  <button
+                                    onClick={() =>
+                                      handleDeleteHint(stepIndex, hintIndex)
+                                    }
+                                    className="text-xs font-medium text-red-300 transition hover:text-red-200"
+                                    type="button"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+
+                                <div className="mt-3 text-xs text-white/45">
+                                  Hint {hint.hint_number} · Cost: {hint.cost}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-sm text-white/60">
+                              No hints added yet.
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              const copy = [...steps];
+                              copy[stepIndex].hints.push({
+                                hint_number: step.hints.length + 1,
+                                cost: 0,
+                                text: "",
+                              });
+                              setSteps(copy);
+                            }}
+                            className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold text-white/80 transition hover:border-white/15 hover:bg-white/5"
+                            type="button"
+                          >
+                            Add hint
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 ))}
 
-                </div>
-
-            )}
-
-            </div>
-
-        ))}
-
-        </DashboardCard>
-
-        {/* DELETE LAB */}
-
-        <DashboardCard
-        className="
-        rounded-3xl
-        border border-red-400/20
-        bg-red-500/5
-        backdrop-blur-xl
-        p-6
-        space-y-5
-        max-w-xl
-        "
-        >
-
-        <div className="text-red-300 font-semibold">
-            Danger Zone
-        </div>
-
-        <div className="text-sm text-white/60 leading-relaxed">
-            Deleting this lab will permanently remove the lab,
-            all associated steps and hints.
-        </div>
-
-        <button
-            onClick={() => setConfirmDelete(true)}
-            className="
-            px-5 py-2
-            rounded-xl
-            border border-red-400/30
-            bg-red-500/10
-            text-red-200
-            text-sm
-            hover:bg-red-500/20
-            transition
-        "
-        >
-            Delete lab
-        </button>
-
-        </DashboardCard>
-
-        {/* DELETE CONFIRMATION */}
-
-        {confirmDelete && (
-
-        <div
-            className="
-            fixed inset-0
-            flex items-center justify-center
-            bg-black/60
-            backdrop-blur-sm
-        "
-        >
-
-            <div
-            className="
-            bg-[#111827]
-            border border-white/10
-            rounded-2xl
-            p-6
-            space-y-5
-            w-[420px]
-            "
-            >
-
-            <div className="text-lg font-semibold">
-                Delete this lab?
-            </div>
-
-            <div className="text-sm text-white/60 leading-relaxed">
-                This action cannot be undone.
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2">
-
                 <button
-                onClick={() => setConfirmDelete(false)}
-                className="
-                px-4 py-2
-                rounded-lg
-                border border-white/10
-                text-sm
-                hover:bg-white/5
-                "
+                  onClick={() => {
+                    setSteps([
+                      ...steps,
+                      {
+                        step_number: Math.max(0, ...steps.map((s) => s.step_number)) + 1,
+                        title: "",
+                        description: "",
+                        question: "",
+                        expected_answer: "",
+                        validation_type: "exact_match",
+                        validation_pattern: null,
+                        points: 10,
+                        hints: [],
+                      },
+                    ]);
+                  }}
+                  className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold text-white/85 transition hover:border-purple-400/30 hover:bg-white/5"
+                  type="button"
                 >
-                Cancel
+                  Add step
                 </button>
-
-                <button
-                onClick={handleDelete}
-                className="
-                px-4 py-2
-                rounded-lg
-                border border-red-400/30
-                bg-red-500/20
-                text-red-200
-                text-sm
-                hover:bg-red-500/30
-                "
-                >
-                Delete
-                </button>
-
+              </div>
             </div>
+          </div>
 
+          <div className="xl:col-span-4">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-md">
+              <div className="text-[11px] uppercase tracking-wide text-white/50">
+                Configuration
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <InputShell>
+                  <FieldLabel>Difficulty</FieldLabel>
+                  <select
+                    value={form.difficulty}
+                    onChange={(e) => handleChange("difficulty", e.target.value)}
+                    className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none"
+                  >
+                    <option value="easy" className="bg-[#0f172a]">
+                      easy
+                    </option>
+                    <option value="medium" className="bg-[#0f172a]">
+                      medium
+                    </option>
+                    <option value="hard" className="bg-[#0f172a]">
+                      hard
+                    </option>
+                  </select>
+                </InputShell>
+
+                <InputShell>
+                  <FieldLabel>Visibility</FieldLabel>
+                  <select
+                    value={form.visibility}
+                    onChange={(e) => handleChange("visibility", e.target.value)}
+                    className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none"
+                  >
+                    <option value="private" className="bg-[#0f172a]">
+                      private
+                    </option>
+                    <option value="public" className="bg-[#0f172a]">
+                      public
+                    </option>
+                  </select>
+                </InputShell>
+
+                <InputShell>
+                  <FieldLabel>Delivery</FieldLabel>
+                  <select
+                    value={form.lab_delivery}
+                    onChange={(e) => handleChange("lab_delivery", e.target.value)}
+                    className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none"
+                  >
+                    <option value="terminal" className="bg-[#0f172a]">
+                      terminal
+                    </option>
+                    <option value="web" className="bg-[#0f172a]">
+                      web
+                    </option>
+                  </select>
+                </InputShell>
+
+                <InputShell>
+                  <FieldLabel>Estimated duration</FieldLabel>
+                  <input
+                    value={form.estimated_duration}
+                    onChange={(e) =>
+                      handleChange("estimated_duration", e.target.value)
+                    }
+                    inputMode="numeric"
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="30"
+                    className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none placeholder:text-white/28"
+                  />
+                </InputShell>
+
+                {form.lab_delivery === "web" && (
+                  <InputShell>
+                    <FieldLabel>Application port</FieldLabel>
+                    <input
+                      value={form.app_port}
+                      onChange={(e) => handleChange("app_port", e.target.value)}
+                      inputMode="numeric"
+                      placeholder="3000"
+                      className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none placeholder:text-white/28"
+                    />
+                  </InputShell>
+                )}
+
+                <InputShell>
+                  <FieldLabel>Template path</FieldLabel>
+                  <input
+                    value={form.template_path}
+                    onChange={(e) => handleChange("template_path", e.target.value)}
+                    className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none placeholder:text-white/28"
+                    placeholder="Template path"
+                  />
+                </InputShell>
+
+                <InputShell>
+                  <FieldLabel>Lab type</FieldLabel>
+                  <input
+                    value={form.lab_type}
+                    onChange={(e) => handleChange("lab_type", e.target.value)}
+                    className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none placeholder:text-white/28"
+                    placeholder="Lab type"
+                  />
+                </InputShell>
+              </div>
             </div>
-
+          </div>
         </div>
-
-        )}
-
+      </div>
     </div>
-    );
+  );
 }
