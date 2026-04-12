@@ -327,9 +327,11 @@ function RailButton({
 
         </div>
 
-        <span className="text-xs text-white/60">
-          {count}
-        </span>
+        {title !== "Insight" && (
+  <span className="text-xs text-white/60">
+    {count}
+  </span>
+)}
 
       </div>
     </motion.button>
