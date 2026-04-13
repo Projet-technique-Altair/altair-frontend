@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
+import { ApiError } from "@/api/client";
 import { getHints, getLab, getSteps, startLab } from "@/api/labs";
 import {
   completeSession,
@@ -163,6 +164,10 @@ type RuntimeStepInput = Partial<ApiLabStep> & {
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
+}
+
+function isRuntimeUnavailableError(error: unknown): boolean {
+  return error instanceof ApiError && [404, 409, 410].includes(error.status);
 }
 
 function normalizeRuntimeStep(raw: RuntimeStepInput, index: number): LabStep {
@@ -441,6 +446,11 @@ export default function LabSession() {
       return;
     }
 
+    if (!session.currentRuntimeId) {
+      handleRuntimeUnavailable();
+      return;
+    }
+
     const popup = window.open("", "_blank");
     if (!popup) {
       setFeedback("❌ Browser blocked the new tab.");
@@ -461,6 +471,12 @@ export default function LabSession() {
       popup.location.replace(result.redirect_url);
     } catch (e) {
       popup.close();
+
+      if (isRuntimeUnavailableError(e)) {
+        handleRuntimeUnavailable();
+        return;
+      }
+
       const msg = getErrorMessage(e, "Failed to open web lab.");
       setFeedback(`❌ ${msg}`);
     }
@@ -714,7 +730,11 @@ export default function LabSession() {
       const progress = await getSessionProgress(nextSessionId);
       setSessionProgress(progress);
       setRuntimeUnavailable(false);
-      setFeedback("✅ Lab restarted.");
+      setFeedback(
+        restarted?.runtime_kind === "web"
+          ? "✅ Lab restarted. Open the web lab again."
+          : "✅ Lab restarted."
+      );
     } catch (e) {
       const msg = getErrorMessage(e, "Failed to restart the lab.");
       setFeedback(`❌ ${msg}`);
@@ -753,7 +773,16 @@ export default function LabSession() {
                 </p>
               </div>
 
-              {session?.sessionId ? (
+              {runtimeUnavailable || !session.currentRuntimeId ? (
+                <button
+                  type="button"
+                  onClick={handleRelaunchRuntime}
+                  disabled={runtimeRestarting}
+                  className="rounded-md border border-white/10 px-4 py-2 text-sm text-white hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {runtimeRestarting ? "Restarting..." : "Relancer le lab"}
+                </button>
+              ) : session?.sessionId ? (
                 <button
                   type="button"
                   onClick={handleOpenWebLab}
