@@ -23,16 +23,19 @@ interface TerminalProps {
   step: LabStep;
   sessionId: string;
   token: string;
+  onRuntimeUnavailable?: () => void;
 }
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 
-export default function Terminal({ sessionId, token }: TerminalProps) {
+export default function Terminal({ sessionId, token, onRuntimeUnavailable }: TerminalProps) {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const connectedOnceRef = useRef(false);
+  const runtimeUnavailableRef = useRef(false);
 
   const connectWebSocket = useCallback(async () => {
     // Prevent connecting with invalid session/token
@@ -95,6 +98,8 @@ export default function Terminal({ sessionId, token }: TerminalProps) {
 
       ws.onopen = () => {
         setStatus("connected");
+        connectedOnceRef.current = true;
+        runtimeUnavailableRef.current = false;
         xtermRef.current?.writeln("\r\n\x1b[32m Connected to terminal\x1b[0m\r\n");
       };
 
@@ -116,12 +121,22 @@ export default function Terminal({ sessionId, token }: TerminalProps) {
       ws.onerror = () => {
         setStatus("error");
         xtermRef.current?.writeln("\r\n\x1b[31m WebSocket error\x1b[0m");
+
+        if (connectedOnceRef.current && !runtimeUnavailableRef.current) {
+          runtimeUnavailableRef.current = true;
+          onRuntimeUnavailable?.();
+        }
       };
 
       ws.onclose = () => {
         setStatus("disconnected");
         xtermRef.current?.writeln("\r\n\x1b[33m Disconnected from terminal\x1b[0m");
         wsRef.current = null;
+
+        if (connectedOnceRef.current && !runtimeUnavailableRef.current) {
+          runtimeUnavailableRef.current = true;
+          onRuntimeUnavailable?.();
+        }
       };
     } catch (err) {
       setStatus("error");
@@ -204,6 +219,8 @@ export default function Terminal({ sessionId, token }: TerminalProps) {
     return () => {
       window.removeEventListener("resize", handleResize);
       wsRef.current?.close();
+      connectedOnceRef.current = false;
+      runtimeUnavailableRef.current = false;
       xterm.dispose();
       xtermRef.current = null;
       fitAddonRef.current = null;

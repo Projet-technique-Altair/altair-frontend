@@ -9,6 +9,7 @@ export type SessionSummary = {
   session_id: string
   user_id: string
   lab_id: string
+  current_runtime_id?: string | null
   status?: string
   runtime_kind?: "terminal" | "web" | string | null
   webshell_url?: string | null
@@ -46,6 +47,7 @@ export type SessionProgress = {
   attempts: number
   score: number
   max_score: number
+  time_elapsed: number
 }
 
 export type CompletedSessionStats = {

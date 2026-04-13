@@ -61,6 +61,7 @@ export type LabStep = {
 export type SessionRecord = {
   session_id: string;
   lab_id: string;
+  current_runtime_id?: string | null;
   status?: string;
   runtime_kind?: "terminal" | "web" | string | null;
   webshell_url?: string | null;

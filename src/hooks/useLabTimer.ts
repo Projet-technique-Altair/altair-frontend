@@ -36,8 +36,12 @@ import { useEffect, useState } from "react";
  *
  * @public
  */
-export function useLabTimer() {
-  const [seconds, setSeconds] = useState(0);
+export function useLabTimer(initialSeconds = 0) {
+  const [seconds, setSeconds] = useState(initialSeconds);
+
+  useEffect(() => {
+    setSeconds(initialSeconds);
+  }, [initialSeconds]);
 
   useEffect(() => {
     const interval = setInterval(() => {
