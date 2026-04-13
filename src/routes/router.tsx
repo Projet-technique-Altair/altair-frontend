@@ -20,12 +20,13 @@ import MarketplacePage from "@/pages/gamification/MarketplacePage";
 import CollectionPage from "@/pages/gamification/CollectionPage";
 
 import { CreatorDashboard, CreatorWorkspace } from "@/pages/creator";
-import CreateLabPage from "@/pages/creator/CreateLabPage";
-import CreateStepPage from "@/pages/creator/CreateStepPage";
+import CreateLabPage from "@/pages/creator/labs/CreateLabPage";
+import CreateStepPage from "@/pages/creator/labs/CreateStepPage";
 import CreateGroupPage from "@/pages/creator/CreateGroupPage";
-import CreatorGroupPage from "@/pages/creator/CreatorGroupPage";
-import CreatorLabDetails from "@/pages/creator/CreatorLabDetails";
-import CreatorLabEditPage from "@/pages/creator/CreatorLabEditPage";
+import CreatorGroupDetailsPage from "@/pages/creator/CreatorGroupDetails";
+import CreatorGroupEditPage from "@/pages/creator/CreatorGroupEditPage";
+import CreatorLabDetails from "@/pages/creator/labs/CreatorLabDetails";
+import CreatorLabEditPage from "@/pages/creator/labs/CreatorLabEditPage";
 import LabAnalyticsPage from "@/pages/creator/analytics/LabAnalyticsPage";
 import CreateStarpathPage from "@/pages/creator/CreateStarpathPage";
 import CreatorStarpathPage from "@/pages/creator/CreatorStarpathPage";
@@ -45,19 +46,14 @@ export const router = createBrowserRouter([
       </AuthProvider>
     ),
     children: [
-      // ================= PUBLIC =================
       {
         path: "/",
         element: <Landing />,
       },
-
-      // ================= AUTH =================
       {
         path: "/auth/callback",
         element: <AuthCallback />,
       },
-
-      // ================= PROTECTED =================
       {
         element: <AuthGuard />,
         children: [
@@ -67,7 +63,6 @@ export const router = createBrowserRouter([
             errorElement: null,
           },
 
-          // ================= LEARNER =================
           {
             path: "/learner",
             element: (
@@ -98,7 +93,6 @@ export const router = createBrowserRouter([
             ],
           },
 
-          // ================= CREATOR =================
           {
             path: "/creator",
             element: (
@@ -107,40 +101,32 @@ export const router = createBrowserRouter([
               </ProtectedRoute>
             ),
             children: [
-              /* ===== CORE ===== */
               { path: "dashboard", element: <CreatorDashboard /> },
-
-              // 🔥 NEW WORKSPACE
               { path: "workspace", element: <CreatorWorkspace /> },
               { path: "profile", element: <ProfilePage /> },
               { path: "settings", element: <SettingsPage /> },
 
-              /* ===== GAMIFICATION (mirror learner) ===== */
               { path: "gacha", element: <GachaPage /> },
               { path: "marketplace", element: <MarketplacePage /> },
               { path: "collection", element: <CollectionPage /> },
 
-              /* ===== LABS ===== */
               { path: "labs/new", element: <CreateLabPage /> },
               { path: "lab/:id", element: <CreatorLabDetails /> },
               { path: "lab/:id/edit", element: <CreatorLabEditPage /> },
-              { path: "labs/:id/steps", element: <CreateStepPage /> },
+              { path: "lab/:id/steps", element: <CreateStepPage /> },
               { path: "lab/:id/analytics", element: <LabAnalyticsPage /> },
 
-              /* ===== GROUPS ===== */
               { path: "groups/new", element: <CreateGroupPage /> },
-              { path: "group/:id", element: <CreatorGroupPage /> },
+              { path: "group/:id", element: <CreatorGroupDetailsPage /> },
+              { path: "group/:id/edit", element: <CreatorGroupEditPage /> },
 
-              /* ===== STARPATHS ===== */
               { path: "starpaths/new", element: <CreateStarpathPage /> },
               { path: "starpath/:id", element: <CreatorStarpathPage /> },
 
-              /* ===== DEFAULT ===== */
               { index: true, element: <Navigate to="dashboard" replace /> },
             ],
           },
 
-          // ================= ADMIN =================
           {
             path: "/admin",
             element: (
@@ -152,7 +138,6 @@ export const router = createBrowserRouter([
         ],
       },
 
-      // ================= FALLBACK =================
       {
         path: "*",
         element: <Navigate to="/" replace />,

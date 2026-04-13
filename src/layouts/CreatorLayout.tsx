@@ -1,111 +1,79 @@
-// src/layouts/CreatorLayout.tsx
-
-import { Outlet, useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/useAuth";
-import { useState, useEffect } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { request } from "@/api/client";
-
-import { motion, AnimatePresence } from "framer-motion";
-
+import { getProfile, type UserProfile } from "@/api/profile";
+import { useAuth } from "@/context/useAuth";
 import { refreshAccessToken } from "@/lib/refresh";
-
 import {
-  User,
-  LogOut,
-  Sparkles,
-  ShoppingCart,
-  Star,
-  Settings,
+  GACHA_SCENE_EVENT,
+  readGachaScene,
+  type GachaSceneMode,
+} from "@/components/gacha/gachaScene";
+import GamificationNavbar, {
+  type GamificationNavbarItem,
+} from "@/components/navigation/GamificationNavbar";
+import GlobalToastHost from "@/components/ui/GlobalToastHost";
+import { AnimatePresence, motion } from "framer-motion";
+import {
   Compass,
+  LogOut,
+  Settings,
+  ShoppingCart,
+  Sparkles,
+  Star,
 } from "lucide-react";
-
-import type { LucideIcon } from "lucide-react";
-
 import titleLogo from "@/assets/titre.png";
-import orionBase from "@/assets/Orion-base.png";
 import backgroundimage from "@/assets/banniere.png";
 
-/* ================= TYPES ================= */
-type NavItem = {
-  label: string;
-  to: string;
-  Icon: LucideIcon;
-};
-
-type PillItemProps = NavItem & {
-  onNavigate: (to: string) => void;
-};
-
-/* ================= COMPONENT ================= */
-function PillItem({ label, to, Icon, onNavigate }: PillItemProps) {
-  return (
-    <button
-      onClick={() => onNavigate(to)}
-      className="flex flex-col items-center gap-1 text-white/55 hover:text-white/80 transition"
-    >
-      <div className="flex h-11 w-11 items-center justify-center rounded-full">
-        <Icon className="h-5 w-5" />
-      </div>
-
-      <span className="text-[10px] tracking-wide text-white/45">
-        {label}
-      </span>
-    </button>
-  );
-}
-
-/* ================= MAIN ================= */
 export default function CreatorLayout() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { logout } = useAuth();
-
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [gachaSceneMode, setGachaSceneMode] = useState<GachaSceneMode>("menu");
   const [showSwitchOverlay, setShowSwitchOverlay] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  /* ================= NAV ================= */
-  const leftNav: NavItem[] = [
-    { label: "Workspace", to: "/creator/workspace", Icon: Compass },
-    { label: "Settings", to: "/creator/settings", Icon: Settings },
+  const leftNav: GamificationNavbarItem[] = [
+    { label: "Workspace", path: "/creator/workspace", Icon: Compass },
+    { label: "Settings", path: "/creator/settings", Icon: Settings },
   ];
 
-  const rightNav: NavItem[] = [
-    { label: "Gacha", to: "/creator/gacha", Icon: Sparkles },
-    { label: "Market", to: "/creator/marketplace", Icon: ShoppingCart },
-    { label: "Collection", to: "/creator/collection", Icon: Star },
+  const rightNav: GamificationNavbarItem[] = [
+    { label: "Gacha", path: "/creator/gacha", Icon: Sparkles },
+    { label: "Market", path: "/creator/marketplace", Icon: ShoppingCart },
+    { label: "Collection", path: "/creator/collection", Icon: Star },
   ];
 
-  /* ================= HANDLERS ================= */
-  const handleLogout = () => logout();
-
-  const handleSwitchToLearner = async () => {
-  try {
-    setIsTransitioning(true);
-
-    await request("/users/me/toggle-role", {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
-
-    await refreshAccessToken();
-
-    const me = await request<{ role: string }>("/users/me");
-
-    if (me.role === "creator") {
-      navigate("/creator/dashboard");
-    } else {
-      navigate("/learner/dashboard");
-    }
-
-  } catch (e) {
-    console.error("Toggle role failed", e);
-    setIsTransitioning(false);
-  }
-};
-
-  /* ================= UX ================= */
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !isTransitioning) {
+    let cancelled = false;
+
+    const loadProfile = () => {
+      getProfile()
+        .then((nextProfile) => {
+          if (!cancelled) {
+            setProfile(nextProfile);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setProfile(null);
+          }
+        });
+    };
+
+    loadProfile();
+    window.addEventListener("altair-profile-updated", loadProfile);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("altair-profile-updated", loadProfile);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isTransitioning) {
         setShowSwitchOverlay(false);
       }
     };
@@ -121,9 +89,61 @@ export default function CreatorLayout() {
     };
   }, [showSwitchOverlay, isTransitioning]);
 
+  useEffect(() => {
+    const isGachaRoute = pathname === "/creator/gacha";
+
+    if (!isGachaRoute) {
+      setGachaSceneMode("menu");
+      return;
+    }
+
+    const handleGachaScene = (event: Event) => {
+      const nextMode = readGachaScene(event);
+      if (nextMode) {
+        setGachaSceneMode(nextMode);
+      }
+    };
+
+    window.addEventListener(GACHA_SCENE_EVENT, handleGachaScene);
+    return () => {
+      window.removeEventListener(GACHA_SCENE_EVENT, handleGachaScene);
+    };
+  }, [pathname]);
+
+  const handleLogout = () => logout();
+
+  const handleSwitchToLearner = async () => {
+    try {
+      setIsTransitioning(true);
+
+      await request("/users/me/toggle-role", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+
+      await refreshAccessToken();
+
+      const me = await request<{ role: string }>("/users/me");
+
+      if (me.role === "creator") {
+        navigate("/creator/dashboard");
+        return;
+      }
+
+      navigate("/learner/dashboard");
+    } catch (error) {
+      console.error("Toggle role failed", error);
+      setIsTransitioning(false);
+    }
+  };
+
+  const isGachaRoute = pathname === "/creator/gacha";
+  const isFullscreenGacha = isGachaRoute && gachaSceneMode !== "menu";
+  const hideHeader = isFullscreenGacha;
+
   return (
     <div
-      className="min-h-screen text-white font-sans"
+      className="min-h-screen font-sans text-white"
       style={{
         backgroundImage: `url(${backgroundimage})`,
         backgroundSize: "cover",
@@ -131,114 +151,80 @@ export default function CreatorLayout() {
         backgroundAttachment: "fixed",
       }}
     >
-      {/* ================= HEADER ================= */}
-      <header className="sticky top-0 z-50 bg-[#070B16]/70 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-7">
-          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-8">
+      {!hideHeader ? (
+        <header className="sticky top-0 z-50 border-b border-white/5 bg-[#070B16]/70 backdrop-blur-xl">
+          <div className="mx-auto max-w-7xl px-6 py-7">
+            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-8">
+              <button type="button" onClick={() => navigate("/creator/dashboard")}>
+                <img src={titleLogo} alt="Altaïr" className="h-9" />
+              </button>
 
-            {/* TITLE */}
-            <button onClick={() => navigate("/creator/dashboard")}>
-              <img src={titleLogo} alt="Altaïr" className="h-9" />
-            </button>
+              <GamificationNavbar
+                currentPath={pathname}
+                dashboardPath="/creator/dashboard"
+                profilePath="/creator/profile"
+                leftItems={leftNav}
+                rightItems={rightNav}
+                profileImageUrl={profile?.equipped_profile_cosmetic?.image_url}
+                profileImageAlt={profile?.equipped_profile_cosmetic?.name}
+                profileAuraImageUrl={profile?.equipped_aura_cosmetic?.image_url}
+                profileAuraImageAlt={profile?.equipped_aura_cosmetic?.name}
+                constellationImageUrl={profile?.equipped_constellation?.image_url}
+                constellationName={profile?.equipped_constellation?.name ?? null}
+                constellationAuraImageUrl={profile?.equipped_aura_cosmetic?.image_url}
+                constellationAuraImageAlt={profile?.equipped_aura_cosmetic?.name}
+              />
 
-            {/* NAV */}
-            <div className="flex justify-center">
-              <nav className="w-full max-w-[720px] relative">
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-white/80">creator mode</span>
 
-                <div className="h-20 rounded-full bg-white/6 border border-white/12 backdrop-blur-xl flex items-center justify-between px-10 py-4">
-
-                  {/* LEFT */}
-                  <div className="flex items-center gap-6">
-                    <button
-                      onClick={() => navigate("/creator/profile")}
-                      className="h-10 w-10 rounded-full border border-white/12 bg-white/6 flex items-center justify-center"
-                    >
-                      <User className="h-5 w-5 text-white/80" />
-                    </button>
-
-                    {leftNav.map((item) => (
-                      <PillItem key={item.to} {...item} onNavigate={navigate} />
-                    ))}
-                  </div>
-
-                  {/* RIGHT */}
-                  <div className="flex items-center gap-6">
-                    {rightNav.map((item) => (
-                      <PillItem key={item.to} {...item} onNavigate={navigate} />
-                    ))}
-                  </div>
-                </div>
-
-                {/* ORION */}
                 <button
-                  onClick={() => navigate("/creator/dashboard")}
-                  className="absolute left-1/2 -translate-x-1/2 -top-4 flex flex-col items-center"
+                  type="button"
+                  onClick={() => setShowSwitchOverlay(true)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/12 bg-white/6 transition hover:bg-white/10"
                 >
-                  <div className="h-20 w-20 rounded-full bg-white/8 flex items-center justify-center">
-                    <img src={orionBase} className="scale-[3]" />
-                  </div>
-
-                  <span className="mt-4 text-[10px] text-white/45">
-                    Dashboard
-                  </span>
+                  <Sparkles className="h-4 w-4 text-white/80" />
                 </button>
 
-              </nav>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/12 bg-white/6 transition hover:bg-white/10"
+                >
+                  <LogOut className="h-4 w-4 text-white/80" />
+                </button>
+              </div>
             </div>
-
-            {/* RIGHT USER */}
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-white/80">
-                creator mode
-              </span>
-
-              {/* SWITCH */}
-              <button
-                onClick={() => setShowSwitchOverlay(true)}
-                className="h-10 w-10 rounded-full border border-white/12 bg-white/6 flex items-center justify-center"
-              >
-                <Sparkles className="h-4 w-4 text-white/80" />
-              </button>
-
-              {/* LOGOUT */}
-              <button
-                onClick={handleLogout}
-                className="h-10 w-10 rounded-full border border-white/12 bg-white/6 flex items-center justify-center"
-              >
-                <LogOut className="h-4 w-4 text-white/80" />
-              </button>
-            </div>
-
           </div>
-        </div>
-      </header>
+        </header>
+      ) : null}
 
-      {/* ================= MAIN (FIX ICI) ================= */}
-      <motion.main
-        className="px-12 py-14"
-        animate={{
-          opacity: isTransitioning ? 0 : 1,
-          filter: isTransitioning ? "blur(8px)" : "blur(0px)",
-        }}
-        transition={{ duration: 0.4 }}
+      <main
+        className={[
+          "w-full",
+          isFullscreenGacha ? "max-w-none px-0 py-0" : "mx-auto max-w-[1800px] px-12 py-14",
+          isTransitioning ? "opacity-0" : "opacity-100",
+        ].join(" ")}
       >
         <Outlet />
-      </motion.main>
+      </main>
 
-      {/* ================= OVERLAY ================= */}
       <AnimatePresence>
-        {showSwitchOverlay && (
+        {showSwitchOverlay ? (
           <motion.div
             className="fixed inset-0 z-[999] flex items-center justify-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => !isTransitioning && setShowSwitchOverlay(false)}
+            onClick={() => {
+              if (!isTransitioning) {
+                setShowSwitchOverlay(false);
+              }
+            }}
           >
             <div className="absolute inset-0 bg-black/80 backdrop-blur-2xl" />
 
-            {/* GLOW */}
-            {isTransitioning && (
+            {isTransitioning ? (
               <motion.div
                 className="absolute h-[240px] w-[240px] rounded-full"
                 initial={{ scale: 0.3, opacity: 0 }}
@@ -250,47 +236,47 @@ export default function CreatorLayout() {
                   filter: "blur(40px)",
                 }}
               />
-            )}
+            ) : null}
 
-            {/* MODAL */}
             <motion.div
-              onClick={(e) => e.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{
                 scale: isTransitioning ? 0.9 : 1,
                 opacity: isTransitioning ? 0 : 1,
               }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0F1A]/80 backdrop-blur-2xl p-8 text-center"
+              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0F1A]/80 p-8 text-center backdrop-blur-2xl"
             >
-              <h2 className="text-xl text-white mb-2">
-                Learner Mode
-              </h2>
+              <h2 className="mb-2 text-xl text-white">Learner Mode</h2>
 
-              <p className="text-sm text-white/60 mb-6">
-                Return to your learning journey.
+              <p className="mb-6 text-sm text-white/60">
+                Return to your learner dashboard and continue your progression.
               </p>
 
-              <div className="flex gap-3 justify-center">
+              <div className="flex justify-center gap-3">
                 <button
+                  type="button"
                   onClick={() => setShowSwitchOverlay(false)}
-                  className="px-4 py-2 rounded-lg bg-white/5"
+                  className="rounded-lg bg-white/5 px-4 py-2"
                 >
                   Cancel
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleSwitchToLearner}
-                  className="px-6 py-2 rounded-lg bg-gradient-to-r from-sky-500 to-indigo-500"
+                  className="rounded-lg bg-gradient-to-r from-sky-500 to-indigo-500 px-6 py-2"
                 >
-                  Enter Learner
+                  Return to Learner
                 </button>
               </div>
             </motion.div>
-
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
+
+      <GlobalToastHost />
     </div>
   );
 }

@@ -86,9 +86,7 @@ export default function ChartsSection({
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white/90">
                 Telemetry Snapshot
               </h2>
-              <p className="mt-1.5 text-sm text-white/60 max-w-2xl">
-                Visual signal (temporary). We’ll redesign this whole module later.
-              </p>
+           
             </div>
 
             <div className="flex items-center gap-3">

@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
+import { ApiError } from "@/api/client";
 import { getHints, getLab, getSteps, startLab } from "@/api/labs";
 import {
   completeSession,
@@ -54,6 +55,7 @@ type LabStep = {
 type SessionRuntime = {
   sessionId?: string;
   labId: string;
+  currentRuntimeId?: string | null;
   status?: string | null;
   runtimeKind?: string | null;
   webshellUrl?: string | null;
@@ -164,6 +166,10 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+function isRuntimeUnavailableError(error: unknown): boolean {
+  return error instanceof ApiError && [404, 409, 410].includes(error.status);
+}
+
 function normalizeRuntimeStep(raw: RuntimeStepInput, index: number): LabStep {
   const title =
     raw?.title ??
@@ -229,20 +235,22 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
     try {
       const existing = await getSession(cached);
       const status = String(existing?.status ?? "").toLowerCase();
+      const currentRuntimeId = existing?.current_runtime_id ?? null;
       const runtimeKind = existing?.runtime_kind ?? null;
       const webshellUrl = existing?.webshell_url ?? null;
 
-      if (status === "created" || status === "running" || webshellUrl) {
+      if (status === "completed") {
+        clearStoredSessionId(labId);
+      } else if (currentRuntimeId || webshellUrl) {
         return {
           sessionId: cached,
           labId,
+          currentRuntimeId,
           status,
           runtimeKind,
           webshellUrl,
         };
       }
-
-      clearStoredSessionId(labId);
     } catch {
       clearStoredSessionId(labId);
     }
@@ -259,6 +267,7 @@ async function fetchSessionRuntime(labId: string): Promise<SessionRuntime> {
   return {
     sessionId,
     labId,
+    currentRuntimeId: started?.current_runtime_id ?? null,
     status: started?.status ?? null,
     runtimeKind: started?.runtime_kind ?? null,
     webshellUrl: started?.webshell_url ?? null,
@@ -291,8 +300,10 @@ export default function LabSession() {
   const [userInput, setUserInput] = useState("");
   const [completionInFlight, setCompletionInFlight] = useState(false);
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
+  const [runtimeUnavailable, setRuntimeUnavailable] = useState(false);
+  const [runtimeRestarting, setRuntimeRestarting] = useState(false);
 
-  const { formatted } = useLabTimer();
+  const { formatted } = useLabTimer(sessionProgress?.time_elapsed ?? 0);
 
   // ✅ Reset navigation state when lab id changes
   useEffect(() => {
@@ -304,7 +315,15 @@ export default function LabSession() {
     setRevealedHints({});
     setCompletionInFlight(false);
     setCompletedSessionId(null);
+    setRuntimeUnavailable(false);
+    setRuntimeRestarting(false);
   }, [id]);
+
+  useEffect(() => {
+    if (session?.currentRuntimeId) {
+      setRuntimeUnavailable(false);
+    }
+  }, [session?.currentRuntimeId]);
 
   // ✅ Clamp currentStep when steps change (avoid "no step" when index is out of range)
   useEffect(() => {
@@ -336,6 +355,8 @@ export default function LabSession() {
           setSession({
             labId: mockLab.lab_id,
             sessionId: "mock-session",
+            currentRuntimeId: "mock-runtime",
+            runtimeKind: "terminal",
           });
           setSteps(mockSteps);
           setLoading(false);
@@ -425,6 +446,10 @@ export default function LabSession() {
       return;
     }
 
+    if (!session.currentRuntimeId) {
+      handleRuntimeUnavailable();
+      return;
+    }
     const popup = window.open("", "_blank");
     if (!popup) {
       setFeedback("❌ Browser blocked the new tab.");
@@ -445,6 +470,11 @@ export default function LabSession() {
       popup.location.replace(result.redirect_url);
     } catch (e) {
       popup.close();
+
+      if (isRuntimeUnavailableError(e)) {
+        handleRuntimeUnavailable();
+        return;
+      }
       const msg = getErrorMessage(e, "Failed to open web lab.");
       setFeedback(`❌ ${msg}`);
     }
@@ -474,12 +504,20 @@ export default function LabSession() {
 
         clearStoredSessionId(activeLabId);
         setSession((prev) =>
-          prev ? { ...prev, status: "finished" } : prev
+          prev
+            ? {
+                ...prev,
+                status: "completed",
+                currentRuntimeId: null,
+                webshellUrl: null,
+              }
+            : prev
         );
         setCompletedSessionId(activeSessionId);
         setFeedback(
           `✅ Lab completed. Final score: ${stats.final_score}/${stats.max_score}`
         );
+        setRuntimeUnavailable(false);
       } catch (e) {
         if (cancelled) return;
 
@@ -648,6 +686,61 @@ export default function LabSession() {
     navigate("/learner/dashboard");
   };
 
+  const handleRuntimeUnavailable = () => {
+    setRuntimeUnavailable(true);
+    setSession((prev) =>
+      prev
+        ? {
+            ...prev,
+            currentRuntimeId: null,
+            webshellUrl: null,
+          }
+        : prev
+    );
+    setFeedback("⚠️ Lab arrêté.");
+  };
+
+  const handleRelaunchRuntime = async () => {
+    if (mockUI || !lab) return;
+
+    setRuntimeRestarting(true);
+    setFeedback(null);
+
+    try {
+      const restarted = await startLab(lab.lab_id);
+      const nextSessionId = restarted?.session_id;
+
+      if (!nextSessionId) {
+        throw new Error("Start succeeded but did not return a session_id");
+      }
+
+      storeSessionId(lab.lab_id, nextSessionId);
+
+      setSession({
+        sessionId: nextSessionId,
+        labId: lab.lab_id,
+        currentRuntimeId: restarted?.current_runtime_id ?? null,
+        status: restarted?.status ?? null,
+        runtimeKind: restarted?.runtime_kind ?? null,
+        webshellUrl: restarted?.webshell_url ?? null,
+      });
+
+      const progress = await getSessionProgress(nextSessionId);
+      setSessionProgress(progress);
+      setRuntimeUnavailable(false);
+      setFeedback(
+        restarted?.runtime_kind === "web"
+          ? "✅ Lab restarted. Open the web lab again."
+          : "✅ Lab restarted."
+      );
+    } catch (e) {
+      const msg = getErrorMessage(e, "Failed to restart the lab.");
+      setFeedback(`❌ ${msg}`);
+    } finally {
+      setRuntimeRestarting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen text-white flex flex-col">
       {/* HEADER */}
@@ -678,7 +771,16 @@ export default function LabSession() {
                 </p>
               </div>
 
-              {session?.sessionId ? (
+              {runtimeUnavailable || !session.currentRuntimeId ? (
+                <button
+                  type="button"
+                  onClick={handleRelaunchRuntime}
+                  disabled={runtimeRestarting}
+                  className="rounded-md border border-white/10 px-4 py-2 text-sm text-white hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {runtimeRestarting ? "Restarting..." : "Relancer le lab"}
+                </button>
+              ) : session?.sessionId ? (
                 <button
                   type="button"
                   onClick={handleOpenWebLab}
@@ -771,11 +873,34 @@ export default function LabSession() {
         {/* RIGHT */}
         {!isWebRuntime && (
           <div className="bg-[#0E1323] border border-white/5 rounded-xl p-6 flex flex-col">
-            <Terminal
-              step={current}
-              sessionId={session?.sessionId ?? ""}
-              token={getAuthToken() ?? ""}
-            />
+            {runtimeUnavailable || !session.currentRuntimeId ? (
+              <div className="flex h-full flex-1 flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-[#0c0c0f] p-8 text-center">
+                <div className="space-y-2">
+                  <h2 className="text-lg font-semibold text-white">Lab arrêté</h2>
+                  <p className="text-sm text-white/60">
+                    The runtime is no longer available. Restart it to keep working on the same
+                    session.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRelaunchRuntime}
+                  disabled={runtimeRestarting}
+                  className="rounded-md border border-white/10 px-4 py-2 text-sm text-white hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {runtimeRestarting ? "Restarting..." : "Relancer le lab"}
+                </button>
+              </div>
+            ) : (
+              <Terminal
+                key={`${session.sessionId}:${session.currentRuntimeId}`}
+                step={current}
+                sessionId={session?.sessionId ?? ""}
+                token={getAuthToken() ?? ""}
+                onRuntimeUnavailable={handleRuntimeUnavailable}
+              />
+            )}
           </div>
         )}
       </div>

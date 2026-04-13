@@ -18,6 +18,8 @@ import type { SearchUserResult } from "./types"
 export function getMe() {
   return request<{
     user_id: string
+    pseudo?: string
+    role?: string
     email?: string
     roles: string[]
     metadata?: Record<string, unknown>
