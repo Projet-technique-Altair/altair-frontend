@@ -450,7 +450,6 @@ export default function LabSession() {
       handleRuntimeUnavailable();
       return;
     }
-
     const popup = window.open("", "_blank");
     if (!popup) {
       setFeedback("❌ Browser blocked the new tab.");
@@ -476,7 +475,6 @@ export default function LabSession() {
         handleRuntimeUnavailable();
         return;
       }
-
       const msg = getErrorMessage(e, "Failed to open web lab.");
       setFeedback(`❌ ${msg}`);
     }
