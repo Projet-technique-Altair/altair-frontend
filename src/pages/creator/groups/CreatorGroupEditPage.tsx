@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
+  BarChart3,
+  FlaskConical,
+  Loader2,
+  Orbit,
   Pencil,
   Save,
   Search,
   Trash2,
   UserPlus,
-  Orbit,
-  FlaskConical,
   Users,
   X,
 } from "lucide-react";
@@ -47,37 +49,68 @@ type BusyAction =
   | null;
 
 type EnrichedMember = GroupMemberResult & {
-  pseudo?: string;
+  pseudo: string;
 };
 
 type EnrichedLab = GroupLabResult & {
-  name?: string;
+  name: string;
 };
 
 type EnrichedStarpath = GroupStarpathResult & {
-  name?: string;
+  name: string;
 };
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function FieldLabel({
+  children,
+  required = false,
+}: {
+  children: ReactNode;
+  required?: boolean;
+}) {
   return (
-    <label className="text-[11px] uppercase tracking-wide text-white/50">
-      {children}
+    <label className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-white/58">
+      <span>{children}</span>
+      {required && <span className="text-[10px] text-sky-300/80">Required</span>}
     </label>
   );
+}
+
+function FieldHint({ children }: { children: ReactNode }) {
+  return <p className="mt-2 text-xs leading-relaxed text-white/46">{children}</p>;
 }
 
 function InputShell({
   children,
   className = "",
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-black/20 p-4 ${className}`}
+      className={`rounded-2xl border border-white/10 bg-black/20 p-4 transition focus-within:border-sky-400/40 focus-within:bg-white/[0.055] focus-within:shadow-[0_0_0_1px_rgba(56,189,248,0.16)] ${className}`}
     >
       {children}
+    </div>
+  );
+}
+
+function SummaryPill({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+      <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-white/45">
+        <Icon className="h-3.5 w-3.5" />
+        <span>{label}</span>
+      </div>
+      <div className="mt-2 text-sm font-medium text-white/86">{value}</div>
     </div>
   );
 }
@@ -130,11 +163,12 @@ export default function CreatorGroupEditPage() {
 
     async function load() {
       if (!groupId) {
-        navigate("/creator/workspace");
+        navigate("/creator/workspace", { replace: true });
         return;
       }
 
       setLoading(true);
+      setMessage(null);
 
       try {
         const [g, m, l, sp] = await Promise.all([
@@ -148,7 +182,6 @@ export default function CreatorGroupEditPage() {
           (m ?? []).map(async (member) => {
             try {
               const fullUser = await getUserPseudo(member.user_id);
-
               return {
                 ...member,
                 pseudo: fullUser?.pseudo || "Unknown user",
@@ -166,7 +199,6 @@ export default function CreatorGroupEditPage() {
           (l ?? []).map(async (lab) => {
             try {
               const fullLab = await getLab(lab.lab_id);
-
               return {
                 ...lab,
                 name: fullLab?.name || "Unknown lab",
@@ -187,7 +219,6 @@ export default function CreatorGroupEditPage() {
 
             try {
               const fullStarpath = await getStarpath(starpathId);
-
               return {
                 ...(typeof starpath === "string"
                   ? { starpath_id: starpathId }
@@ -213,8 +244,8 @@ export default function CreatorGroupEditPage() {
         setStarpaths(enrichedStarpaths);
         setName(g.name ?? "");
         setDescription(g.description ?? "");
-      } catch (err) {
-        console.error("Failed to load group:", err);
+      } catch (error) {
+        console.error("Failed to load group:", error);
 
         if (!cancelled) {
           setMessage({
@@ -253,8 +284,8 @@ export default function CreatorGroupEditPage() {
 
         if (cancelled) return;
         setUserResults(results ?? []);
-      } catch (err) {
-        console.error("Failed to search users:", err);
+      } catch (error) {
+        console.error("Failed to search users:", error);
 
         if (!cancelled) {
           setUserResults([]);
@@ -289,8 +320,8 @@ export default function CreatorGroupEditPage() {
 
         if (cancelled) return;
         setLabResults(results ?? []);
-      } catch (err) {
-        console.error("Failed to search labs:", err);
+      } catch (error) {
+        console.error("Failed to search labs:", error);
 
         if (!cancelled) {
           setLabResults([]);
@@ -325,8 +356,8 @@ export default function CreatorGroupEditPage() {
 
         if (cancelled) return;
         setStarpathResults(results ?? []);
-      } catch (err) {
-        console.error("Failed to search starpaths:", err);
+      } catch (error) {
+        console.error("Failed to search starpaths:", error);
 
         if (!cancelled) {
           setStarpathResults([]);
@@ -414,8 +445,8 @@ export default function CreatorGroupEditPage() {
         type: "success",
         text: "Group details saved successfully.",
       });
-    } catch (err) {
-      console.error("Failed to update group:", err);
+    } catch (error) {
+      console.error("Failed to update group:", error);
 
       setMessage({
         type: "error",
@@ -439,8 +470,8 @@ export default function CreatorGroupEditPage() {
         type: "success",
         text: "Member removed from the group.",
       });
-    } catch (err) {
-      console.error("Failed to remove member:", err);
+    } catch (error) {
+      console.error("Failed to remove member:", error);
       setMessage({
         type: "error",
         text: "Failed to remove this member.",
@@ -463,8 +494,8 @@ export default function CreatorGroupEditPage() {
         type: "success",
         text: "Lab unassigned successfully.",
       });
-    } catch (err) {
-      console.error("Failed to unassign lab:", err);
+    } catch (error) {
+      console.error("Failed to unassign lab:", error);
       setMessage({
         type: "error",
         text: "Failed to unassign this lab.",
@@ -489,8 +520,8 @@ export default function CreatorGroupEditPage() {
         type: "success",
         text: "Starpath unassigned successfully.",
       });
-    } catch (err) {
-      console.error("Failed to unassign starpath:", err);
+    } catch (error) {
+      console.error("Failed to unassign starpath:", error);
       setMessage({
         type: "error",
         text: "Failed to unassign this starpath.",
@@ -518,7 +549,6 @@ export default function CreatorGroupEditPage() {
 
       setMembers((prev) => {
         const existingIds = new Set(prev.map((member) => member.user_id));
-
         return [
           ...prev,
           ...nextMembers.filter((user) => !existingIds.has(user.user_id)),
@@ -533,8 +563,8 @@ export default function CreatorGroupEditPage() {
         type: "success",
         text: "Selected members added successfully.",
       });
-    } catch (err) {
-      console.error("Failed to add users:", err);
+    } catch (error) {
+      console.error("Failed to add users:", error);
       setMessage({
         type: "error",
         text: "Failed to add selected members.",
@@ -562,7 +592,6 @@ export default function CreatorGroupEditPage() {
 
       setLabs((prev) => {
         const existingIds = new Set(prev.map((lab) => lab.lab_id));
-
         return [
           ...prev,
           ...nextLabs.filter((lab) => !existingIds.has(lab.lab_id)),
@@ -577,8 +606,8 @@ export default function CreatorGroupEditPage() {
         type: "success",
         text: "Selected labs assigned successfully.",
       });
-    } catch (err) {
-      console.error("Failed to assign labs:", err);
+    } catch (error) {
+      console.error("Failed to assign labs:", error);
       setMessage({
         type: "error",
         text: "Failed to assign selected labs.",
@@ -599,16 +628,13 @@ export default function CreatorGroupEditPage() {
         await api.assignStarpathToGroup(groupId, starpath.starpath_id);
       }
 
-      const nextStarpaths: EnrichedStarpath[] = selectedStarpaths.map(
-        (starpath) => ({
-          ...starpath,
-          name: starpath.name || "Unknown starpath",
-        }),
-      );
+      const nextStarpaths: EnrichedStarpath[] = selectedStarpaths.map((starpath) => ({
+        ...starpath,
+        name: starpath.name || "Unknown starpath",
+      }));
 
       setStarpaths((prev) => {
         const existingIds = new Set(prev.map((starpath) => starpath.starpath_id));
-
         return [
           ...prev,
           ...nextStarpaths.filter(
@@ -625,8 +651,8 @@ export default function CreatorGroupEditPage() {
         type: "success",
         text: "Selected starpaths assigned successfully.",
       });
-    } catch (err) {
-      console.error("Failed to assign starpaths:", err);
+    } catch (error) {
+      console.error("Failed to assign starpaths:", error);
       setMessage({
         type: "error",
         text: "Failed to assign selected starpaths.",
@@ -645,8 +671,8 @@ export default function CreatorGroupEditPage() {
     try {
       await api.deleteGroup(groupId);
       navigate("/creator/workspace");
-    } catch (err) {
-      console.error("Failed to delete group:", err);
+    } catch (error) {
+      console.error("Failed to delete group:", error);
       setConfirmDelete(false);
       setMessage({
         type: "error",
@@ -659,20 +685,48 @@ export default function CreatorGroupEditPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[70vh] w-full items-center justify-center text-white">
-        <div className="rounded-3xl border border-white/10 bg-white/5 px-8 py-6 shadow-[0_24px_90px_rgba(0,0,0,0.45)] backdrop-blur-md">
-          <div className="animate-pulse text-white/70">Loading group…</div>
+      <div className="min-h-screen w-full text-white">
+        <div className="mx-auto w-full max-w-[1680px] px-6 py-10 xl:px-10 2xl:px-14">
+          <div className="animate-pulse">
+            <div className="h-5 w-24 rounded bg-white/10" />
+            <div className="mt-6 h-3 w-28 rounded bg-white/10" />
+            <div className="mt-3 h-10 w-72 rounded bg-white/10" />
+            <div className="mt-4 h-5 w-[32rem] max-w-full rounded bg-white/10" />
+
+            <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:max-w-[720px]">
+              <div className="h-20 rounded-2xl border border-white/10 bg-white/5" />
+              <div className="h-20 rounded-2xl border border-white/10 bg-white/5" />
+              <div className="h-20 rounded-2xl border border-white/10 bg-white/5" />
+            </div>
+
+            <div className="mt-8 h-px w-full bg-white/10" />
+
+            <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-12">
+              <div className="space-y-6 xl:col-span-8">
+                <div className="h-80 rounded-3xl border border-white/10 bg-white/5" />
+                <div className="h-80 rounded-3xl border border-white/10 bg-white/5" />
+                <div className="h-80 rounded-3xl border border-white/10 bg-white/5" />
+              </div>
+              <div className="xl:col-span-4">
+                <div className="h-[48rem] rounded-3xl border border-white/10 bg-white/5" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
+
+  const hasUnsavedChanges =
+    normalizeText(name, 120) !== normalizeText(group?.name ?? "", 120) ||
+    description.trim() !== (group?.description ?? "").trim();
 
   return (
     <div className="min-h-screen w-full text-white">
       <div className="mx-auto w-full max-w-[1680px] px-6 py-10 xl:px-10 2xl:px-14">
         <div>
           <button
-            onClick={() => navigate("/creator/workspace")}
+            onClick={() => navigate(`/creator/group/${groupId}`)}
             className="inline-flex items-center gap-2 text-sm text-white/55 transition hover:text-white/80"
             type="button"
           >
@@ -684,14 +738,23 @@ export default function CreatorGroupEditPage() {
             Creator group
           </div>
 
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/92 sm:text-4xl">
-            {group?.name || "Group"}
-          </h1>
+          <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight text-white/92 sm:text-4xl">
+                Edit group
+              </h1>
 
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/70">
-            Manage the group details, members, assigned labs, and assigned
-            starpaths.
-          </p>
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/70">
+                Manage the group identity, members, and linked content while keeping the creator flow aligned with the rest of the workspace.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:min-w-[520px]">
+              <SummaryPill icon={Users} label="Members" value={`${members.length}`} />
+              <SummaryPill icon={FlaskConical} label="Labs" value={`${labs.length}`} />
+              <SummaryPill icon={Orbit} label="Starpaths" value={`${starpaths.length}`} />
+            </div>
+          </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {editing ? (
@@ -706,8 +769,17 @@ export default function CreatorGroupEditPage() {
                   }`}
                   type="button"
                 >
-                  <Save className="h-4 w-4" />
-                  {busyAction === "save-group" ? "Saving changes…" : "Save changes"}
+                  {busyAction === "save-group" ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Saving changes…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      <span>Save changes</span>
+                    </>
+                  )}
                 </button>
 
                 <button
@@ -726,20 +798,35 @@ export default function CreatorGroupEditPage() {
                 type="button"
               >
                 <Pencil className="h-4 w-4" />
-                Edit details
+                <span>Edit details</span>
               </button>
             )}
+
+            <button
+              onClick={() => navigate(`/creator/group/${groupId}/analytics`)}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold text-white/82 transition hover:border-emerald-400/40 hover:bg-white/5"
+              type="button"
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>Analytics</span>
+            </button>
           </div>
 
           {message && (
             <div
-              className={`mt-5 rounded-2xl px-4 py-3 text-sm ${
+              className={`mt-5 rounded-2xl border px-4 py-3 text-sm ${
                 message.type === "success"
-                  ? "border border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
-                  : "border border-red-400/20 bg-red-500/10 text-red-200"
+                  ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                  : "border-red-400/20 bg-red-500/10 text-red-200"
               }`}
             >
               {message.text}
+            </div>
+          )}
+
+          {!editing && hasUnsavedChanges && (
+            <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+              Unsaved changes are currently present in the form.
             </div>
           )}
 
@@ -766,9 +853,7 @@ export default function CreatorGroupEditPage() {
                         className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
                       >
                         <div className="min-w-0 text-sm text-white/85">
-                          <div className="truncate">
-                            {member.pseudo || "Unknown user"}
-                          </div>
+                          <div className="truncate">{member.pseudo}</div>
                         </div>
 
                         <button
@@ -800,10 +885,15 @@ export default function CreatorGroupEditPage() {
                     />
                   </div>
 
+                  <FieldHint>
+                    Search learners and add them to the pending selection before confirming.
+                  </FieldHint>
+
                   {userQuery.trim().length >= 2 ? (
                     searchingUsers ? (
-                      <div className="mt-3 text-sm text-white/45">
-                        Searching users…
+                      <div className="mt-3 flex items-center gap-2 text-sm text-white/45">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Searching users…</span>
                       </div>
                     ) : (
                       <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black/25">
@@ -815,9 +905,7 @@ export default function CreatorGroupEditPage() {
                           userResultsFiltered.map((user) => (
                             <button
                               key={user.user_id}
-                              onClick={() =>
-                                setSelectedUsers((prev) => [...prev, user])
-                              }
+                              onClick={() => setSelectedUsers((prev) => [...prev, user])}
                               disabled={isBusy}
                               className="flex w-full items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-left text-sm text-white/82 transition last:border-b-0 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
                               type="button"
@@ -838,8 +926,13 @@ export default function CreatorGroupEditPage() {
 
                 {selectedUsers.length > 0 && (
                   <div className="space-y-3 rounded-2xl border border-white/10 bg-black/10 p-4">
-                    <div className="text-[11px] uppercase tracking-wide text-white/45">
-                      Pending members
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-[11px] uppercase tracking-wide text-white/45">
+                        Pending members
+                      </div>
+                      <div className="text-xs text-white/50">
+                        {selectedUsers.length} selected
+                      </div>
                     </div>
 
                     <div className="space-y-2">
@@ -849,9 +942,7 @@ export default function CreatorGroupEditPage() {
                           className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
                         >
                           <div className="min-w-0 text-sm text-white/85">
-                            <div className="truncate">
-                              {user.pseudo || "Unknown user"}
-                            </div>
+                            <div className="truncate">{user.pseudo || "Unknown user"}</div>
                           </div>
 
                           <button
@@ -908,7 +999,7 @@ export default function CreatorGroupEditPage() {
                         className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
                       >
                         <div className="min-w-0 text-sm text-white/85">
-                          <div className="truncate">{lab.name || "Unknown lab"}</div>
+                          <div className="truncate">{lab.name}</div>
                         </div>
 
                         <button
@@ -940,10 +1031,15 @@ export default function CreatorGroupEditPage() {
                     />
                   </div>
 
+                  <FieldHint>
+                    Search labs and add them to the pending selection before confirming.
+                  </FieldHint>
+
                   {labQuery.trim().length >= 2 ? (
                     searchingLabs ? (
-                      <div className="mt-3 text-sm text-white/45">
-                        Searching labs…
+                      <div className="mt-3 flex items-center gap-2 text-sm text-white/45">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Searching labs…</span>
                       </div>
                     ) : (
                       <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black/25">
@@ -960,9 +1056,7 @@ export default function CreatorGroupEditPage() {
                               className="flex w-full items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-left text-sm text-white/82 transition last:border-b-0 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
                               type="button"
                             >
-                              <span className="truncate">
-                                {lab.name || "Unknown lab"}
-                              </span>
+                              <span className="truncate">{lab.name || "Unknown lab"}</span>
                               <span className="text-[11px] uppercase tracking-wide text-white/35">
                                 Add
                               </span>
@@ -976,8 +1070,13 @@ export default function CreatorGroupEditPage() {
 
                 {selectedLabs.length > 0 && (
                   <div className="space-y-3 rounded-2xl border border-white/10 bg-black/10 p-4">
-                    <div className="text-[11px] uppercase tracking-wide text-white/45">
-                      Pending labs
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-[11px] uppercase tracking-wide text-white/45">
+                        Pending labs
+                      </div>
+                      <div className="text-xs text-white/50">
+                        {selectedLabs.length} selected
+                      </div>
                     </div>
 
                     <div className="space-y-2">
@@ -1044,15 +1143,11 @@ export default function CreatorGroupEditPage() {
                         className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
                       >
                         <div className="min-w-0 text-sm text-white/85">
-                          <div className="truncate">
-                            {starpath.name || "Unknown starpath"}
-                          </div>
+                          <div className="truncate">{starpath.name}</div>
                         </div>
 
                         <button
-                          onClick={() =>
-                            handleUnassignStarpath(starpath.starpath_id)
-                          }
+                          onClick={() => handleUnassignStarpath(starpath.starpath_id)}
                           disabled={rowBusyId === starpath.starpath_id || isBusy}
                           className="shrink-0 text-xs font-medium text-red-300 transition hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
                           type="button"
@@ -1080,10 +1175,15 @@ export default function CreatorGroupEditPage() {
                     />
                   </div>
 
+                  <FieldHint>
+                    Search starpaths and add them to the pending selection before confirming.
+                  </FieldHint>
+
                   {starpathQuery.trim().length >= 2 ? (
                     searchingStarpaths ? (
-                      <div className="mt-3 text-sm text-white/45">
-                        Searching starpaths…
+                      <div className="mt-3 flex items-center gap-2 text-sm text-white/45">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Searching starpaths…</span>
                       </div>
                     ) : (
                       <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black/25">
@@ -1118,8 +1218,13 @@ export default function CreatorGroupEditPage() {
 
                 {selectedStarpaths.length > 0 && (
                   <div className="space-y-3 rounded-2xl border border-white/10 bg-black/10 p-4">
-                    <div className="text-[11px] uppercase tracking-wide text-white/45">
-                      Pending starpaths
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-[11px] uppercase tracking-wide text-white/45">
+                        Pending starpaths
+                      </div>
+                      <div className="text-xs text-white/50">
+                        {selectedStarpaths.length} selected
+                      </div>
                     </div>
 
                     <div className="space-y-2">
@@ -1129,9 +1234,7 @@ export default function CreatorGroupEditPage() {
                           className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
                         >
                           <div className="min-w-0 text-sm text-white/85">
-                            <div className="truncate">
-                              {starpath.name || "Unknown starpath"}
-                            </div>
+                            <div className="truncate">{starpath.name || "Unknown starpath"}</div>
                           </div>
 
                           <button
@@ -1175,14 +1278,14 @@ export default function CreatorGroupEditPage() {
           </div>
 
           <div className="space-y-6 xl:col-span-4">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-md">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-md xl:sticky xl:top-6">
               <div className="text-[11px] uppercase tracking-wide text-white/50">
                 Group details
               </div>
 
               <div className="mt-5 space-y-4">
                 <InputShell>
-                  <FieldLabel>Name</FieldLabel>
+                  <FieldLabel required>Name</FieldLabel>
                   <input
                     value={name}
                     onChange={(e) => {
@@ -1208,6 +1311,9 @@ export default function CreatorGroupEditPage() {
                     placeholder="Describe the group purpose and audience"
                     className="mt-3 w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed text-white/82 outline-none placeholder:text-white/28 disabled:cursor-not-allowed disabled:opacity-60"
                   />
+                  <FieldHint>
+                    Explain the audience, learning scope, or team purpose of this group.
+                  </FieldHint>
                 </InputShell>
 
                 {!editing && (
@@ -1248,8 +1354,7 @@ export default function CreatorGroupEditPage() {
               </div>
 
               <p className="mt-3 text-sm leading-relaxed text-white/65">
-                Deleting this group permanently removes the group and its current
-                assignments.
+                Deleting this group permanently removes the group and its current assignments.
               </p>
 
               <button
