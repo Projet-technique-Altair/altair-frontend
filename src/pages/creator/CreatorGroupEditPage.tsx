@@ -82,7 +82,7 @@ function InputShell({
   );
 }
 
-export default function CreatorGroupPage() {
+export default function CreatorGroupEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
 

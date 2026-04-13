@@ -1,4 +1,4 @@
-// src/pages/creator/CreateGroupPage.tsx
+// src/pages/creator/CreatorGroupDetails.tsx
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -14,29 +14,21 @@ type CreateGroupForm = {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="text-[11px] uppercase tracking-wide text-white/50">
-      {children}
-    </label>
-  );
-}
-
-function InputShell({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border border-white/10 bg-black/20 p-4 ${className}`}
-    >
+    <div className="text-[11px] uppercase tracking-wide text-white/50">
       {children}
     </div>
   );
 }
 
-export default function CreateGroupPage() {
+function DisplayBlock({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/85">
+      {children ?? <span className="text-white/40">—</span>}
+    </div>
+  );
+}
+
+export default function CreatorGroupDetails() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState<CreateGroupForm>({
@@ -82,7 +74,6 @@ export default function CreateGroupPage() {
         text: "Group created successfully.",
       });
 
-      // redirect vers details
       window.setTimeout(() => {
         navigate(`/creator/group/${group.group_id}`, { replace: true });
       }, 400);
@@ -110,7 +101,8 @@ export default function CreateGroupPage() {
         <div>
           <button
             onClick={() => navigate("/creator/workspace")}
-            className="inline-flex items-center gap-2 text-sm text-white/55 transition hover:text-white/80"
+            className="inline-flex items-center gap-2 text-sm text-white/55 hover:text-white/80"
+            type="button"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -120,20 +112,20 @@ export default function CreateGroupPage() {
             Creator group
           </div>
 
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/92 sm:text-4xl">
-            Create group
+          <h1 className="mt-2 text-3xl font-semibold text-white/92 sm:text-4xl">
+            {form.name || "New group"}
           </h1>
 
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/70">
-            Create a group to organize learners and assign labs or starpaths.
+          <p className="mt-3 max-w-3xl text-sm text-white/70">
+            {form.description || "No description provided."}
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <button
               onClick={handleCreate}
               disabled={isCreatingGroup}
-              className={`inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold text-white/85 transition hover:border-sky-400/40 hover:bg-white/5 hover:shadow-[0_0_40px_rgba(56,189,248,0.25)] active:scale-[0.98] ${
-                isCreatingGroup ? "cursor-not-allowed opacity-60" : ""
+              className={`inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold text-white/85 transition hover:border-sky-400/40 hover:bg-white/5 hover:shadow-[0_0_40px_rgba(56,189,248,0.25)] ${
+                isCreatingGroup ? "opacity-60 cursor-not-allowed" : ""
               }`}
             >
               {isCreatingGroup ? "Creating…" : "Create group"}
@@ -159,67 +151,50 @@ export default function CreateGroupPage() {
         <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-12">
           {/* LEFT */}
           <div className="space-y-6 xl:col-span-8">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-md">
-              <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-white/50">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md">
+              <div className="flex items-center gap-2 text-[11px] uppercase text-white/50">
                 <Users className="h-3.5 w-3.5" />
                 Group content
               </div>
 
               <div className="mt-4 space-y-4">
-                <InputShell>
+                <div>
                   <FieldLabel>Name</FieldLabel>
-                  <input
-                    value={form.name}
-                    onChange={(e) => handleChange("name", e.target.value)}
-                    className="mt-3 w-full border-0 bg-transparent p-0 text-sm text-white/88 outline-none placeholder:text-white/28"
-                    placeholder="Group name"
-                  />
-                </InputShell>
+                  <DisplayBlock>{form.name}</DisplayBlock>
+                </div>
 
-                <InputShell>
+                <div>
                   <FieldLabel>Description</FieldLabel>
-                  <textarea
-                    value={form.description}
-                    onChange={(e) =>
-                      handleChange("description", e.target.value)
-                    }
-                    rows={5}
-                    className="mt-3 w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed text-white/82 outline-none placeholder:text-white/28"
-                    placeholder="Describe the purpose and framing of this group"
-                  />
-                </InputShell>
+                  <DisplayBlock>{form.description}</DisplayBlock>
+                </div>
               </div>
             </div>
           </div>
 
           {/* RIGHT */}
           <div className="xl:col-span-4">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-md">
-              <div className="text-[11px] uppercase tracking-wide text-white/50">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-md">
+              <div className="text-[11px] uppercase text-white/50">
                 Summary
               </div>
 
               <div className="mt-5 space-y-4">
-                <InputShell>
+                <div>
                   <FieldLabel>Status</FieldLabel>
-                  <div className="mt-3 text-sm text-white/76">
-                    New group
-                  </div>
-                </InputShell>
+                  <DisplayBlock>New group</DisplayBlock>
+                </div>
 
-                <InputShell>
+                <div>
                   <FieldLabel>Members</FieldLabel>
-                  <div className="mt-3 text-sm text-white/76">
-                    0 member
-                  </div>
-                </InputShell>
+                  <DisplayBlock>0</DisplayBlock>
+                </div>
 
-                <InputShell>
+                <div>
                   <FieldLabel>Assignments</FieldLabel>
-                  <div className="mt-3 text-sm text-white/76">
+                  <DisplayBlock>
                     Labs and starpaths can be assigned after creation.
-                  </div>
-                </InputShell>
+                  </DisplayBlock>
+                </div>
               </div>
             </div>
           </div>
