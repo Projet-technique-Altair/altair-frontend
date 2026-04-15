@@ -55,6 +55,7 @@ type CreateStage =
   | "uploading"
   | "building"
   | "creating"
+  | "syncing_files"
   | "success";
 
 const directoryInputProps: DirectoryInputProps = {
@@ -234,6 +235,8 @@ export default function CreateLabPage() {
           ? "Building runtime"
           : createStage === "creating"
             ? "Creating lab"
+            : createStage === "syncing_files"
+              ? "Syncing editable files"
             : createStage === "success"
               ? "Lab created"
               : "Ready";
@@ -363,10 +366,21 @@ export default function CreateLabPage() {
     return templatePath;
   };
 
+  const syncFilesToLabStorage = async (labId: string) => {
+    for (const uploadedFile of uploadedFiles) {
+      await api.uploadLabFile(
+        labId,
+        uploadedFile.relativePath,
+        uploadedFile.file,
+      );
+    }
+  };
+
   const handleCreate = async () => {
     setIsCreatingLab(true);
     setCreateMessage(null);
     setCreateStage("validating");
+    let createdLabId: string | null = null;
 
     try {
       validateBeforeCreate();
@@ -394,6 +408,10 @@ export default function CreateLabPage() {
             : undefined,
         estimated_duration: estimatedDuration,
       });
+      createdLabId = lab.lab_id;
+
+      setCreateStage("syncing_files");
+      await syncFilesToLabStorage(lab.lab_id);
 
       setCreateStage("success");
       setCreateMessage({
@@ -415,6 +433,15 @@ export default function CreateLabPage() {
         error instanceof ApiError || error instanceof Error
           ? error.message
           : "Failed to create lab.";
+
+      if (createdLabId) {
+        setCreateMessage({
+          type: "error",
+          text: `Lab created but file sync failed. Open the lab editor and retry upload. Reason: ${message}`,
+        });
+        setCreateStage("idle");
+        return;
+      }
 
       setCreateStage("idle");
       setCreateMessage({
@@ -523,9 +550,11 @@ export default function CreateLabPage() {
                     : createStage === "uploading"
                       ? "w-[40%] bg-sky-400/70"
                       : createStage === "building"
-                        ? "w-[70%] bg-sky-400/70"
+                        ? "w-[65%] bg-sky-400/70"
                         : createStage === "creating"
-                          ? "w-[90%] bg-sky-400/70"
+                          ? "w-[82%] bg-sky-400/70"
+                          : createStage === "syncing_files"
+                            ? "w-[94%] bg-sky-400/70"
                           : "w-full bg-emerald-400/70"
                 }`}
               />
@@ -538,6 +567,8 @@ export default function CreateLabPage() {
                   "Preparing the runtime image from the uploaded context."}
                 {createStage === "creating" &&
                   "Saving the lab configuration and runtime metadata."}
+                {createStage === "syncing_files" &&
+                  "Copying uploaded files to the editable lab storage."}
                 {createStage === "success" &&
                   "The lab is ready. Redirecting to the steps editor."}
               </div>

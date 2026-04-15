@@ -76,3 +76,9 @@ export type SessionHintResponse = {
   hint?: string;
   cost?: number;
 };
+
+export type LabFileEntry = {
+  path: string;
+  size: number;
+  updated_at: string;
+};

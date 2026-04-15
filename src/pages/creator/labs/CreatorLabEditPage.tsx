@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -6,20 +13,25 @@ import {
   ChevronDown,
   ChevronUp,
   CircleAlert,
+  FileText,
+  Folder,
   Globe,
   ListOrdered,
   Loader2,
   Lock,
   Plus,
+  RefreshCcw,
   Save,
   Search,
   TerminalSquare,
   Trash2,
+  Upload,
 } from "lucide-react";
 
 import { api } from "@/api";
+import { createBuildFromUpload, waitForBuildToBeReady } from "@/api/builder";
 import { getEditableSteps } from "@/api/labs";
-import type { LabHint, LabStep } from "@/api/types";
+import type { LabFileEntry, LabHint, LabStep } from "@/api/types";
 
 type Hint = LabHint;
 
@@ -99,6 +111,27 @@ function buildEmptyStep(stepNumber: number): Step {
   };
 }
 
+function folderExistsInFiles(folder: string, files: LabFileEntry[]) {
+  if (!folder) {
+    return true;
+  }
+  const prefix = `${folder}/`;
+  return files.some((item) => item.path.startsWith(prefix));
+}
+
+function formatBytes(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}
+
 export default function CreatorLabEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -131,12 +164,25 @@ export default function CreatorLabEditPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveStage, setSaveStage] = useState<
-    "idle" | "validating" | "saving" | "success"
+    "idle" | "validating" | "saving" | "rebuilding" | "success"
   >("idle");
   const [saveMessage, setSaveMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  const [labFiles, setLabFiles] = useState<LabFileEntry[]>([]);
+  const [filesLoading, setFilesLoading] = useState(true);
+  const [filesRefreshing, setFilesRefreshing] = useState(false);
+  const [filesUploading, setFilesUploading] = useState(false);
+  const [deletingFilePath, setDeletingFilePath] = useState<string | null>(null);
+  const [filesError, setFilesError] = useState<string | null>(null);
+  const [currentFolder, setCurrentFolder] = useState("");
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [previewContent, setPreviewContent] = useState("");
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleChange = (field: string, value: string) => {
     setSaveMessage(null);
@@ -186,6 +232,106 @@ export default function CreatorLabEditPage() {
     }
 
     return String(parsed);
+  };
+
+  const loadLabFiles = async ({ initial = false }: { initial?: boolean } = {}) => {
+    if (!id) return;
+
+    if (initial) {
+      setFilesLoading(true);
+    } else {
+      setFilesRefreshing(true);
+    }
+    setFilesError(null);
+
+    try {
+      const files = await api.listLabFiles(id);
+      setLabFiles(files);
+
+      if (!folderExistsInFiles(currentFolder, files)) {
+        setCurrentFolder("");
+      }
+
+      if (previewPath && !files.some((file) => file.path === previewPath)) {
+        setPreviewPath(null);
+        setPreviewContent("");
+        setPreviewError(null);
+      }
+    } catch (error) {
+      setFilesError(getErrorMessage(error, "Failed to load lab files."));
+    } finally {
+      if (initial) {
+        setFilesLoading(false);
+      } else {
+        setFilesRefreshing(false);
+      }
+    }
+  };
+
+  const openUploadDialog = () => {
+    uploadInputRef.current?.click();
+  };
+
+  const handleUploadFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || !id) {
+      return;
+    }
+
+    const targetPath = currentFolder ? `${currentFolder}/${file.name}` : file.name;
+
+    setFilesUploading(true);
+    setFilesError(null);
+    try {
+      await api.uploadLabFile(id, targetPath, file);
+      await loadLabFiles();
+    } catch (error) {
+      setFilesError(getErrorMessage(error, "Failed to upload the selected file."));
+    } finally {
+      setFilesUploading(false);
+    }
+  };
+
+  const handleDeleteFile = async (path: string) => {
+    if (!id) return;
+    const confirmed = window.confirm(`Delete file "${path}"?`);
+    if (!confirmed) return;
+
+    setDeletingFilePath(path);
+    setFilesError(null);
+    try {
+      await api.deleteLabFile(id, path);
+      if (previewPath === path) {
+        setPreviewPath(null);
+        setPreviewContent("");
+        setPreviewError(null);
+      }
+      await loadLabFiles();
+    } catch (error) {
+      setFilesError(getErrorMessage(error, `Failed to delete "${path}".`));
+    } finally {
+      setDeletingFilePath(null);
+    }
+  };
+
+  const handlePreviewFile = async (path: string) => {
+    if (!id) return;
+
+    setPreviewPath(path);
+    setPreviewLoading(true);
+    setPreviewError(null);
+
+    try {
+      const content = await api.getLabFilePreview(id, path);
+      setPreviewContent(content);
+    } catch (error) {
+      setPreviewContent("");
+      setPreviewError(getErrorMessage(error, `Failed to preview "${path}".`));
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -269,6 +415,10 @@ export default function CreatorLabEditPage() {
     };
   }, [id]);
 
+  useEffect(() => {
+    void loadLabFiles({ initial: true });
+  }, [id]);
+
   const renumberSteps = (items: Step[]) =>
     items.map((step, index) => ({
       ...step,
@@ -334,6 +484,48 @@ export default function CreatorLabEditPage() {
         );
       }).length,
     [steps],
+  );
+
+  const folderSegments = useMemo(
+    () => (currentFolder ? currentFolder.split("/") : []),
+    [currentFolder],
+  );
+
+  const folderEntries = useMemo(() => {
+    const prefix = currentFolder ? `${currentFolder}/` : "";
+    const directories = new Set<string>();
+    const files: LabFileEntry[] = [];
+
+    for (const item of labFiles) {
+      if (!item.path.startsWith(prefix)) {
+        continue;
+      }
+
+      const remaining = item.path.slice(prefix.length);
+      if (!remaining) {
+        continue;
+      }
+
+      const slashIndex = remaining.indexOf("/");
+      if (slashIndex === -1) {
+        files.push(item);
+        continue;
+      }
+
+      directories.add(remaining.slice(0, slashIndex));
+    }
+
+    files.sort((a, b) => a.path.localeCompare(b.path));
+
+    return {
+      directories: Array.from(directories).sort((a, b) => a.localeCompare(b)),
+      files,
+    };
+  }, [currentFolder, labFiles]);
+
+  const totalFileSize = useMemo(
+    () => labFiles.reduce((sum, item) => sum + item.size, 0),
+    [labFiles],
   );
 
   const updateStep = (index: number, patch: Partial<Step>) => {
@@ -594,6 +786,28 @@ export default function CreatorLabEditPage() {
 
       const appPort = parseAppPort();
       const estimatedDuration = parseEstimatedDuration();
+      let rebuiltTemplatePath: string | null = null;
+
+      if (labFiles.length > 0) {
+        setSaveStage("rebuilding");
+
+        const payload = new FormData();
+        payload.append("lab_name", form.name.trim() || `lab-${id}`);
+        payload.append("dockerfile_path", "Dockerfile");
+
+        for (const file of labFiles) {
+          const blob = await api.downloadLabFile(id!, file.path);
+          const basename = file.path.split("/").pop() || "file";
+          payload.append("file", new File([blob], basename), file.path);
+        }
+
+        const response = await createBuildFromUpload(payload);
+        const finalBuild =
+          response.build_job.status === "READY"
+            ? response.build_job
+            : await waitForBuildToBeReady(response.build_job.build_id);
+        rebuiltTemplatePath = finalBuild.template_path;
+      }
 
       setSaveStage("saving");
 
@@ -602,7 +816,7 @@ export default function CreatorLabEditPage() {
         description: form.description.trim(),
         difficulty: form.difficulty,
         visibility: form.visibility,
-        template_path: form.template_path.trim(),
+        template_path: (rebuiltTemplatePath ?? form.template_path).trim(),
         lab_type: form.lab_type.trim(),
         lab_delivery: form.lab_delivery,
         runtime:
@@ -657,10 +871,19 @@ export default function CreatorLabEditPage() {
         }
       }
 
+      if (rebuiltTemplatePath) {
+        setForm((prev) => ({
+          ...prev,
+          template_path: rebuiltTemplatePath!,
+        }));
+      }
+
       setSaveStage("success");
       setSaveMessage({
         type: "success",
-        text: "Changes saved successfully. Redirecting to the lab overview.",
+        text: rebuiltTemplatePath
+          ? "Changes saved and runtime rebuilt successfully. Redirecting to the lab overview."
+          : "Changes saved successfully. Redirecting to the lab overview.",
       });
 
       window.setTimeout(() => {
@@ -681,6 +904,8 @@ export default function CreatorLabEditPage() {
   const saveLabel =
     saveStage === "validating"
       ? "Validating changes"
+      : saveStage === "rebuilding"
+        ? "Rebuilding runtime image"
       : saveStage === "saving"
         ? "Saving changes"
         : saveStage === "success"
@@ -842,6 +1067,8 @@ export default function CreatorLabEditPage() {
                 className={`h-1.5 transition-all duration-500 ${
                   saveStage === "validating"
                     ? "w-[28%] bg-sky-400/70"
+                    : saveStage === "rebuilding"
+                      ? "w-[58%] bg-sky-400/70"
                     : saveStage === "saving"
                       ? "w-[82%] bg-sky-400/70"
                       : "w-full bg-emerald-400/70"
@@ -850,6 +1077,8 @@ export default function CreatorLabEditPage() {
               <div className="px-4 py-3 text-sm text-white/68">
                 {saveStage === "validating" &&
                   "Checking metadata, runtime settings, steps, and hints before saving."}
+                {saveStage === "rebuilding" &&
+                  "Rebuilding the runtime image from files currently stored in lab storage."}
                 {saveStage === "saving" &&
                   "Updating the lab configuration and synchronizing steps and hints."}
                 {saveStage === "success" &&
@@ -1401,6 +1630,262 @@ export default function CreatorLabEditPage() {
                     <TerminalSquare className="h-3.5 w-3.5" />
                     <span>{form.lab_delivery === "web" ? "Web delivery" : "Terminal delivery"}</span>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)] backdrop-blur-md">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wide text-white/50">
+                      Lab files
+                    </div>
+                    <div className="mt-2 text-sm text-white/62">
+                      Browse the lab root and upload/delete files in the current folder.
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-white/50">
+                    {labFiles.length} file{labFiles.length > 1 ? "s" : ""}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => loadLabFiles()}
+                    disabled={filesRefreshing || filesUploading || Boolean(deletingFilePath)}
+                    className={`inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/80 transition hover:border-white/15 hover:bg-white/5 ${
+                      filesRefreshing ? "cursor-not-allowed opacity-60" : ""
+                    }`}
+                    type="button"
+                  >
+                    {filesRefreshing ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCcw className="h-3.5 w-3.5" />
+                    )}
+                    <span>Refresh</span>
+                  </button>
+
+                  <button
+                    onClick={openUploadDialog}
+                    disabled={filesUploading || Boolean(deletingFilePath)}
+                    className={`inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/80 transition hover:border-sky-400/30 hover:bg-white/5 ${
+                      filesUploading ? "cursor-not-allowed opacity-60" : ""
+                    }`}
+                    type="button"
+                  >
+                    {filesUploading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    <span>Add file here</span>
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      setCurrentFolder((prev) => {
+                        if (!prev) return "";
+                        const index = prev.lastIndexOf("/");
+                        return index === -1 ? "" : prev.slice(0, index);
+                      })
+                    }
+                    disabled={!currentFolder}
+                    className={`inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/80 transition hover:border-white/15 hover:bg-white/5 ${
+                      !currentFolder ? "cursor-not-allowed opacity-40" : ""
+                    }`}
+                    type="button"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    <span>Up</span>
+                  </button>
+
+                  <input
+                    ref={uploadInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleUploadFile}
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-white/64">
+                    <button
+                      onClick={() => setCurrentFolder("")}
+                      className={`rounded-lg border px-2 py-1 transition ${
+                        currentFolder
+                          ? "border-white/10 bg-white/[0.03] text-white/75 hover:border-white/20"
+                          : "border-sky-400/30 bg-sky-500/10 text-sky-200"
+                      }`}
+                      type="button"
+                    >
+                      root
+                    </button>
+
+                    {folderSegments.map((segment, index) => {
+                      const targetFolder = folderSegments
+                        .slice(0, index + 1)
+                        .join("/");
+                      const isCurrent = targetFolder === currentFolder;
+
+                      return (
+                        <button
+                          key={targetFolder}
+                          onClick={() => setCurrentFolder(targetFolder)}
+                          className={`rounded-lg border px-2 py-1 transition ${
+                            isCurrent
+                              ? "border-sky-400/30 bg-sky-500/10 text-sky-200"
+                              : "border-white/10 bg-white/[0.03] text-white/75 hover:border-white/20"
+                          }`}
+                          type="button"
+                        >
+                          {segment}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="text-xs text-white/52">
+                  Current folder: <span className="text-white/82">{currentFolder || "/"}</span>
+                  {" · "}
+                  Total size: <span className="text-white/82">{formatBytes(totalFileSize)}</span>
+                </div>
+
+                {filesError && (
+                  <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                    {filesError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                    <div className="text-[11px] uppercase tracking-wide text-white/45">
+                      Folders
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      {filesLoading ? (
+                        <div className="text-xs text-white/50">Loading files…</div>
+                      ) : folderEntries.directories.length === 0 ? (
+                        <div className="text-xs text-white/45">No subfolder in this folder.</div>
+                      ) : (
+                        folderEntries.directories.map((dirName) => {
+                          const target = currentFolder
+                            ? `${currentFolder}/${dirName}`
+                            : dirName;
+                          return (
+                            <button
+                              key={target}
+                              onClick={() => setCurrentFolder(target)}
+                              className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-xs text-white/82 transition hover:border-white/20 hover:bg-white/[0.05]"
+                              type="button"
+                            >
+                              <Folder className="h-3.5 w-3.5 text-sky-300" />
+                              <span>{dirName}</span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                    <div className="text-[11px] uppercase tracking-wide text-white/45">
+                      Files
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      {filesLoading ? (
+                        <div className="text-xs text-white/50">Loading files…</div>
+                      ) : folderEntries.files.length === 0 ? (
+                        <div className="text-xs text-white/45">
+                          No file in this folder.
+                        </div>
+                      ) : (
+                        folderEntries.files.map((file) => {
+                          const fileName = file.path.split("/").pop() || file.path;
+                          const isPreviewed = previewPath === file.path;
+                          const deleting = deletingFilePath === file.path;
+
+                          return (
+                            <div
+                              key={file.path}
+                              className={`rounded-xl border px-3 py-2 ${
+                                isPreviewed
+                                  ? "border-sky-400/25 bg-sky-500/10"
+                                  : "border-white/10 bg-white/[0.03]"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <button
+                                  onClick={() => handlePreviewFile(file.path)}
+                                  className="min-w-0 text-left"
+                                  type="button"
+                                >
+                                  <div className="flex items-center gap-2 text-xs text-white/86">
+                                    <FileText className="h-3.5 w-3.5 text-sky-300" />
+                                    <span className="truncate">{fileName}</span>
+                                  </div>
+                                  <div className="mt-1 text-[11px] text-white/48">
+                                    {formatBytes(file.size)}
+                                  </div>
+                                </button>
+
+                                <button
+                                  onClick={() => handleDeleteFile(file.path)}
+                                  disabled={deleting}
+                                  className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] transition ${
+                                    deleting
+                                      ? "cursor-not-allowed border-white/10 bg-black/20 text-white/35"
+                                      : "border-red-400/20 bg-red-500/10 text-red-200 hover:border-red-400/30 hover:bg-red-500/15"
+                                  }`}
+                                  type="button"
+                                >
+                                  {deleting ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3 w-3" />
+                                  )}
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                  <div className="text-[11px] uppercase tracking-wide text-white/45">
+                    Preview
+                  </div>
+
+                  {previewPath ? (
+                    <div className="mt-2">
+                      <div className="text-xs text-white/60">{previewPath}</div>
+                      {previewLoading ? (
+                        <div className="mt-3 inline-flex items-center gap-2 text-xs text-white/55">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Loading preview…</span>
+                        </div>
+                      ) : previewError ? (
+                        <div className="mt-3 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                          {previewError}
+                        </div>
+                      ) : (
+                        <pre className="mt-3 max-h-56 overflow-auto rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] leading-relaxed text-white/80">
+                          {previewContent || "Empty file"}
+                        </pre>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-xs text-white/45">
+                      Select a file to preview its text content.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -20,19 +20,28 @@ export async function request<T>(
   let token = sessionStorage.getItem("altair_token")
 
   const method = options.method?.toUpperCase()
+  const rawBody = options.body
+  const isFormDataBody =
+    typeof FormData !== "undefined" && rawBody instanceof FormData
   const shouldHaveBody = ["POST", "PUT", "PATCH"].includes(method || "")
 
   const body =
-    options.body ??
+    rawBody ??
     (shouldHaveBody ? JSON.stringify({}) : undefined)
 
   const makeRequest = async (authToken?: string) => {
-    console.log("BODY SENT =", body)
+    const headers: Record<string, string> = {
+      ...(authToken && { Authorization: `Bearer ${authToken}` }),
+    }
+
+    if (!isFormDataBody) {
+      headers["Content-Type"] = "application/json"
+    }
+
     return fetch(`${GATEWAY_URL}${path}`, {
       ...options,
       headers: {
-        "Content-Type": "application/json",
-        ...(authToken && { Authorization: `Bearer ${authToken}` }),
+        ...headers,
         ...options.headers,
       },
       body,
