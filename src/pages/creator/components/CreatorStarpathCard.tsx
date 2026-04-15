@@ -12,7 +12,7 @@ interface CreatorStarpathCardProps {
   starpath: {
     starpath_id: string;
     name: string;
-    created_at: string;
+    created_at?: string;
     difficulty?: string;
     labs_count?: number;
     visibility?: string;
