@@ -1,5 +1,13 @@
 import { useNavigate } from "react-router-dom";
-import { Trash2 } from "lucide-react";
+import { Trash2, ChevronRight, Users } from "lucide-react";
+import { motion } from "framer-motion";
+
+import DashboardCard from "@/components/ui/DashboardCard";
+
+/* =========================
+   TYPES
+========================= */
+
 interface CreatorGroupCardProps {
   group: {
     group_id: string;
@@ -11,71 +19,105 @@ interface CreatorGroupCardProps {
   onDelete?: () => void;
 }
 
+/* =========================
+   COMPONENT
+========================= */
+
 export default function CreatorGroupCard({
   group,
   onDelete,
 }: CreatorGroupCardProps) {
-
   const navigate = useNavigate();
 
   return (
-    <div
-      onClick={() => navigate(`/creator/group/${group.group_id}`)}
-      className="
-        group relative flex flex-col justify-between
-        rounded-2xl bg-[#111827]/70 border border-white/10 p-6
-        shadow-[0_0_15px_rgba(0,0,0,0.25)]
-        hover:border-purple-400/40 hover:shadow-[0_0_25px_rgba(168,85,247,0.35)]
-        transition-all duration-300 cursor-pointer h-[200px]
-      "
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
     >
-      {/* HEADER */}
-      <div className="flex justify-between items-start">
+      <DashboardCard
+        onClick={() => navigate(`/creator/group/${group.group_id}`)}
+        className="
+          group relative overflow-hidden p-5 cursor-pointer
+          hover:bg-white/[0.06] transition
+          border border-white/10
+        "
+      >
+        {/* GLOW */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-violet-400/8 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition" />
 
-        <div>
-          <h3 className="text-lg font-semibold text-white group-hover:text-purple-400 transition">
-            {group.name}
-          </h3>
+        {/* HEADER */}
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/35">
+              Group
+            </p>
 
-          <p className="text-xs text-gray-400 mt-1">
-            Created on {new Date(group.created_at).toLocaleDateString("en-GB")}
-          </p>
+            <h3 className="mt-1 text-sm font-medium text-white truncate group-hover:text-violet-300 transition">
+              {group.name}
+            </h3>
+
+            <p className="mt-2 text-xs text-white/40">
+              {group.created_at
+                ? new Date(group.created_at).toLocaleDateString("en-GB")
+                : "—"}
+            </p>
+          </div>
+
+          {/* ACTION */}
+          {onDelete && (
+            <div
+              className="flex items-center gap-2 shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={onDelete}
+                className="
+                  flex h-9 w-9 items-center justify-center
+                  rounded-xl border border-white/10 bg-white/[0.04]
+                  hover:bg-white/[0.08] transition
+                "
+              >
+                <Trash2 className="h-4 w-4 text-red-400" />
+              </button>
+            </div>
+          )}
         </div>
 
-        {onDelete && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="p-2 rounded-lg bg-[#1A1F2E] hover:bg-[#23283a]"
-          >
-            <Trash2 className="h-4 w-4 text-red-400" />
-          </button>
-        )}
-
-      </div>
-
-      {/* BODY */}
-      <div className="flex-1 flex flex-col justify-center gap-2 text-sm text-gray-300">
-
-        <div className="flex gap-2">
-          <span className="text-gray-400">Members:</span>
-          <span className="text-white">{group.members_count ?? "—"}</span>
+        {/* BODY */}
+        <div className="relative mt-5 space-y-2 text-xs text-white/55">
+          <InfoRow label="Members" value={group.members_count} />
+          <InfoRow label="Labs" value={group.labs_count} />
         </div>
 
-        <div className="flex gap-2">
-          <span className="text-gray-400">Labs:</span>
-          <span className="text-white">{group.labs_count ?? "—"}</span>
+        {/* FOOTER */}
+        <div className="relative mt-5 flex items-center justify-between">
+          <div className="text-[11px] text-white/30 truncate">
+            {group.group_id}
+          </div>
+
+          <ChevronRight className="h-4 w-4 text-white/25 group-hover:text-white/60 transition" />
         </div>
+      </DashboardCard>
+    </motion.div>
+  );
+}
 
-      </div>
+/* =========================
+   SUB COMPONENT
+========================= */
 
-      {/* FOOTER */}
-      <div className="mt-3 text-xs text-gray-500">
-        ID: <span className="text-white/70">{group.group_id}</span>
-      </div>
-
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number | undefined;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-white/40">{label}</span>
+      <span className="text-white">{value ?? "—"}</span>
     </div>
   );
 }

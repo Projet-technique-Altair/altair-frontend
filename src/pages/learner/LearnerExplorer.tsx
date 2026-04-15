@@ -43,6 +43,7 @@ type ExplorerLab = {
   rating: number;
   participants: number;
   learnerStatus: LearnerLabStatus | null;
+  created_at: string;
 };
 
 type ExplorerStarpath = {
@@ -74,6 +75,7 @@ function mapLabToExplorer(lab: Lab): ExplorerLab {
     rating: 0,
     participants: 0,
     learnerStatus: null,
+    created_at: lab.created_at,
   };
 }
 
