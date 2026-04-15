@@ -22,14 +22,17 @@ import CollectionPage from "@/pages/gamification/CollectionPage";
 import { CreatorDashboard, CreatorWorkspace } from "@/pages/creator";
 import CreateLabPage from "@/pages/creator/labs/CreateLabPage";
 import CreateStepPage from "@/pages/creator/labs/CreateStepPage";
-import CreateGroupPage from "@/pages/creator/CreateGroupPage";
-import CreatorGroupDetailsPage from "@/pages/creator/CreatorGroupDetails";
-import CreatorGroupEditPage from "@/pages/creator/CreatorGroupEditPage";
+import CreateGroupPage from "@/pages/creator/groups/CreateGroupPage";
+import CreatorGroupDetailsPage from "@/pages/creator/groups/CreatorGroupDetails";
+import CreatorGroupEditPage from "@/pages/creator/groups/CreatorGroupEditPage";
 import CreatorLabDetails from "@/pages/creator/labs/CreatorLabDetails";
 import CreatorLabEditPage from "@/pages/creator/labs/CreatorLabEditPage";
 import LabAnalyticsPage from "@/pages/creator/analytics/LabAnalyticsPage";
-import CreateStarpathPage from "@/pages/creator/CreateStarpathPage";
-import CreatorStarpathPage from "@/pages/creator/CreatorStarpathPage";
+import GroupAnalyticsPage from "@/pages/creator/analytics/GroupAnalyticsPage";
+import StarpathAnalyticsPage from "@/pages/creator/analytics/StarpathAnalyticsPage";
+import CreateStarpathPage from "@/pages/creator/starpaths/CreateStarpathPage";
+import CreatorStarpathDetailsPage from "@/pages/creator/starpaths/CreatorStarpathDetails";
+import CreatorStarpathEditPage from "@/pages/creator/starpaths/CreatorStarpathEditPage";
 
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AuthCallback from "@/pages/AuthCallback";
@@ -119,9 +122,12 @@ export const router = createBrowserRouter([
               { path: "groups/new", element: <CreateGroupPage /> },
               { path: "group/:id", element: <CreatorGroupDetailsPage /> },
               { path: "group/:id/edit", element: <CreatorGroupEditPage /> },
+              { path: "group/:id/analytics", element: <GroupAnalyticsPage /> },
 
               { path: "starpaths/new", element: <CreateStarpathPage /> },
-              { path: "starpath/:id", element: <CreatorStarpathPage /> },
+              { path: "starpath/:id", element: <CreatorStarpathDetailsPage /> },
+              { path: "starpath/:id/edit", element: <CreatorStarpathEditPage /> },
+              { path: "starpath/:id/analytics", element: <StarpathAnalyticsPage /> },
 
               { index: true, element: <Navigate to="dashboard" replace /> },
             ],

@@ -19,6 +19,8 @@ import { getStarpaths } from "@/api/starpaths";
 import type { Starpath } from "@/contracts/starpaths";
 import type { Group } from "@/contracts/groups";
 import { getLearnerDashboardLabs, type LearnerDashboardLab } from "@/api/sessions";
+import { getLabs} from "@/api/labs";
+
 
 import PublicLabsSection from "./sections/PublicLabsSection";
 import CompletedSection from "./sections/CompletedSection";
@@ -129,6 +131,7 @@ export default function LearnerDashboard() {
       try {
         const [labsData, starpathsData, groupsData] = await Promise.all([
           getLearnerDashboardLabs(),
+          //getLabs,
           getStarpaths(),
           getGroups(),
         ]);

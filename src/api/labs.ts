@@ -1,7 +1,7 @@
 import { request } from "./client";
 import type { Lab, LabUpsertPayload } from "@/contracts/labs";
 import type { SessionSummary } from "./sessions";
-import type { LabHint, LabStep, SearchLabResult } from "./types";
+import type { LabFileEntry, LabHint, LabStep, SearchLabResult } from "./types";
 
 /* =======================================================
    LABS
@@ -112,4 +112,86 @@ export function deleteHint(labId: string, stepId: string, hintId: string) {
   return request<void>(`/labs/labs/${labId}/steps/${stepId}/hints/${hintId}`, {
     method: "DELETE",
   });
+}
+
+/* =======================================================
+   LAB FILES
+======================================================= */
+
+export function listLabFiles(labId: string) {
+  return request<LabFileEntry[]>(`/labs/labs/${labId}/files`);
+}
+
+async function fetchLabFileResponse(
+  labId: string,
+  filePath: string,
+  suffix = "",
+) {
+  const gatewayUrl = import.meta.env.VITE_GATEWAY_URL;
+  let token = sessionStorage.getItem("altair_token");
+  const basePath = suffix
+    ? `/labs/labs/${labId}/files/file/${suffix}`
+    : `/labs/labs/${labId}/files/file`;
+  const url = `${gatewayUrl}${basePath}?path=${encodeURIComponent(filePath)}`;
+
+  const makeRequest = async (authToken?: string) =>
+    fetch(url, {
+      method: "GET",
+      headers: {
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+    });
+
+  let res = await makeRequest(token || undefined);
+  if (res.status === 401) {
+    const { refreshAccessToken } = await import("@/lib/refresh");
+    token = await refreshAccessToken();
+    if (token) {
+      res = await makeRequest(token);
+    }
+  }
+
+  return res;
+}
+
+export async function getLabFilePreview(labId: string, filePath: string) {
+  const res = await fetchLabFileResponse(labId, filePath);
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Failed to preview file (${res.status})`);
+  }
+
+  return res.text();
+}
+
+export async function downloadLabFile(labId: string, filePath: string) {
+  const res = await fetchLabFileResponse(labId, filePath, "raw");
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Failed to download file (${res.status})`);
+  }
+
+  return res.blob();
+}
+
+export function uploadLabFile(labId: string, path: string, file: File) {
+  const formData = new FormData();
+  formData.append("path", path);
+  formData.append("file", file);
+
+  return request<void>(`/labs/labs/${labId}/files/file`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function deleteLabFile(labId: string, path: string) {
+  return request<void>(
+    `/labs/labs/${labId}/files/file?path=${encodeURIComponent(path)}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
