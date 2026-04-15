@@ -74,7 +74,7 @@ export default function ProgressSection({ starpaths }: ProgressSectionProps) {
   const navigate = useNavigate();
 
   const handleClick = (id: string) => {
-    navigate(`/learner/starpath/${id}`);
+    navigate(`/learner/starpaths/${id}`);
   };
 
   return (
