@@ -78,6 +78,7 @@ export const router = createBrowserRouter([
               { path: "dashboard", element: <LearnerDashboard /> },
               { path: "explorer", element: <LearnerExplorer /> },
               { path: "profile", element: <ProfilePage /> },
+              { path: "profile/:userId", element: <ProfilePage /> },
               { path: "settings", element: <SettingsPage /> },
               { path: "gacha", element: <GachaPage /> },
               { path: "marketplace", element: <MarketplacePage /> },
@@ -107,6 +108,7 @@ export const router = createBrowserRouter([
               { path: "dashboard", element: <CreatorDashboard /> },
               { path: "workspace", element: <CreatorWorkspace /> },
               { path: "profile", element: <ProfilePage /> },
+              { path: "profile/:userId", element: <ProfilePage /> },
               { path: "settings", element: <SettingsPage /> },
 
               { path: "gacha", element: <GachaPage /> },

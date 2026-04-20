@@ -29,6 +29,13 @@ export interface EquippedUiSkin {
   image_url?: string | null;
 }
 
+export interface VoidState {
+  is_active: boolean;
+  activated_at?: string | null;
+  cleared_at?: string | null;
+  can_clear: boolean;
+}
+
 export interface UserProfile {
   user_id: string;
   stardust: number;
@@ -36,6 +43,7 @@ export interface UserProfile {
   lifetime_stardust: number;
   level: LevelInfo;
   active_title: string | null;
+  void_state: VoidState;
   equipped_constellation: EquippedConstellation | null;
   equipped_badges: EquippedProfileCosmetic[];
   equipped_aura_cosmetic: EquippedProfileCosmetic | null;
@@ -61,18 +69,14 @@ type AchievementsResponse = {
   achievements?: AchievementEntry[];
 };
 
-export async function getProfile(): Promise<UserProfile> {
-  return request("/gamification/profile/me");
+export async function getProfile(userId?: string): Promise<UserProfile> {
+  return request(userId ? `/gamification/profile/${userId}` : "/gamification/profile/me");
 }
 
 export async function getMyTitles(): Promise<{ titles: TitleEntry[] }> {
   return request<AchievementsResponse>("/gamification/achievements/me").then((data) => ({
     titles: (data.achievements ?? [])
-      .filter(
-        (achievement) =>
-          achievement.id?.startsWith("title_") ||
-          achievement.achievement_type === "easter_egg",
-      )
+      .filter((achievement) => achievement.id?.startsWith("title_"))
       .map((achievement) => ({
         title_id: achievement.id ?? achievement.name,
         name: achievement.name,
@@ -121,5 +125,11 @@ export async function equipUiSkin(item_code: string | null): Promise<void> {
   await request("/gamification/profile/me/ui-skin", {
     method: "PUT",
     body: JSON.stringify({ item_code }),
+  });
+}
+
+export async function clearVoidState(): Promise<void> {
+  await request("/gamification/profile/me/void-state/clear", {
+    method: "POST",
   });
 }

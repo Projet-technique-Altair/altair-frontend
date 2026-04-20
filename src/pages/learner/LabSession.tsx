@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { ApiError } from "@/api/client";
+import { emitLabCompletionEvents } from "@/api/events";
 import { getHints, getLab, getSteps, startLab } from "@/api/labs";
 import {
   completeSession,
@@ -547,6 +548,24 @@ export default function LabSession() {
         const stats = await completeSession(activeSessionId);
         if (cancelled) return;
 
+        const liveLab = mockUI ? null : (lab as Lab | null);
+
+        try {
+          await emitLabCompletionEvents({
+            sessionId: activeSessionId,
+            labId: activeLabId,
+            durationSeconds: stats.completion_time_seconds,
+            totalAttempts: stats.total_attempts,
+            hintsUsed: stats.hints_used,
+            totalSteps: steps.length,
+            labType: liveLab?.lab_type,
+            labFamily: liveLab?.lab_family,
+            labDelivery: liveLab?.lab_delivery,
+          });
+        } catch (eventError) {
+          console.warn("Gamification completion events failed:", eventError);
+        }
+
         clearStoredSessionId(activeLabId);
         setSession((prev) =>
           prev
@@ -584,6 +603,7 @@ export default function LabSession() {
     session?.labId,
     sessionProgress,
     steps.length,
+    lab,
     completionInFlight,
     completedSessionId,
   ]);
