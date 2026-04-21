@@ -8,59 +8,19 @@ import { Check, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import starPng from "@/assets/star.png";
-import { WORLD_H, WORLD_W } from "./StarpathWorldBackground";
-
-type LabType = "course" | "guided" | "challenge" | "unguided";
+import {
+  buildStarpathLabLayout,
+  type LabType,
+  type PlacedLab,
+  type StarpathLabInput,
+} from "./starpathLabLayout";
+import { WORLD_H, WORLD_W } from "./starpathWorld";
 
 type Props = {
   seed: string;
-  labs: { lab_id: string; position: number; name?: string }[];
+  labs: StarpathLabInput[];
   completedCount?: number;
 };
-
-type MockLab = {
-  lab_id: string; // 🔥 AJOUT
-  order: number;
-  chapterIndex: 1 | 2 | 3;
-  chapterName: string;
-  chapterRgb: string;
-  title: string;
-  type: LabType;
-  description: string;
-};
-
-type PlacedLab = MockLab & {
-  x: number;
-  y: number;
-  size: number;
-  status: "completed" | "current" | "locked";
-};
-
-function hashStringToUint32(str: string) {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function mulberry32(a: number) {
-  return function () {
-    let t = (a += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function clamp(n: number, a: number, b: number) {
-  return Math.max(a, Math.min(b, n));
-}
-
-function randBetween(rng: () => number, a: number, b: number) {
-  return a + (b - a) * rng();
-}
 
 function roman(n: number) {
   return n === 1 ? "I" : n === 2 ? "II" : "III";
@@ -187,136 +147,7 @@ function maskStarStyle(color: string) {
 export default function StarpathLabLayer({ seed, labs, completedCount = 5 }: Props) {
   const navigate = useNavigate();
   const { placed, chapterLabels } = useMemo(() => {
-    const rng = mulberry32(hashStringToUint32(seed + "|labs-layer"));
-    const labsMapped: MockLab[] = (labs ?? [])
-      .sort((a, b) => a.position - b.position)
-      .map((lab, i) => {
-        const order = i + 1;
-        const chapterIndex = Math.ceil(order / 3) as 1 | 2 | 3;
-
-        const chapterMeta = {
-          1: { name: "Foundations", rgb: "56,189,248" },
-          2: { name: "Web & Systems", rgb: "122,44,243" },
-          3: { name: "Operations", rgb: "236,72,153" },
-        }[chapterIndex];
-
-        return {
-          lab_id: lab.lab_id, // 🔥 AJOUT
-          order,
-          chapterIndex,
-          chapterName: chapterMeta.name,
-          chapterRgb: chapterMeta.rgb,
-          title: lab.name ?? lab.lab_id,
-          type: "guided",
-          description: "",
-        };
-      });
-
-    const baseCenters = [
-      { x: WORLD_W * 0.40, y: WORLD_H * 0.58 },
-      { x: WORLD_W * 0.53, y: WORLD_H * 0.44 },
-      { x: WORLD_W * 0.66, y: WORLD_H * 0.60 },
-    ].map((c) => ({
-      x: c.x + randBetween(rng, -110, 110),
-      y: c.y + randBetween(rng, -110, 110),
-    }));
-
-    const baseAngles = [-18, 18, 52].map(
-      (a) => (a + randBetween(rng, -12, 12)) * (Math.PI / 180)
-    );
-
-    const placedAll: PlacedLab[] = [];
-
-    const overlaps = (x: number, y: number, r: number) => {
-      for (const p of placedAll) {
-        const pr = p.size * 0.55;
-        const dx = x - p.x;
-        const dy = y - p.y;
-        const min = r + pr + 46;
-        if (dx * dx + dy * dy < min * min) return true;
-      }
-      return false;
-    };
-
-    const placeChapter = (chapterIndex: 1 | 2 | 3) => {
-      const center = baseCenters[chapterIndex - 1];
-      const angle = baseAngles[chapterIndex - 1];
-
-      const dir = { x: Math.cos(angle), y: Math.sin(angle) };
-      const perp = { x: -dir.y, y: dir.x };
-
-      const list = labsMapped.filter((l) => l.chapterIndex === chapterIndex);
-      const spacing = 310;
-
-      for (let i = 0; i < list.length; i++) {
-        const lab = list[i];
-        const t = i - (list.length - 1) / 2;
-
-        const size =
-          lab.type === "course"
-            ? Math.round(270 + randBetween(rng, -12, 12))
-            : lab.type === "unguided"
-            ? Math.round(285 + randBetween(rng, -10, 10))
-            : Math.round(250 + randBetween(rng, -12, 12));
-
-        const status: PlacedLab["status"] =
-          lab.order <= completedCount
-            ? "completed"
-            : lab.order === completedCount + 1
-            ? "current"
-            : "locked";
-
-        let px = 0;
-        let py = 0;
-        let ok = false;
-
-        for (let tries = 0; tries < 80; tries++) {
-          const jitterAlong = randBetween(rng, -22, 22);
-          const jitterPerp = randBetween(rng, -130, 130);
-          const jitterFineX = randBetween(rng, -24, 24);
-          const jitterFineY = randBetween(rng, -24, 24);
-
-          px =
-            center.x +
-            dir.x * (t * spacing + jitterAlong) +
-            perp.x * jitterPerp +
-            jitterFineX;
-          py =
-            center.y +
-            dir.y * (t * spacing + jitterAlong) +
-            perp.y * jitterPerp +
-            jitterFineY;
-
-          px = clamp(px, 260, WORLD_W - 260);
-          py = clamp(py, 260, WORLD_H - 260);
-
-          const r = size * 0.55;
-          if (!overlaps(px, py, r)) {
-            ok = true;
-            break;
-          }
-        }
-
-        if (!ok) {
-          px = clamp(center.x + t * spacing, 260, WORLD_W - 260);
-          py = clamp(center.y, 260, WORLD_H - 260);
-        }
-
-        placedAll.push({
-          ...lab,
-          x: Math.round(px * 2) / 2,
-          y: Math.round(py * 2) / 2,
-          size,
-          status,
-        });
-      }
-    };
-
-    placeChapter(1);
-    placeChapter(2);
-    placeChapter(3);
-
-    placedAll.sort((a, b) => a.order - b.order);
+    const placed = buildStarpathLabLayout(seed, labs, completedCount);
 
     const chapters = [
       { idx: 1 as const, name: "Foundations", rgb: "56,189,248" },
@@ -325,13 +156,13 @@ export default function StarpathLabLayer({ seed, labs, completedCount = 5 }: Pro
     ];
 
     const labels = chapters.map((ch) => {
-      const list = placedAll.filter((l) => l.chapterIndex === ch.idx);
+      const list = placed.filter((l) => l.chapterIndex === ch.idx);
       const ax = list.reduce((s, l) => s + l.x, 0) / Math.max(1, list.length);
       const ay = list.reduce((s, l) => s + l.y, 0) / Math.max(1, list.length);
       return { ...ch, x: ax, y: ay - 300 };
     });
 
-    return { placed: placedAll, chapterLabels: labels };
+    return { placed, chapterLabels: labels };
   }, [seed, completedCount, labs]);
 
   return (
@@ -379,14 +210,14 @@ export default function StarpathLabLayer({ seed, labs, completedCount = 5 }: Pro
           style={{ left: ch.x, top: ch.y, transform: "translate(-50%,-50%)" }}
         >
           <div
-            className="rounded-full border border-white/12 bg-black/35 backdrop-blur-md px-4 py-2"
+            className="rounded-full border border-white/12 bg-black/35 backdrop-blur-md px-5 py-3"
             style={{ boxShadow: `0 0 44px rgba(${ch.rgb}, 0.16)` }}
           >
-            <div className="text-[10px] tracking-[0.35em] text-white/50">
+            <div className="text-[11px] tracking-[0.35em] text-white/50">
               CHAPTER {roman(ch.idx)}
             </div>
             <div
-              className="mt-1 text-sm font-semibold"
+              className="mt-1.5 text-base font-semibold"
               style={{
                 background: `linear-gradient(90deg, rgba(${ch.rgb},1) 0%, rgba(255,255,255,0.85) 100%)`,
                 WebkitBackgroundClip: "text",

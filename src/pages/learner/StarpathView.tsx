@@ -97,15 +97,7 @@ export default function StarpathView() {
                 STARPATH
               </div>
 
-              <div
-                className="mt-2 text-4xl sm:text-5xl font-semibold leading-none"
-                style={{
-                  background:
-                    "linear-gradient(90deg, rgba(42,167,255,0.85) 0%, rgba(122,44,243,0.85) 55%, rgba(60,120,255,0.85) 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
+              <div className="mt-2 text-4xl sm:text-5xl font-semibold leading-none tracking-tight text-white/92">
                 {title}
               </div>
 
@@ -153,7 +145,7 @@ export default function StarpathView() {
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { RotateCcw, ChevronLeft } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 import { getStarpath } from "@/api/starpaths";
 import type { Starpath } from "@/contracts/starpaths";
@@ -163,7 +155,6 @@ import { getLab } from "@/api/labs";
 import StarpathWorldCanvas, {
   type StarpathWorldCanvasHandle,
 } from "@/components/starpath/StarpathWorldCanvas";
-import StarpathWorldBackground from "@/components/starpath/StarpathWorldBackground";
 import StarpathStarLayer from "@/components/starpath/StarpathStarLayer";
 import StarpathLabLayer from "@/components/starpath/StarpathPanZoomCanvas";
 
@@ -358,9 +349,12 @@ export default function StarpathView() {
           minScale={0.55}
           maxScale={3}
         >
-          <StarpathWorldBackground />
-
-          <StarpathStarLayer seed={id ?? "unknown"} density={3} />
+          <StarpathStarLayer
+            seed={id ?? "unknown"}
+            density={1}
+            labs={labs}
+            completedCount={5}
+          />
 
           <StarpathLabLayer
             seed={id ?? "unknown"}
@@ -380,15 +374,7 @@ export default function StarpathView() {
                 STARPATH
               </div>
 
-              <div
-                className="mt-2 text-4xl sm:text-5xl font-semibold leading-none"
-                style={{
-                  background:
-                    "linear-gradient(90deg, rgba(42,167,255,0.85) 0%, rgba(122,44,243,0.85) 55%, rgba(60,120,255,0.85) 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
+              <div className="mt-2 text-4xl sm:text-5xl font-semibold leading-none tracking-tight text-white/92">
                 {title}
               </div>
 
@@ -401,16 +387,17 @@ export default function StarpathView() {
 
             <div className="pointer-events-auto flex items-center gap-2">
               <button
-                onClick={() => navigate("/learner/dashboard")}
-                className="rounded-full border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm text-white/80 transition flex items-center gap-2"
+                onClick={() => navigate(-1)}
+                className="rounded-full border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm text-white/80 transition"
+                type="button"
               >
-                <ChevronLeft className="h-4 w-4" />
-                Dashboard
+                Back
               </button>
 
               <button
                 onClick={() => canvasRef.current?.reset()}
                 className="rounded-full border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm text-white/80 transition flex items-center gap-2"
+                type="button"
               >
                 <RotateCcw className="h-4 w-4" />
                 Recenter
