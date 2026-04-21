@@ -1,6 +1,7 @@
 import { useRef, type ReactNode, type RefObject } from "react";
 import ConstellationArtwork from "@/components/gamification/ConstellationArtwork";
 import DashboardCard from "@/components/ui/DashboardCard";
+import { cosmeticAssetUrl, isLocalCosmeticAssetPath } from "@/lib/cosmeticAsset";
 
 const RARITY_LABEL: Record<string, string> = {
   legendary: "Legendary",
@@ -15,30 +16,6 @@ const RARITY_ACCENT: Record<string, string> = {
   rare: "#60A5FA",
   common: "#94A3B8",
 };
-
-function getOfficialImageLabel(sourceUrl?: string) {
-  if (!sourceUrl) {
-    return "Official Sky View";
-  }
-
-  try {
-    const hostname = new URL(sourceUrl).hostname.toLowerCase();
-
-    if (hostname.includes("nasa.gov")) {
-      return "NASA Sky View";
-    }
-    if (hostname.includes("eso.org")) {
-      return "ESO Sky View";
-    }
-    if (hostname.includes("esa.int") || hostname.includes("spacetelescope.org")) {
-      return "ESA/Hubble View";
-    }
-  } catch {
-    return "Official Sky View";
-  }
-
-  return "Official Sky View";
-}
 
 type ConstellationSheetItem = {
   name: string;
@@ -103,7 +80,9 @@ export default function ConstellationDetailSheet({
   const showHistory = item.history_text?.trim();
   const showTechnical = item.technical_details?.trim();
   const showLegend = item.legend_text?.trim() ?? showHistory;
-  const officialImageLabel = getOfficialImageLabel(item.nasa_source_url);
+  const officialImageUrl = isLocalCosmeticAssetPath(item.nasa_image_url)
+    ? cosmeticAssetUrl(item.nasa_image_url)
+    : "";
 
   const handleExploreDetails = () => {
     if (!detailsRef.current) {
@@ -318,11 +297,11 @@ export default function ConstellationDetailSheet({
           </div>
 
           <div className="space-y-6">
-            {item.nasa_image_url ? (
+            {officialImageUrl ? (
               <DashboardCard className="overflow-hidden border border-white/10 bg-transparent">
                 <div className="aspect-[4/3] overflow-hidden bg-transparent">
                   <img
-                    src={item.nasa_image_url}
+                    src={officialImageUrl}
                     alt={item.nasa_image_title || `${item.name} official sky view`}
                     className="h-full w-full object-cover"
                     loading="lazy"
@@ -331,7 +310,7 @@ export default function ConstellationDetailSheet({
                 </div>
                 <div className="p-5">
                   <p className="text-xs uppercase tracking-[0.24em] text-white/35">
-                    {officialImageLabel}
+                    Altair Sky View
                   </p>
                   <h2 className="mt-3 text-xl font-semibold text-white">
                     {item.nasa_image_title || `${item.name} region`}
@@ -344,50 +323,6 @@ export default function ConstellationDetailSheet({
                 </div>
               </DashboardCard>
             ) : null}
-
-            <SectionCard title="Sources">
-              <div className="space-y-3">
-                {item.astronomy_source_url ? (
-                  <p>
-                    <span className="font-semibold text-white">Astronomy:</span>{" "}
-                    <a
-                      href={item.astronomy_source_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sky-300 underline decoration-sky-300/40 underline-offset-4"
-                    >
-                      Open source
-                    </a>
-                  </p>
-                ) : null}
-                {item.mythology_source_url ? (
-                  <p>
-                    <span className="font-semibold text-white">Legend:</span>{" "}
-                    <a
-                      href={item.mythology_source_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-violet-300 underline decoration-violet-300/40 underline-offset-4"
-                    >
-                      Open source
-                    </a>
-                  </p>
-                ) : null}
-                {item.nasa_source_url ? (
-                  <p>
-                    <span className="font-semibold text-white">NASA image:</span>{" "}
-                    <a
-                      href={item.nasa_source_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-amber-300 underline decoration-amber-300/40 underline-offset-4"
-                    >
-                      Open source
-                    </a>
-                  </p>
-                ) : null}
-              </div>
-            </SectionCard>
 
             <DashboardCard className="border border-white/10 bg-transparent p-5">
               <p className="text-xs uppercase tracking-[0.24em] text-white/35">Altair Note</p>

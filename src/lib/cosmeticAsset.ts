@@ -5,12 +5,16 @@ function gatewayBaseUrl() {
 }
 
 export function cosmeticAssetUrl(filename: string): string {
+  if (!isLocalCosmeticAssetPath(filename)) {
+    return "";
+  }
+
   const transparentFilename = filename.replace(
     /aura-animated\/binary-orbit\.mp4$/i,
     "aura-animated/binary-orbit.webm",
   );
 
-  const normalized = transparentFilename.replace(/^https?:\/\/[^/]+/, "");
+  const normalized = transparentFilename.trim();
   const path = normalized.startsWith("/gamification/assets/cosmetics/")
     ? normalized
     : normalized.startsWith("/assets/cosmetics/")
@@ -27,4 +31,17 @@ export function cosmeticAssetUrl(filename: string): string {
   return resolved.includes("?")
     ? `${resolved}&${DEV_ASSET_CACHE_BUSTER}`
     : `${resolved}?${DEV_ASSET_CACHE_BUSTER}`;
+}
+
+export function isLocalCosmeticAssetPath(filename?: string | null): filename is string {
+  const normalized = filename?.trim() ?? "";
+
+  return Boolean(
+    normalized &&
+      !normalized.startsWith("http://") &&
+      !normalized.startsWith("https://") &&
+      !normalized.startsWith("//") &&
+      !normalized.includes("..") &&
+      !normalized.includes("\\"),
+  );
 }
