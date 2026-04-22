@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 import titleLogo from "@/assets/titre.png";
-import backgroundimage from "@/assets/banniere.png";
+import backgroundimage from "@/assets/altair-bg-creator.png";
 
 export default function CreatorLayout() {
   const navigate = useNavigate();
