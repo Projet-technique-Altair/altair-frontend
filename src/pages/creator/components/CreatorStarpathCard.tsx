@@ -1,64 +1,110 @@
 import { useNavigate } from "react-router-dom";
+import { ChevronRight, Orbit } from "lucide-react";
+import { motion } from "framer-motion";
+
+import DashboardCard from "@/components/ui/DashboardCard";
+
+/* =========================
+   TYPES
+========================= */
 
 interface CreatorStarpathCardProps {
-  starpath: any;
+  starpath: {
+    starpath_id: string;
+    name: string;
+    created_at?: string;
+    difficulty?: string;
+    labs_count?: number;
+    visibility?: string;
+  };
 }
+
+/* =========================
+   COMPONENT
+========================= */
 
 export default function CreatorStarpathCard({
   starpath,
 }: CreatorStarpathCardProps) {
-
   const navigate = useNavigate();
 
   return (
-    <div
-      onClick={() => navigate(`/creator/starpath/${starpath.starpath_id}`)}
-      className="
-        group relative flex flex-col justify-between
-        rounded-2xl bg-[#111827]/70 border border-white/10 p-6
-        shadow-[0_0_15px_rgba(0,0,0,0.25)]
-        hover:border-orange-400/40 hover:shadow-[0_0_25px_rgba(251,146,60,0.35)]
-        transition-all duration-300 cursor-pointer h-[200px]
-      "
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
     >
-      {/* HEADER */}
-      <div>
+      <DashboardCard
+        onClick={() =>
+          navigate(`/creator/starpath/${starpath.starpath_id}`)
+        }
+        className="
+          group relative overflow-hidden p-5 cursor-pointer
+          hover:bg-white/[0.06] transition
+          border border-white/10
+        "
+      >
+        {/* SAME GLOW */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-violet-400/8 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition" />
 
-        <h3 className="text-lg font-semibold text-white group-hover:text-orange-400 transition">
-          {starpath.name}
-        </h3>
+        {/* HEADER */}
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/35">
+              Starpath
+            </p>
 
-        <p className="text-xs text-gray-400 mt-1">
-          Created on {new Date(starpath.created_at).toLocaleDateString("en-GB")}
-        </p>
+            <h3 className="mt-1 text-sm font-medium text-white truncate group-hover:text-violet-300 transition">
+              {starpath.name}
+            </h3>
 
-      </div>
-
-      {/* BODY */}
-      <div className="flex-1 flex flex-col justify-center gap-2 text-sm text-gray-300">
-
-        <div className="flex gap-2">
-          <span className="text-gray-400">Difficulty:</span>
-          <span className="text-white">{starpath.difficulty ?? "—"}</span>
+            <p className="mt-2 text-xs text-white/40">
+              {starpath.created_at
+                ? new Date(starpath.created_at).toLocaleDateString("en-GB")
+                : "—"}
+            </p>
+          </div>
         </div>
 
-        <div className="flex gap-2">
-          <span className="text-gray-400">Labs:</span>
-          <span className="text-white">{starpath.labs_count ?? "—"}</span>
+        {/* BODY */}
+        <div className="relative mt-5 space-y-2 text-xs text-white/55">
+          <InfoRow label="Difficulty" value={starpath.difficulty} capitalize />
+          <InfoRow label="Labs" value={starpath.labs_count} />
+          <InfoRow label="Visibility" value={starpath.visibility} capitalize />
         </div>
 
-        <div className="flex gap-2">
-          <span className="text-gray-400">Visibility:</span>
-          <span className="text-white">{starpath.visibility ?? "—"}</span>
+        {/* FOOTER */}
+        <div className="relative mt-5 flex items-center justify-between">
+          <div className="text-[11px] text-white/30 truncate">
+            {starpath.starpath_id}
+          </div>
+
+          <ChevronRight className="h-4 w-4 text-white/25 group-hover:text-white/60 transition" />
         </div>
+      </DashboardCard>
+    </motion.div>
+  );
+}
 
-      </div>
+/* =========================
+   SUB COMPONENT
+========================= */
 
-      {/* FOOTER */}
-      <div className="mt-3 text-xs text-gray-500">
-        ID: <span className="text-white/70">{starpath.starpath_id}</span>
-      </div>
-
+function InfoRow({
+  label,
+  value,
+  capitalize = false,
+}: {
+  label: string;
+  value: string | number | undefined;
+  capitalize?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-white/40">{label}</span>
+      <span className={`text-white ${capitalize ? "capitalize" : ""}`}>
+        {value ?? "—"}
+      </span>
     </div>
   );
 }

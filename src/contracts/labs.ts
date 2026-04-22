@@ -30,6 +30,8 @@ export interface Lab {
   story?: string | null;
 
   estimated_duration?: string | null;
+
+  created_at: string;
 }
 
 /**

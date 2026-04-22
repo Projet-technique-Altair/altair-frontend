@@ -22,6 +22,7 @@ import {
   Sparkles,
   Star,
 } from "lucide-react";
+import logoImg from "@/assets/logo.png";
 import titleLogo from "@/assets/titre.png";
 import backgroundimage from "@/assets/banniere.png";
 
@@ -225,52 +226,63 @@ export default function LearnerLayout() {
 
             {isTransitioning ? (
               <motion.div
-                className="absolute h-[240px] w-[240px] rounded-full"
-                initial={{ scale: 0.3, opacity: 0 }}
-                animate={{ scale: 10, opacity: 1 }}
-                transition={{ duration: 0.9, ease: "easeOut" }}
-                style={{
-                  background:
-                    "radial-gradient(circle, rgba(139,92,246,0.7), transparent)",
-                  filter: "blur(40px)",
-                }}
-              />
+                initial={{ scale: 0.96, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.98, opacity: 0 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center px-8 py-10 text-center"
+              >
+                <motion.img
+                  src={logoImg}
+                  alt="Altair"
+                  className="h-32 w-32 object-contain sm:h-40 sm:w-40"
+                  animate={{ opacity: [0.72, 1, 0.72], scale: [0.98, 1.03, 0.98] }}
+                  transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                />
+
+                <div className="mt-8 text-xl font-semibold tracking-tight text-white">
+                  Loading
+                </div>
+
+                <div className="mt-2 text-sm text-white/55">
+                  Switching to creator mode...
+                </div>
+              </motion.div>
             ) : null}
 
-            <motion.div
-              onClick={(event) => event.stopPropagation()}
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{
-                scale: isTransitioning ? 0.9 : 1,
-                opacity: isTransitioning ? 0 : 1,
-              }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0F1A]/80 p-8 text-center backdrop-blur-2xl"
-            >
-              <h2 className="mb-2 text-xl text-white">Creator Mode</h2>
+            {!isTransitioning ? (
+              <motion.div
+                onClick={(event) => event.stopPropagation()}
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0F1A]/80 p-8 text-center backdrop-blur-2xl"
+              >
+                <h2 className="mb-2 text-xl text-white">Creator Mode</h2>
 
-              <p className="mb-6 text-sm text-white/60">
-                Build labs, design starpaths and manage learning groups.
-              </p>
+                <p className="mb-6 text-sm text-white/60">
+                  Build labs, design starpaths and manage learning groups.
+                </p>
 
-              <div className="flex justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCreatorOverlay(false)}
-                  className="rounded-lg bg-white/5 px-4 py-2"
-                >
-                  Cancel
-                </button>
+                <div className="flex justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreatorOverlay(false)}
+                    className="rounded-lg bg-white/5 px-4 py-2"
+                  >
+                    Cancel
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleSwitchToCreator}
-                  className="rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 px-6 py-2"
-                >
-                  Enter Creator
-                </button>
-              </div>
-            </motion.div>
+                  <button
+                    type="button"
+                    onClick={handleSwitchToCreator}
+                    className="rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 px-6 py-2"
+                  >
+                    Enter Creator
+                  </button>
+                </div>
+              </motion.div>
+            ) : null}
           </motion.div>
         ) : null}
       </AnimatePresence>

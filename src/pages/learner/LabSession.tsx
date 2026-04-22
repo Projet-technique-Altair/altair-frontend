@@ -8,10 +8,11 @@
  * - Mock (?mock=1): NO backend calls (no getLab, no runtime). Uses mock lab + mock steps.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { ApiError } from "@/api/client";
+import { emitLabCompletionEvents } from "@/api/events";
 import { getHints, getLab, getSteps, startLab } from "@/api/labs";
 import {
   completeSession,
@@ -167,7 +168,16 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 function isRuntimeUnavailableError(error: unknown): boolean {
-  return error instanceof ApiError && [404, 409, 410].includes(error.status);
+  return error instanceof ApiError && [404, 410].includes(error.status);
+}
+
+async function classifyOpenWebConflict(sessionId: string): Promise<"starting" | "unavailable"> {
+  try {
+    const latest = await getSession(sessionId);
+    return latest?.current_runtime_id ? "starting" : "unavailable";
+  } catch {
+    return "starting";
+  }
 }
 
 function normalizeRuntimeStep(raw: RuntimeStepInput, index: number): LabStep {
@@ -302,6 +312,7 @@ export default function LabSession() {
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
   const [runtimeUnavailable, setRuntimeUnavailable] = useState(false);
   const [runtimeRestarting, setRuntimeRestarting] = useState(false);
+  const webLabWindowRef = useRef<Window | null>(null);
 
   const { formatted } = useLabTimer(sessionProgress?.time_elapsed ?? 0);
 
@@ -317,6 +328,7 @@ export default function LabSession() {
     setCompletedSessionId(null);
     setRuntimeUnavailable(false);
     setRuntimeRestarting(false);
+    webLabWindowRef.current = null;
   }, [id]);
 
   useEffect(() => {
@@ -440,6 +452,47 @@ export default function LabSession() {
   }, [lab, session?.runtimeKind]);
   const isWebRuntime = runtimeKind === "web";
 
+  const bootstrapAndOpenWebLab = async (
+    sessionId: string,
+    options: { reuseExistingTab: boolean }
+  ) => {
+    const { reuseExistingTab } = options;
+    const reusableWindow =
+      reuseExistingTab && webLabWindowRef.current && !webLabWindowRef.current.closed
+        ? webLabWindowRef.current
+        : null;
+
+    let targetWindow: Window | null = reusableWindow;
+    let openedNewWindow = false;
+
+    if (!targetWindow) {
+      targetWindow = window.open("", "_blank");
+      if (!targetWindow) {
+        throw new Error("Browser blocked the new tab.");
+      }
+
+      openedNewWindow = true;
+      targetWindow.document.write("Opening web lab...");
+      webLabWindowRef.current = targetWindow;
+    }
+
+    try {
+      const result = await openWebLabSession(sessionId);
+      if (!result?.redirect_url) {
+        throw new Error("Missing redirect_url from backend.");
+      }
+
+      targetWindow.location.replace(result.redirect_url);
+      webLabWindowRef.current = targetWindow;
+    } catch (error) {
+      if (openedNewWindow) {
+        targetWindow.close();
+        webLabWindowRef.current = null;
+      }
+      throw error;
+    }
+  };
+
   const handleOpenWebLab = async () => {
     if (!session?.sessionId) {
       setFeedback("❌ No session id available for the web launcher.");
@@ -450,27 +503,20 @@ export default function LabSession() {
       handleRuntimeUnavailable();
       return;
     }
-    const popup = window.open("", "_blank");
-    if (!popup) {
-      setFeedback("❌ Browser blocked the new tab.");
-      return;
-    }
-
-    popup.document.write("Opening web lab...");
-
     try {
-      const result = await openWebLabSession(session.sessionId);
-
-      if (!result?.redirect_url) {
-        popup.close();
-        setFeedback("❌ Missing redirect_url from backend.");
+      await bootstrapAndOpenWebLab(session.sessionId, { reuseExistingTab: true });
+      setRuntimeUnavailable(false);
+      setFeedback("✅ Web lab opened.");
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        const conflictState = await classifyOpenWebConflict(session.sessionId);
+        if (conflictState === "unavailable") {
+          handleRuntimeUnavailable();
+        } else {
+          setFeedback("⚠️ Runtime is starting. Retry in a few seconds.");
+        }
         return;
       }
-
-      popup.location.replace(result.redirect_url);
-    } catch (e) {
-      popup.close();
-
       if (isRuntimeUnavailableError(e)) {
         handleRuntimeUnavailable();
         return;
@@ -501,6 +547,24 @@ export default function LabSession() {
       try {
         const stats = await completeSession(activeSessionId);
         if (cancelled) return;
+
+        const liveLab = mockUI ? null : (lab as Lab | null);
+
+        try {
+          await emitLabCompletionEvents({
+            sessionId: activeSessionId,
+            labId: activeLabId,
+            durationSeconds: stats.completion_time_seconds,
+            totalAttempts: stats.total_attempts,
+            hintsUsed: stats.hints_used,
+            totalSteps: steps.length,
+            labType: liveLab?.lab_type,
+            labFamily: liveLab?.lab_family,
+            labDelivery: liveLab?.lab_delivery,
+          });
+        } catch (eventError) {
+          console.warn("Gamification completion events failed:", eventError);
+        }
 
         clearStoredSessionId(activeLabId);
         setSession((prev) =>
@@ -539,6 +603,7 @@ export default function LabSession() {
     session?.labId,
     sessionProgress,
     steps.length,
+    lab,
     completionInFlight,
     completedSessionId,
   ]);
@@ -728,12 +793,18 @@ export default function LabSession() {
       const progress = await getSessionProgress(nextSessionId);
       setSessionProgress(progress);
       setRuntimeUnavailable(false);
-      setFeedback(
-        restarted?.runtime_kind === "web"
-          ? "✅ Lab restarted. Open the web lab again."
-          : "✅ Lab restarted."
-      );
+
+      if (restarted?.runtime_kind === "web") {
+        await bootstrapAndOpenWebLab(nextSessionId, { reuseExistingTab: true });
+        setFeedback("✅ Lab restarted and web tab reloaded.");
+      } else {
+        setFeedback("✅ Lab restarted.");
+      }
     } catch (e) {
+      if (isRuntimeUnavailableError(e)) {
+        setFeedback("⚠️ Runtime is restarting. Retry in a few seconds.");
+        return;
+      }
       const msg = getErrorMessage(e, "Failed to restart the lab.");
       setFeedback(`❌ ${msg}`);
     } finally {

@@ -1,13 +1,19 @@
 // src/components/starpath/StarpathStarLayer.tsx
 import React, { useEffect, useMemo, useRef } from "react";
 import starPng from "@/assets/star.png";
-import { WORLD_H, WORLD_W } from "./StarpathWorldBackground";
+import {
+  buildStarpathLabLayout,
+  type StarpathLabInput,
+} from "./starpathLabLayout";
+import { WORLD_H, WORLD_W } from "./starpathWorld";
 
 type StarfieldProps = {
   seed?: string | number;
   /** 1 = dense. 2-3 = très dense. */
   density?: number;
   className?: string;
+  labs?: StarpathLabInput[];
+  completedCount?: number;
 };
 
 type SingleStarProps = {
@@ -80,6 +86,8 @@ export default function StarpathStarLayer({
   seed = "default",
   density = 1,
   className,
+  labs = [],
+  completedCount = 5,
   x,
   y,
   size,
@@ -125,19 +133,25 @@ export default function StarpathStarLayer({
     // “Falloff” : plus grand = plus concentré au centre
     const FALLOFF = 2.6;
 
-    // Très dense au centre, de moins en moins vers le bord,
-    // et hors amas: presque rien.
-    const microCount = Math.floor(22000 * d);
-    const midCount = Math.floor(7500 * d);
-    const bigCount = Math.floor(520 * d);
+    // Très peu d'étoiles décoratives, mais beaucoup plus grandes.
+    const microCount = Math.floor(10 * d);
+    const midCount = Math.floor(18 * d);
+    const bigCount = Math.floor(14 * d);
 
     // Hors-amas : quasi zéro
-    const outsideSparseCount = Math.floor(18 * d);
+    const outsideSparseCount = Math.floor(4 * d);
 
     const out: Star[] = [];
+    const exclusionZones = buildStarpathLabLayout(String(seed), labs, completedCount).map(
+      (lab) => ({
+        x: lab.x,
+        y: lab.y,
+        r: lab.size * 0.72 + 90,
+      })
+    );
 
     // Spatial hash anti-superposition (rapide)
-    const cellSize = 22;
+    const cellSize = 160;
     const grid = new Map<number, number[]>();
     const keyOf = (gx: number, gy: number) => (gx << 16) ^ gy;
 
@@ -151,6 +165,14 @@ export default function StarpathStarLayer({
     };
 
     const overlaps = (px: number, py: number, r: number) => {
+      for (let i = 0; i < exclusionZones.length; i++) {
+        const zone = exclusionZones[i];
+        const dx = px - zone.x;
+        const dy = py - zone.y;
+        const min = r + zone.r;
+        if (dx * dx + dy * dy < min * min) return true;
+      }
+
       const gx = Math.floor(px / cellSize);
       const gy = Math.floor(py / cellSize);
 
@@ -242,7 +264,7 @@ export default function StarpathStarLayer({
 
         // tailles entières + minimum pour garder la forme star.png
         let sz = Math.round(sizeGen());
-        if (micro) sz = Math.max(9, sz);
+        if (micro) sz = Math.max(78, sz);
         const r = sz * 0.5;
 
         if (overlaps(px, py, r)) continue;
@@ -277,16 +299,16 @@ export default function StarpathStarLayer({
         sampleInCluster,
         () => {
           const t = rng();
-          if (t < 0.8) return randBetween(rng, 16, 24);
-          return randBetween(rng, 24, 32);
+          if (t < 0.72) return randBetween(rng, 180, 220);
+          return randBetween(rng, 220, 245);
         },
         (rArea) => {
           const r = rArea ?? 0;
           // plus brillant au centre
-          return randBetween(rng, 0.22, 0.55) * (1 - 0.55 * r);
+          return randBetween(rng, 0.18, 0.42) * (1 - 0.55 * r);
         },
         false,
-        40
+        60
       );
     }
 
@@ -296,32 +318,31 @@ export default function StarpathStarLayer({
         sampleInCluster,
         () => {
           const t = rng();
-          if (t < 0.84) return randBetween(rng, 10, 14);
-          if (t < 0.97) return randBetween(rng, 14, 18);
-          return randBetween(rng, 18, 22);
+          if (t < 0.8) return randBetween(rng, 145, 175);
+          if (t < 0.96) return randBetween(rng, 175, 195);
+          return randBetween(rng, 195, 210);
         },
         (rArea) => {
           const r = rArea ?? 0;
           // au bord: beaucoup plus discret
-          return randBetween(rng, 0.10, 0.34) * (1 - 0.75 * r);
+          return randBetween(rng, 0.11, 0.24) * (1 - 0.75 * r);
         },
         false,
-        28
+        50
       );
     }
 
-    // ===== Micro carpet (très dense au centre, quasi vide au bord) =====
+    // ===== Petites décoratives (toujours grandes vs ancien rendu) =====
     for (let i = 0; i < microCount; i++) {
       place(
         sampleInCluster,
-        () => randBetween(rng, 9, 12),
+        () => randBetween(rng, 108, 138),
         (rArea) => {
           const r = rArea ?? 0;
-          // micro très présent au centre, s'efface vers le bord
-          return randBetween(rng, 0.06, 0.16) * (1 - 0.9 * r);
+          return randBetween(rng, 0.09, 0.18) * (1 - 0.9 * r);
         },
-        true,
-        16
+        false,
+        36
       );
     }
 
@@ -329,15 +350,15 @@ export default function StarpathStarLayer({
     for (let i = 0; i < outsideSparseCount; i++) {
       place(
         () => sampleOutside(),
-        () => randBetween(rng, 10, 16),
-        () => randBetween(rng, 0.05, 0.12),
+        () => randBetween(rng, 92, 128),
+        () => randBetween(rng, 0.06, 0.12),
         false,
-        40
+        70
       );
     }
 
     return out;
-  }, [seed, density, isSingle]);
+  }, [seed, density, isSingle, labs, completedCount]);
 
   useEffect(() => {
     if (isSingle) return;
@@ -369,30 +390,35 @@ export default function StarpathStarLayer({
       highQualityCtx.imageSmoothingQuality = "high";
 
       ctx.globalCompositeOperation = "screen";
+      const spriteAspect = img.naturalWidth / img.naturalHeight || 1;
 
-      // Cache sprites pré-scalés (rgb|size)
+      // Cache sprites pré-scalés (rgb|size) en conservant le ratio natif du PNG.
       const spriteCache = new Map<string, HTMLCanvasElement>();
       const getSprite = (rgb: string, size: number) => {
         const key = `${rgb}|${size}`;
         const cached = spriteCache.get(key);
         if (cached) return cached;
 
+        const drawWidth =
+          spriteAspect >= 1 ? size : Math.max(1, Math.round(size * spriteAspect));
+        const drawHeight =
+          spriteAspect >= 1 ? Math.max(1, Math.round(size / spriteAspect)) : size;
         const off = document.createElement("canvas");
-        off.width = size;
-        off.height = size;
+        off.width = drawWidth;
+        off.height = drawHeight;
 
         const octx = off.getContext("2d")!;
-        octx.clearRect(0, 0, size, size);
+        octx.clearRect(0, 0, drawWidth, drawHeight);
         octx.imageSmoothingEnabled = true;
         const highQualityOffscreen = octx as CanvasRenderingContext2D & {
           imageSmoothingQuality?: "low" | "medium" | "high";
         };
         highQualityOffscreen.imageSmoothingQuality = "high";
 
-        octx.drawImage(img, 0, 0, size, size);
+        octx.drawImage(img, 0, 0, drawWidth, drawHeight);
         octx.globalCompositeOperation = "source-in";
         octx.fillStyle = `rgb(${rgb})`;
-        octx.fillRect(0, 0, size, size);
+        octx.fillRect(0, 0, drawWidth, drawHeight);
 
         spriteCache.set(key, off);
         return off;
@@ -416,9 +442,21 @@ export default function StarpathStarLayer({
         if (s.rot) {
           ctx.translate(s.x, s.y);
           ctx.rotate((s.rot * Math.PI) / 180);
-          ctx.drawImage(sprite, -s.size / 2, -s.size / 2, s.size, s.size);
+          ctx.drawImage(
+            sprite,
+            -sprite.width / 2,
+            -sprite.height / 2,
+            sprite.width,
+            sprite.height
+          );
         } else {
-          ctx.drawImage(sprite, s.x - s.size / 2, s.y - s.size / 2, s.size, s.size);
+          ctx.drawImage(
+            sprite,
+            s.x - sprite.width / 2,
+            s.y - sprite.height / 2,
+            sprite.width,
+            sprite.height
+          );
         }
 
         ctx.restore();

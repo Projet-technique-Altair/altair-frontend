@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { cosmeticAssetUrl } from "@/lib/cosmeticAsset";
+import { cosmeticAssetUrl, isLocalCosmeticAssetPath } from "@/lib/cosmeticAsset";
 
 type ConstellationArtworkProps = {
   imageUrl?: string | null;
@@ -18,7 +18,7 @@ export default function ConstellationArtwork({
   fallbackClassName = "",
   fallbackSymbolClassName = "text-4xl text-white/25",
 }: ConstellationArtworkProps) {
-  const normalizedUrl = imageUrl?.trim() ?? "";
+  const normalizedUrl = isLocalCosmeticAssetPath(imageUrl) ? imageUrl.trim() : "";
   const [hasLoadError, setHasLoadError] = useState(false);
 
   useEffect(() => {

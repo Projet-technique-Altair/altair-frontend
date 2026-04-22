@@ -101,4 +101,7 @@ tmp/
 sandbox/
 local/
 
+.env
+.env.*
+
 tsconfig.tsbuildinfo

@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 
-import { WORLD_W, WORLD_H } from "./StarpathWorldBackground";
+import { WORLD_W, WORLD_H } from "./starpathWorld";
 
 export type StarpathWorldCanvasHandle = {
   reset: () => void;
