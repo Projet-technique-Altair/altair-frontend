@@ -32,9 +32,13 @@ import {
   type AdminCapsule,
   type AdminConstellation,
 } from "@/api/adminGamification";
+import { getCatalog, type MarketplaceItem } from "@/api/marketplace";
+import type { AdminUser } from "@/api/types";
 import { api } from "@/api";
 import DashboardCard from "@/components/ui/DashboardCard";
 import ConstellationArtwork from "@/components/gamification/ConstellationArtwork";
+import type { Group } from "@/contracts/groups";
+import type { Starpath } from "@/contracts/starpaths";
 import { ALT_COLORS } from "@/lib/theme";
 import backgroundimage from "@/assets/altair-bg-creator.png";
 
@@ -52,6 +56,8 @@ type AdminTemplate = {
   id: string;
   name: string;
   description: string;
+  visibility: string;
+  creatorId: string;
   stepsCount: number;
   updatedAt: string;
 };
@@ -87,16 +93,21 @@ function normalizeTemplate(raw: {
   template_id?: string;
   name?: string;
   description?: string | null;
+  visibility?: string | null;
+  creator_id?: string | null;
   steps_count?: number | null;
   updated_at?: string | null;
+  created_at?: string | null;
   updatedAt?: string | null;
 }): AdminTemplate {
   return {
     id: raw.lab_id ?? raw.id ?? raw.template_id ?? "unknown",
     name: raw.name ?? "Untitled Template",
     description: raw.description ?? "No description",
+    visibility: (raw.visibility ?? "unknown").toLowerCase(),
+    creatorId: raw.creator_id ?? "unknown",
     stepsCount: raw.steps_count ?? 0,
-    updatedAt: raw.updated_at ?? raw.updatedAt ?? "Unknown",
+    updatedAt: raw.updated_at ?? raw.updatedAt ?? raw.created_at ?? "Unknown",
   };
 }
 
@@ -131,12 +142,46 @@ function StatusBadge({ status }: { status: "live" | "preview" | "soon" }) {
         ? "border-sky-400/20 bg-sky-400/10 text-sky-300"
         : "border-white/10 bg-white/[0.05] text-white/55";
 
-  const label = status === "live" ? "Live" : status === "preview" ? "Preview UI" : "Coming soon";
+  const label = status === "live" ? "Live" : status === "preview" ? "Read-only" : "À implémenter";
 
   return (
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${config}`}>
       {label}
     </span>
+  );
+}
+
+function ImplementationNotice({
+  title,
+  description,
+  items,
+}: {
+  title: string;
+  description: string;
+  items: string[];
+}) {
+  return (
+    <DashboardCard className="border border-orange-400/20 bg-orange-400/[0.06] p-5">
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-orange-300/20 bg-orange-300/10 text-orange-200">
+          <Wrench className="h-4 w-4" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-orange-100">{title}</p>
+          <p className="mt-2 text-sm leading-6 text-orange-100/70">{description}</p>
+          <div className="mt-4 grid gap-2 md:grid-cols-2">
+            {items.map((item) => (
+              <div
+                key={item}
+                className="rounded-2xl border border-orange-300/15 bg-black/15 px-4 py-3 text-sm text-orange-100/75"
+              >
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </DashboardCard>
   );
 }
 
@@ -328,6 +373,21 @@ export default function AdminDashboard() {
   const [templates, setTemplates] = useState<AdminTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(true);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
+  const [starpaths, setStarpaths] = useState<Starpath[]>([]);
+  const [starpathsLoading, setStarpathsLoading] = useState(true);
+  const [starpathsError, setStarpathsError] = useState<string | null>(null);
+  const [marketplaceItems, setMarketplaceItems] = useState<MarketplaceItem[]>([]);
+  const [marketplaceLoading, setMarketplaceLoading] = useState(true);
+  const [marketplaceError, setMarketplaceError] = useState<string | null>(null);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userResults, setUserResults] = useState<AdminUser[]>([]);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [userSearchError, setUserSearchError] = useState<string | null>(null);
+  const [savingLabId, setSavingLabId] = useState<string | null>(null);
   const [capsules, setCapsules] = useState<AdminCapsule[]>([]);
   const [constellations, setConstellations] = useState<AdminConstellation[]>([]);
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
@@ -343,9 +403,9 @@ export default function AdminDashboard() {
 
     async function loadTemplates() {
       try {
-        const raw = await api.getLabs();
+        const raw = await api.getAdminLabs({ visibility: "all", limit: 500 });
         if (!cancelled) {
-          setTemplates(raw.map(normalizeTemplate));
+          setTemplates(raw.items.map(normalizeTemplate));
         }
       } catch (err: unknown) {
         if (!cancelled) {
@@ -363,6 +423,117 @@ export default function AdminDashboard() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadGroups() {
+      try {
+        const raw = await api.getGroups();
+        if (!cancelled) {
+          setGroups(raw);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setGroupsError(getErrorMessage(err, "Could not load groups."));
+        }
+      } finally {
+        if (!cancelled) {
+          setGroupsLoading(false);
+        }
+      }
+    }
+
+    loadGroups();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStarpaths() {
+      try {
+        const raw = await api.getStarpaths();
+        if (!cancelled) {
+          setStarpaths(raw);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setStarpathsError(getErrorMessage(err, "Could not load starpaths."));
+        }
+      } finally {
+        if (!cancelled) {
+          setStarpathsLoading(false);
+        }
+      }
+    }
+
+    loadStarpaths();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMarketplace() {
+      try {
+        const data = await getCatalog();
+        if (!cancelled) {
+          setMarketplaceItems(data.items);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setMarketplaceError(getErrorMessage(err, "Could not load marketplace catalog."));
+        }
+      } finally {
+        if (!cancelled) {
+          setMarketplaceLoading(false);
+        }
+      }
+    }
+
+    loadMarketplace();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const query = userSearchQuery.trim();
+    let cancelled = false;
+    setUserSearchLoading(true);
+    setUserSearchError(null);
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const results = await api.getAdminUsers({
+          q: query || undefined,
+          limit: 500,
+        });
+        if (!cancelled) {
+          setUserResults(results.items);
+          setUsersTotal(results.total);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setUserSearchError(getErrorMessage(err, "Could not search users."));
+        }
+      } finally {
+        if (!cancelled) {
+          setUserSearchLoading(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [userSearchQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -415,15 +586,16 @@ export default function AdminDashboard() {
   }, [isOrionSelected]);
 
   const summary = {
-    userCount: "2.4k",
+    userCount: userSearchLoading ? "..." : usersTotal.toString(),
     labCount: templates.length.toString(),
-    groupCount: "184",
-    starpathCount: "47",
-    alertCount: "12",
+    groupCount: groups.length.toString(),
+    starpathCount: starpaths.length.toString(),
+    alertCount: "À impl.",
     capsuleCount: capsules.length,
     liveCapsuleCount: capsules.filter((capsule) => capsule.is_active).length,
     constellationCount: constellations.length,
     activeConstellationCount: constellations.filter((item) => item.is_active).length,
+    marketplaceCount: marketplaceItems.length,
   };
 
   const sections: SectionMeta[] = [
@@ -438,8 +610,8 @@ export default function AdminDashboard() {
     {
       id: "users",
       label: "Users",
-      title: "Accounts and sanctions",
-      description: "Inspect roles, behavior, and admin actions.",
+      title: "Account search",
+      description: "Search and inspect existing users. Sanctions are not implemented yet.",
       icon: <Users className="h-4 w-4" />,
       status: "preview",
     },
@@ -447,33 +619,33 @@ export default function AdminDashboard() {
       id: "moderation",
       label: "Moderation",
       title: "Reports and intervention",
-      description: "Flagged content and enforcement workflows.",
+      description: "Report workflows do not exist in the backend yet.",
       icon: <Gavel className="h-4 w-4" />,
-      status: "preview",
+      status: "soon",
     },
     {
       id: "labs",
       label: "Labs",
       title: "Content supervision",
-      description: "Inspect all labs, public or private.",
+      description: "Inspect existing labs with the current gateway and labs service.",
       icon: <Layers className="h-4 w-4" />,
       status: "preview",
     },
     {
       id: "groups",
       label: "Groups",
-      title: "Private and public spaces",
-      description: "Membership, activity, and intervention scope.",
+      title: "Existing groups",
+      description: "Read existing groups through the current groups service.",
       icon: <Users className="h-4 w-4" />,
-      status: "soon",
+      status: "preview",
     },
     {
       id: "starpaths",
       label: "Starpaths",
-      title: "Route inspection",
-      description: "Learning route structure and health.",
+      title: "Existing routes",
+      description: "Read existing starpaths through the current starpaths service.",
       icon: <Orbit className="h-4 w-4" />,
-      status: "soon",
+      status: "preview",
     },
     {
       id: "gamification",
@@ -486,8 +658,8 @@ export default function AdminDashboard() {
     {
       id: "marketplace",
       label: "Marketplace",
-      title: "Catalog control",
-      description: "Pricing, visibility, and asset moderation.",
+      title: "Catalog read-only",
+      description: "Inspect the current marketplace catalog. Admin editing is not implemented.",
       icon: <ShoppingCart className="h-4 w-4" />,
       status: "preview",
     },
@@ -495,7 +667,7 @@ export default function AdminDashboard() {
       id: "analytics",
       label: "Analytics",
       title: "Platform signals",
-      description: "Usage, risk, and health overview.",
+      description: "Read-only counts from currently available endpoints.",
       icon: <BarChart3 className="h-4 w-4" />,
       status: "preview",
     },
@@ -573,8 +745,46 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDeleteTemplate = (id: string) => {
-    setTemplates((prev) => prev.filter((template) => template.id !== id));
+  const handleToggleLabVisibility = async (template: AdminTemplate) => {
+    const nextVisibility = template.visibility === "public" ? "private" : "public";
+    setSavingLabId(template.id);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      const updated = await api.updateAdminLabVisibility(template.id, nextVisibility);
+      setTemplates((current) =>
+        current.map((entry) =>
+          entry.id === template.id ? normalizeTemplate(updated) : entry,
+        ),
+      );
+      setFeedback(`Lab "${updated.name}" is now ${nextVisibility}.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not update lab visibility."));
+    } finally {
+      setSavingLabId(null);
+    }
+  };
+
+  const handleDeleteLab = async (template: AdminTemplate) => {
+    const confirmed = window.confirm(`Delete lab "${template.name}" permanently?`);
+    if (!confirmed) {
+      return;
+    }
+
+    setSavingLabId(template.id);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      await api.deleteLab(template.id);
+      setTemplates((current) => current.filter((entry) => entry.id !== template.id));
+      setFeedback(`Lab "${template.name}" deleted.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not delete lab."));
+    } finally {
+      setSavingLabId(null);
+    }
   };
 
   function renderOverviewPanel() {
@@ -583,7 +793,7 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Global control"
           title="Admin dashboard"
-          description="Supervise users, moderation, labs, groups, starpaths, private spaces, gamification, and operations from a single admin route."
+          description="Supervise the parts that are already backed by real services. Missing moderation and operational features are marked as à implémenter."
           action={<StatusBadge status="preview" />}
         />
 
@@ -591,20 +801,28 @@ export default function AdminDashboard() {
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
             <div className="space-y-4">
               <p className="text-sm text-white/50">
-                This version switches the admin from a long scrolling page to a panel-based workspace.
-                Each click changes the visible control surface while keeping the same route.
+                This admin surface now separates real read-only data from features that still need
+                backend routes. No comments, likes, dislikes, or fake moderation data are shown.
               </p>
               <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4">
                 <div className="flex items-center gap-3 text-white/55">
                   <Search className="h-4 w-4" />
-                  <span className="text-sm">Search a user, lab, group, starpath, or moderation case...</span>
+                  <span className="text-sm">Use the panels to inspect real users, labs, groups, starpaths, marketplace, and gamification data.</span>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                {["Users", "Labs", "Groups", "Starpaths", "Reports", "Private spaces"].map((filter) => (
+                {[
+                  ["Users", "users"],
+                  ["Labs", "labs"],
+                  ["Groups", "groups"],
+                  ["Starpaths", "starpaths"],
+                  ["Marketplace", "marketplace"],
+                  ["Gamification", "gamification"],
+                ].map(([filter, section]) => (
                   <button
                     key={filter}
                     type="button"
+                    onClick={() => setActiveSection(section as SectionId)}
                     className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/65 transition hover:bg-white/[0.08] hover:text-white"
                   >
                     {filter}
@@ -614,32 +832,32 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <MiniCard label="Search scope" value="Global" helper="users, content, private spaces" />
-              <MiniCard label="Admin reach" value="Full" helper="platform-wide supervision" />
-              <MiniCard label="Layout" value="Panels" helper="one route, many views" />
-              <MiniCard label="Current phase" value="UI" helper="functional backend later" />
+              <MiniCard label="Real data" value="6 panels" helper="users, labs, groups, routes, market, game" />
+              <MiniCard label="Reports" value="À impl." helper="no moderation backend yet" />
+              <MiniCard label="Feedback" value="À impl." helper="no likes, dislikes, comments yet" />
+              <MiniCard label="Current phase" value="Honest UI" helper="mock-only claims removed" />
             </div>
           </div>
         </DashboardCard>
 
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
-          <KpiCard label="Users" value={summary.userCount} helper="global user base" icon={<Users className="h-3.5 w-3.5 text-sky-300" />} />
-          <KpiCard label="Labs" value={summary.labCount} helper="visible content" icon={<Layers className="h-3.5 w-3.5 text-orange-300" />} />
-          <KpiCard label="Groups" value={summary.groupCount} helper="private and public" icon={<Users className="h-3.5 w-3.5 text-violet-300" />} />
-          <KpiCard label="Starpaths" value={summary.starpathCount} helper="route supervision" icon={<Orbit className="h-3.5 w-3.5 text-emerald-300" />} />
-          <KpiCard label="Alerts" value={summary.alertCount} helper="open admin signals" icon={<AlertTriangle className="h-3.5 w-3.5 text-rose-300" />} />
+          <KpiCard label="Users" value={summary.userCount} helper="admin users endpoint" icon={<Users className="h-3.5 w-3.5 text-sky-300" />} />
+          <KpiCard label="Labs" value={templatesLoading ? "..." : summary.labCount} helper="public and private labs" icon={<Layers className="h-3.5 w-3.5 text-orange-300" />} />
+          <KpiCard label="Groups" value={groupsLoading ? "..." : summary.groupCount} helper="current groups endpoint" icon={<Users className="h-3.5 w-3.5 text-violet-300" />} />
+          <KpiCard label="Starpaths" value={starpathsLoading ? "..." : summary.starpathCount} helper="current starpaths endpoint" icon={<Orbit className="h-3.5 w-3.5 text-emerald-300" />} />
+          <KpiCard label="Reports" value={summary.alertCount} helper="needs moderation routes" icon={<AlertTriangle className="h-3.5 w-3.5 text-rose-300" />} />
         </div>
 
         <div className="grid gap-4 xl:grid-cols-3">
           <DashboardCard className="p-5">
             <p className="text-xs uppercase tracking-[0.16em] text-white/35">Priority</p>
-            <p className="mt-3 text-lg font-medium text-white">Users and sanctions</p>
-            <p className="mt-2 text-sm text-white/45">Inspect profiles, roles, behavior, and moderation outcomes.</p>
+            <p className="mt-3 text-lg font-medium text-white">Users</p>
+            <p className="mt-2 text-sm text-white/45">Search and inspect accounts. Sanctions require new backend support.</p>
           </DashboardCard>
           <DashboardCard className="p-5">
             <p className="text-xs uppercase tracking-[0.16em] text-white/35">Priority</p>
-            <p className="mt-3 text-lg font-medium text-white">Content moderation</p>
-            <p className="mt-2 text-sm text-white/45">Review labs, groups, and routes that need intervention.</p>
+            <p className="mt-3 text-lg font-medium text-white">Moderation</p>
+            <p className="mt-2 text-sm text-white/45">À implémenter: learners cannot report content yet.</p>
           </DashboardCard>
           <DashboardCard className="p-5">
             <p className="text-xs uppercase tracking-[0.16em] text-white/35">Priority</p>
@@ -656,28 +874,63 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Users"
-          title="User control center"
-          description="An admin should inspect accounts, roles, sanctions, owned labs, groups, starpaths, and private visibility scope."
+          title="Users list"
+          description="Search and inspect accounts. Role management stays outside the admin dashboard."
           action={<StatusBadge status="preview" />}
         />
-        <div className="grid gap-4 xl:grid-cols-4">
-          <MiniCard label="Total users" value="2,438" helper="full platform audience" />
-          <MiniCard label="Creators" value="116" helper="content publishers" />
-          <MiniCard label="Suspended" value="9" helper="sanctioned accounts" />
-          <MiniCard label="Pending review" value="14" helper="needs moderator attention" />
-        </div>
+        <DashboardCard className="border border-white/10 p-5">
+          <label className="space-y-2 text-sm text-white/60">
+            <span>Filter users</span>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+              <input
+                value={userSearchQuery}
+                onChange={(event) => setUserSearchQuery(event.target.value)}
+                placeholder="Pseudo, email, or name..."
+                className={`${INPUT_CLASSNAME} pl-10`}
+              />
+            </div>
+          </label>
+        </DashboardCard>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_380px]">
           <div className="space-y-3">
-            <ListTile title="Lina Moreau" subtitle="creator · 12 labs · 4 starpaths · 3 private groups" extra="Watchlisted" />
-            <ListTile title="Theo Martin" subtitle="learner · 26 sessions · 2 groups · 1 warning" extra="Support" />
-            <ListTile title="Nora Petit" subtitle="admin · support actions · escalation access" extra="Admin" />
+            {userSearchLoading ? (
+              <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">
+                Loading users...
+              </DashboardCard>
+            ) : userSearchError ? (
+              <DashboardCard className="border border-rose-400/20 bg-rose-500/10 p-5 text-sm text-rose-100">
+                {userSearchError}
+              </DashboardCard>
+            ) : userResults.length === 0 ? (
+              <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">
+                No user found.
+              </DashboardCard>
+            ) : (
+              userResults.map((user) => (
+                <DashboardCard key={user.user_id} className="border border-white/10 p-4">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white">
+                        {user.pseudo || user.name || user.email || user.user_id}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-white/45">{user.email}</p>
+                      <p className="mt-1 truncate text-[11px] text-white/30">{user.user_id}</p>
+                    </div>
+                    <div className="shrink-0 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs uppercase tracking-[0.16em] text-white/55">
+                      {user.role}
+                    </div>
+                  </div>
+                </DashboardCard>
+              ))
+            )}
           </div>
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Expected admin actions</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-white/35">À implémenter</p>
             <div className="mt-4 space-y-3">
-              <ActionTile title="Open a full user profile" description="One place for identity, activity, sanctions, and owned content." />
-              <ActionTile title="Review labs, groups, and starpaths tied to the user" description="Even private scope when policy allows it." />
-              <ActionTile title="Warn, suspend, ban, or change role" description="Moderation-first admin behavior." tone="warning" />
+              <ActionTile title="Sanctions: warn, suspend, ban" description="No sanction model exists yet." tone="warning" />
+              <ActionTile title="Owned content aggregation" description="Requires cross-service admin summary routes." />
+              <ActionTile title="Full user profile" description="Needs richer admin user routes and activity aggregation." />
             </div>
           </DashboardCard>
         </div>
@@ -690,25 +943,20 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Moderation"
-          title="Reports and intervention"
-          description="Surface reports, abusive behavior, hidden content, and escalations before everything else."
-          action={<StatusBadge status="preview" />}
+          title="À implémenter"
+          description="Learners cannot report labs, groups, starpaths, or users yet. This panel is intentionally non-functional until moderation routes exist."
+          action={<StatusBadge status="soon" />}
         />
-        <div className="grid gap-4 xl:grid-cols-[460px_minmax(0,1fr)]">
-          <div className="space-y-3">
-            <ActionTile title="3 labs reported by learners" description="Two private labs and one public lab require manual review." tone="danger" />
-            <ActionTile title="2 users reached warning threshold" description="Repeated misconduct patterns require escalation or ban review." tone="warning" />
-            <ActionTile title="1 private group inspected manually" description="Admin review triggered after a content complaint." />
-          </div>
-          <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Recent moderation timeline</p>
-            <div className="mt-4 space-y-3">
-              <ListTile title="Lab hidden pending review" subtitle="Private lab removed from visibility after report escalation." extra="12m" />
-              <ListTile title="Warning issued to creator account" subtitle="Pattern of repeated policy violations captured." extra="48m" />
-              <ListTile title="Private group manually inspected" subtitle="Admin accessed the group after moderation alert." extra="2h" />
-            </div>
-          </DashboardCard>
-        </div>
+        <ImplementationNotice
+          title="Moderation backend missing"
+          description="The UI should not show fake reports. Add report creation and admin review routes first, then this panel can become live."
+          items={[
+            "Reports: lab/group/starpath/user reporting",
+            "Sanctions: warn/suspend/ban user",
+            "Comments: review and moderation queue",
+            "Likes/dislikes: feedback signals and abuse review",
+          ]}
+        />
       </div>
     );
   }
@@ -719,8 +967,8 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Labs"
           title="Lab management"
-          description="Inspect all labs, including private ones, then hide, archive, or remove them when needed."
-          action={<StatusBadge status="preview" />}
+          description="Inspect, publish, privatize, or delete labs with the current labs service permissions."
+          action={<StatusBadge status="live" />}
         />
         {templatesLoading ? (
           <p className="text-sm italic text-white/40">Loading labs...</p>
@@ -741,26 +989,36 @@ export default function AdminDashboard() {
                     <p className="mt-1 line-clamp-2 text-sm text-white/45">{template.description}</p>
                   </div>
                   <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
-                    {template.stepsCount} steps
+                    {template.visibility}
                   </div>
                 </div>
                 <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-white/45">
-                  <span className="truncate">Updated {template.updatedAt}</span>
-                  <span className="truncate">{template.id}</span>
+                  <span className="truncate">Created {template.updatedAt}</span>
+                  <span className="truncate">Creator {template.creatorId}</span>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <button type="button" className="rounded-xl border border-violet-400/20 bg-violet-400/10 px-3 py-2 text-xs font-semibold text-violet-200 transition hover:bg-violet-400/15">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/creator/lab/${template.id}`)}
+                    className="rounded-xl border border-violet-400/20 bg-violet-400/10 px-3 py-2 text-xs font-semibold text-violet-200 transition hover:bg-violet-400/15"
+                  >
                     Inspect lab
-                  </button>
-                  <button type="button" className="rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-200 transition hover:bg-orange-400/15">
-                    Hide / archive
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDeleteTemplate(template.id)}
-                    className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-400/15"
+                    disabled={savingLabId === template.id}
+                    onClick={() => handleToggleLabVisibility(template)}
+                    className="rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-200 transition hover:bg-orange-400/15 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Remove locally
+                    {template.visibility === "public" ? "Make private" : "Publish"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingLabId === template.id}
+                    onClick={() => handleDeleteLab(template)}
+                    className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Delete
                   </button>
                 </div>
               </div>
@@ -776,16 +1034,33 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Groups"
-          title="Group supervision"
-          description="Inspect private groups, memberships, assigned content, activity health, and intervention points."
-          action={<StatusBadge status="soon" />}
+          title="Existing groups"
+          description="This read-only view uses the current groups endpoint. Membership drill-down exists in the API client, but this panel keeps actions conservative."
+          action={<StatusBadge status="preview" />}
         />
-        <div className="grid gap-4 xl:grid-cols-2">
-          <ActionTile title="Inspect private groups" description="Admin should see private spaces when policy allows it." />
-          <ActionTile title="View memberships and owners" description="Understand who controls the group and who is affected." />
-          <ActionTile title="See labs and starpaths assigned" description="Audit all related content from the same panel." />
-          <ActionTile title="Suspend or intervene if necessary" description="Moderation and operational control should remain possible." tone="warning" />
-        </div>
+        {groupsLoading ? (
+          <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">Loading groups...</DashboardCard>
+        ) : groupsError ? (
+          <DashboardCard className="border border-rose-400/20 bg-rose-500/10 p-5 text-sm text-rose-100">{groupsError}</DashboardCard>
+        ) : groups.length === 0 ? (
+          <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">No groups found.</DashboardCard>
+        ) : (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {groups.map((group) => (
+              <ListTile
+                key={group.group_id}
+                title={group.name}
+                subtitle={group.description ?? group.group_id}
+                extra="Real group"
+              />
+            ))}
+          </div>
+        )}
+        <ImplementationNotice
+          title="Group moderation actions à implémenter"
+          description="Inspection can be expanded with existing member and assignment endpoints. Suspend/intervene still needs moderation routes."
+          items={["Member drill-down", "Assigned labs/starpaths drill-down", "Report queue", "Suspend or lock group"]}
+        />
       </div>
     );
   }
@@ -795,16 +1070,33 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Starpaths"
-          title="Route supervision"
-          description="Review route structure, broken composition, hidden dependencies, and private learning paths."
-          action={<StatusBadge status="soon" />}
+          title="Existing starpaths"
+          description="This read-only view uses the current starpaths endpoint. Broken route detection is à implémenter."
+          action={<StatusBadge status="preview" />}
         />
-        <div className="grid gap-4 xl:grid-cols-2">
-          <ActionTile title="Review all starpaths" description="A global route view should exist for admins." />
-          <ActionTile title="Audit route composition" description="Detect broken sequencing and missing labs." />
-          <ActionTile title="Inspect private learning routes" description="Admin access should extend beyond public content." />
-          <ActionTile title="Detect broken lab references" description="Surface invalid route dependencies early." tone="warning" />
-        </div>
+        {starpathsLoading ? (
+          <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">Loading starpaths...</DashboardCard>
+        ) : starpathsError ? (
+          <DashboardCard className="border border-rose-400/20 bg-rose-500/10 p-5 text-sm text-rose-100">{starpathsError}</DashboardCard>
+        ) : starpaths.length === 0 ? (
+          <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">No starpaths found.</DashboardCard>
+        ) : (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {starpaths.map((starpath) => (
+              <ListTile
+                key={starpath.starpath_id}
+                title={starpath.name}
+                subtitle={starpath.description ?? starpath.starpath_id}
+                extra={starpath.visibility}
+              />
+            ))}
+          </div>
+        )}
+        <ImplementationNotice
+          title="Route health à implémenter"
+          description="The backend can list starpaths and their labs, but it does not yet expose admin health signals."
+          items={["Broken lab references", "Completion/drop-off analytics", "Private route audit", "Admin hide/archive"]}
+        />
       </div>
     );
   }
@@ -1169,16 +1461,60 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Marketplace"
-          title="Catalog supervision"
-          description="Prepare cosmetic catalog management, visibility, pricing, and moderation of marketplace assets."
+          title="Catalog read-only"
+          description="Inspect the current marketplace catalog through the existing gamification endpoint. Admin pricing and visibility edits are à implémenter."
           action={<StatusBadge status="preview" />}
         />
-        <div className="grid gap-4 xl:grid-cols-2">
-          <ActionTile title="Review catalog items" description="The admin should inspect all visible and hidden products." />
-          <ActionTile title="Control pricing and visibility" description="Marketplace settings belong to admin-level supervision." />
-          <ActionTile title="Audit owned vs hidden cosmetics" description="Understand catalog state and user-facing consequences." />
-          <ActionTile title="Inspect preview assets" description="Moderate cosmetic media and presentation quality." />
+        <div className="grid gap-4 xl:grid-cols-3">
+          <MiniCard
+            label="Catalog items"
+            value={marketplaceLoading ? "..." : marketplaceItems.length.toString()}
+            helper="current marketplace endpoint"
+          />
+          <MiniCard
+            label="Cosmetic types"
+            value={
+              marketplaceLoading
+                ? "..."
+                : new Set(marketplaceItems.map((item) => item.cosmetic_type)).size.toString()
+            }
+            helper="derived client-side"
+          />
+          <MiniCard label="Admin editing" value="À impl." helper="needs dedicated routes" />
         </div>
+        {marketplaceLoading ? (
+          <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">Loading catalog...</DashboardCard>
+        ) : marketplaceError ? (
+          <DashboardCard className="border border-rose-400/20 bg-rose-500/10 p-5 text-sm text-rose-100">{marketplaceError}</DashboardCard>
+        ) : marketplaceItems.length === 0 ? (
+          <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">No marketplace items found.</DashboardCard>
+        ) : (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {marketplaceItems.map((item) => (
+              <DashboardCard key={item.item_code} className="border border-white/10 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-semibold text-white">{item.name}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/35">
+                      {item.cosmetic_type} · {item.item_code}
+                    </p>
+                    {item.manifest.description ? (
+                      <p className="mt-3 line-clamp-2 text-sm text-white/45">{item.manifest.description}</p>
+                    ) : null}
+                  </div>
+                  <div className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/60">
+                    {item.price_starlight} starlight
+                  </div>
+                </div>
+              </DashboardCard>
+            ))}
+          </div>
+        )}
+        <ImplementationNotice
+          title="Marketplace admin editing à implémenter"
+          description="The frontend can inspect the catalog today. Changing prices, visibility, or assets needs new admin routes in gamification."
+          items={["Update price", "Toggle visibility", "Edit manifest/assets", "Audit purchase/ownership impact"]}
+        />
       </div>
     );
   }
@@ -1188,31 +1524,32 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Analytics"
-          title="Platform signals"
-          description="Summarize usage, moderation load, user health, content health, and economy trends."
+          title="Available signals"
+          description="Client-side counts from endpoints already available to the admin dashboard. Usage, reports, and risk analytics are à implémenter."
           action={<StatusBadge status="preview" />}
         />
         <div className="grid gap-4 xl:grid-cols-4">
-          <MiniCard label="User risk signals" value="14" helper="accounts needing review" />
-          <MiniCard label="Flagged content" value="7" helper="labs and spaces under review" />
-          <MiniCard label="Route health" value="93%" helper="starpaths structurally healthy" />
-          <MiniCard label="Economy" value="Stable" helper="capsules and collection layer" />
+          <MiniCard label="Labs" value={templatesLoading ? "..." : templates.length.toString()} helper="real endpoint" />
+          <MiniCard label="Groups" value={groupsLoading ? "..." : groups.length.toString()} helper="real endpoint" />
+          <MiniCard label="Starpaths" value={starpathsLoading ? "..." : starpaths.length.toString()} helper="real endpoint" />
+          <MiniCard label="Marketplace" value={marketplaceLoading ? "..." : marketplaceItems.length.toString()} helper="real endpoint" />
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Signals this week</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Derived now</p>
             <div className="mt-4 space-y-3">
-              <ListTile title="Moderation spikes on creator content" subtitle="Higher report volume detected on private training material." />
-              <ListTile title="Marketplace visibility mismatch" subtitle="Some cosmetics may need better lifecycle controls." />
-              <ListTile title="Healthy route completion" subtitle="Current starpath structure looks stable overall." />
+              <ListTile title={`${summary.activeConstellationCount} active constellations`} subtitle="Computed from admin gamification data." />
+              <ListTile title={`${summary.capsuleCount} capsules configured`} subtitle="Loaded from the gamification admin endpoint." />
+              <ListTile title={`${summary.marketplaceCount} marketplace items`} subtitle="Loaded from the public catalog endpoint." />
             </div>
           </DashboardCard>
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">What this panel should grow into</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-white/35">À implémenter</p>
             <div className="mt-4 space-y-3">
-              <ActionTile title="Global KPIs" description="Users, labs, groups, starpaths, moderation, and gamification." />
-              <ActionTile title="Risk and health layers" description="Spot issues before they become operational problems." />
-              <ActionTile title="Cross-platform visibility" description="Admin needs one place for platform-wide understanding." />
+              <ActionTile title="Usage analytics" description="Requires sessions aggregation routes." tone="warning" />
+              <ActionTile title="Moderation analytics" description="Requires report tables and admin review routes." tone="warning" />
+              <ActionTile title="Feedback analytics" description="Requires likes, dislikes, and comments models." tone="warning" />
+              <ActionTile title="User risk signals" description="Requires user status, sanctions, or audit log models." />
             </div>
           </DashboardCard>
         </div>
@@ -1226,28 +1563,19 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Settings"
           title="Operational tools"
-          description="Reserve space for admin-only controls, feature flags, maintenance, exports, and security actions."
+          description="Feature flags, maintenance actions, exports, and security tools are not backed by routes yet."
           action={<StatusBadge status="soon" />}
         />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {[
-            { title: "Feature flags", icon: <Settings2 className="h-4 w-4" /> },
-            { title: "Maintenance tools", icon: <Wrench className="h-4 w-4" /> },
-            { title: "Audit exports", icon: <FolderKanban className="h-4 w-4" /> },
-            { title: "Security actions", icon: <UserX className="h-4 w-4" /> },
-          ].map((item) => (
-            <div
-              key={item.title}
-              className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/75">
-                {item.icon}
-              </div>
-              <p className="mt-4 text-sm font-semibold text-white">{item.title}</p>
-              <p className="mt-1 text-xs text-white/45">Reserved for future admin-only controls.</p>
-            </div>
-          ))}
-        </div>
+        <ImplementationNotice
+          title="Operational admin backend missing"
+          description="These controls should stay non-interactive until a route and permission model exists for each action."
+          items={[
+            "Feature flags",
+            "Maintenance tools",
+            "Audit exports",
+            "Security actions",
+          ]}
+        />
       </div>
     );
   }

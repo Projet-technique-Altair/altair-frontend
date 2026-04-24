@@ -12,6 +12,24 @@ export type SearchUserResult = {
   email?: string;
 };
 
+export type AdminUser = {
+  user_id: string;
+  role: string;
+  name: string;
+  pseudo: string;
+  email: string;
+  avatar?: string | null;
+  last_login?: string | null;
+  created_at: string;
+};
+
+export type PaginatedResponse<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type SearchStarpathResult = {
   starpath_id: string;
   name: string;
