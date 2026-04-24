@@ -388,6 +388,8 @@ export default function AdminDashboard() {
   const [userSearchLoading, setUserSearchLoading] = useState(false);
   const [userSearchError, setUserSearchError] = useState<string | null>(null);
   const [savingLabId, setSavingLabId] = useState<string | null>(null);
+  const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
+  const [savingStarpathId, setSavingStarpathId] = useState<string | null>(null);
   const [capsules, setCapsules] = useState<AdminCapsule[]>([]);
   const [constellations, setConstellations] = useState<AdminConstellation[]>([]);
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
@@ -429,9 +431,9 @@ export default function AdminDashboard() {
 
     async function loadGroups() {
       try {
-        const raw = await api.getGroups();
+        const raw = await api.getAdminGroups({ limit: 500 });
         if (!cancelled) {
-          setGroups(raw);
+          setGroups(raw.items);
         }
       } catch (err: unknown) {
         if (!cancelled) {
@@ -455,9 +457,9 @@ export default function AdminDashboard() {
 
     async function loadStarpaths() {
       try {
-        const raw = await api.getStarpaths();
+        const raw = await api.getAdminStarpaths({ visibility: "all", limit: 500 });
         if (!cancelled) {
-          setStarpaths(raw);
+          setStarpaths(raw.items);
         }
       } catch (err: unknown) {
         if (!cancelled) {
@@ -787,6 +789,70 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteGroup = async (group: Group) => {
+    const confirmed = window.confirm(`Delete group "${group.name}" permanently?`);
+    if (!confirmed) {
+      return;
+    }
+
+    setSavingGroupId(group.group_id);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      await api.deleteGroup(group.group_id);
+      setGroups((current) => current.filter((entry) => entry.group_id !== group.group_id));
+      setFeedback(`Group "${group.name}" deleted.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not delete group."));
+    } finally {
+      setSavingGroupId(null);
+    }
+  };
+
+  const handleToggleStarpathVisibility = async (starpath: Starpath) => {
+    const currentVisibility = String(starpath.visibility).toLowerCase();
+    const nextVisibility = currentVisibility === "public" ? "private" : "public";
+    setSavingStarpathId(starpath.starpath_id);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      const updated = await api.updateAdminStarpathVisibility(starpath.starpath_id, nextVisibility);
+      setStarpaths((current) =>
+        current.map((entry) => (entry.starpath_id === updated.starpath_id ? updated : entry)),
+      );
+      setFeedback(`Starpath "${updated.name}" is now ${nextVisibility}.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not update starpath visibility."));
+    } finally {
+      setSavingStarpathId(null);
+    }
+  };
+
+  const handleDeleteStarpath = async (starpath: Starpath) => {
+    const confirmed = window.confirm(`Delete starpath "${starpath.name}" permanently?`);
+    if (!confirmed) {
+      return;
+    }
+
+    setSavingStarpathId(starpath.starpath_id);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      await api.deleteStarpath(starpath.starpath_id);
+      setStarpaths((current) =>
+        current.filter((entry) => entry.starpath_id !== starpath.starpath_id),
+      );
+      setFeedback(`Starpath "${starpath.name}" deleted.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not delete starpath."));
+    } finally {
+      setSavingStarpathId(null);
+    }
+  };
+
   function renderOverviewPanel() {
     return (
       <div className="space-y-6">
@@ -1034,9 +1100,9 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Groups"
-          title="Existing groups"
-          description="This read-only view uses the current groups endpoint. Membership drill-down exists in the API client, but this panel keeps actions conservative."
-          action={<StatusBadge status="preview" />}
+          title="Group management"
+          description="Inspect all groups and remove groups when admin intervention is needed."
+          action={<StatusBadge status="live" />}
         />
         {groupsLoading ? (
           <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">Loading groups...</DashboardCard>
@@ -1047,18 +1113,39 @@ export default function AdminDashboard() {
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {groups.map((group) => (
-              <ListTile
-                key={group.group_id}
-                title={group.name}
-                subtitle={group.description ?? group.group_id}
-                extra="Real group"
-              />
+              <DashboardCard key={group.group_id} className="border border-white/10 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-semibold text-white">{group.name}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-white/45">
+                      {group.description ?? group.group_id}
+                    </p>
+                  </div>
+                  <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
+                    group
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-white/45">
+                  <span className="truncate">Creator {group.creator_id}</span>
+                  <span className="truncate">Created {group.created_at}</span>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={savingGroupId === group.group_id}
+                    onClick={() => handleDeleteGroup(group)}
+                    className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </DashboardCard>
             ))}
           </div>
         )}
         <ImplementationNotice
           title="Group moderation actions à implémenter"
-          description="Inspection can be expanded with existing member and assignment endpoints. Suspend/intervene still needs moderation routes."
+          description="Deletion is wired. Locking, reports, and a richer member/content drill-down still need dedicated admin screens."
           items={["Member drill-down", "Assigned labs/starpaths drill-down", "Report queue", "Suspend or lock group"]}
         />
       </div>
@@ -1070,9 +1157,9 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Starpaths"
-          title="Existing starpaths"
-          description="This read-only view uses the current starpaths endpoint. Broken route detection is à implémenter."
-          action={<StatusBadge status="preview" />}
+          title="Starpath management"
+          description="Inspect, publish, privatize, or delete starpaths with current starpaths service permissions."
+          action={<StatusBadge status="live" />}
         />
         {starpathsLoading ? (
           <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">Loading starpaths...</DashboardCard>
@@ -1082,20 +1169,53 @@ export default function AdminDashboard() {
           <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">No starpaths found.</DashboardCard>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
-            {starpaths.map((starpath) => (
-              <ListTile
-                key={starpath.starpath_id}
-                title={starpath.name}
-                subtitle={starpath.description ?? starpath.starpath_id}
-                extra={starpath.visibility}
-              />
-            ))}
+            {starpaths.map((starpath) => {
+              const visibility = String(starpath.visibility).toLowerCase();
+
+              return (
+                <DashboardCard key={starpath.starpath_id} className="border border-white/10 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold text-white">{starpath.name}</p>
+                      <p className="mt-1 line-clamp-2 text-sm text-white/45">
+                        {starpath.description ?? starpath.starpath_id}
+                      </p>
+                    </div>
+                    <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
+                      {visibility}
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-white/45">
+                    <span className="truncate">Creator {starpath.creator_id}</span>
+                    <span className="truncate">Created {starpath.created_at}</span>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={savingStarpathId === starpath.starpath_id}
+                      onClick={() => handleToggleStarpathVisibility(starpath)}
+                      className="rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-200 transition hover:bg-orange-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {visibility === "public" ? "Make private" : "Publish"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingStarpathId === starpath.starpath_id}
+                      onClick={() => handleDeleteStarpath(starpath)}
+                      className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </DashboardCard>
+              );
+            })}
           </div>
         )}
         <ImplementationNotice
           title="Route health à implémenter"
           description="The backend can list starpaths and their labs, but it does not yet expose admin health signals."
-          items={["Broken lab references", "Completion/drop-off analytics", "Private route audit", "Admin hide/archive"]}
+          items={["Broken lab references", "Completion/drop-off analytics", "Private route audit", "Archive lifecycle"]}
         />
       </div>
     );

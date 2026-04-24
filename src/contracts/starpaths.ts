@@ -2,10 +2,12 @@ export type StarpathVisibility = "PUBLIC" | "PRIVATE";
 
 export type Starpath = {
   starpath_id: string;
+  creator_id: string;
   name: string;
   description?: string;
   difficulty?: string;
   visibility: StarpathVisibility;
+  created_at: string;
 };
 
 export type StarpathUpsertPayload = {

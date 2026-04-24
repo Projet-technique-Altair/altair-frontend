@@ -5,7 +5,7 @@ import type {
   StarpathLabUpsertPayload,
   StarpathProgress,
 } from "@/contracts/starpaths";
-import type { GroupLabResult, SearchStarpathResult } from "./types";
+import type { GroupLabResult, PaginatedResponse, SearchStarpathResult } from "./types";
 
 /* =========================
    Starpaths CRUD
@@ -13,6 +13,30 @@ import type { GroupLabResult, SearchStarpathResult } from "./types";
 
 export function getStarpaths() {
   return request<Starpath[]>("/starpaths/starpaths");
+}
+
+export function getAdminStarpaths(params: {
+  q?: string;
+  visibility?: "all" | "public" | "private";
+  limit?: number;
+  offset?: number;
+} = {}) {
+  const search = new URLSearchParams();
+  if (params.q) {
+    search.set("q", params.q);
+  }
+  if (params.visibility) {
+    search.set("visibility", params.visibility);
+  }
+  if (params.limit) {
+    search.set("limit", String(params.limit));
+  }
+  if (params.offset) {
+    search.set("offset", String(params.offset));
+  }
+
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return request<PaginatedResponse<Starpath>>(`/starpaths/admin/starpaths${suffix}`);
 }
 
 export function getMyStarpaths() {
@@ -47,6 +71,13 @@ export function updateStarpath(
 export function deleteStarpath(id: string) {
   return request<void>(`/starpaths/starpaths/${id}`, {
     method: "DELETE",
+  });
+}
+
+export function updateAdminStarpathVisibility(id: string, visibility: "private" | "public") {
+  return request<Starpath>(`/starpaths/starpaths/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ visibility }),
   });
 }
 

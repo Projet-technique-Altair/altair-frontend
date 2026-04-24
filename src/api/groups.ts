@@ -1,6 +1,6 @@
 import { request } from "./client";
 import type { Group } from "@/contracts/groups";
-import type { GroupLabResult, GroupMemberResult, GroupStarpathResult } from "./types";
+import type { GroupLabResult, GroupMemberResult, GroupStarpathResult, PaginatedResponse } from "./types";
 
 /* =========================
    Groups CRUD
@@ -8,6 +8,26 @@ import type { GroupLabResult, GroupMemberResult, GroupStarpathResult } from "./t
 
 export function getGroups() {
   return request<Group[]>("/groups/groups");
+}
+
+export function getAdminGroups(params: {
+  q?: string;
+  limit?: number;
+  offset?: number;
+} = {}) {
+  const search = new URLSearchParams();
+  if (params.q) {
+    search.set("q", params.q);
+  }
+  if (params.limit) {
+    search.set("limit", String(params.limit));
+  }
+  if (params.offset) {
+    search.set("offset", String(params.offset));
+  }
+
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return request<PaginatedResponse<Group>>(`/groups/admin/groups${suffix}`);
 }
 
 export function getMyGroups() {
