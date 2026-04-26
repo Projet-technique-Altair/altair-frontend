@@ -11,6 +11,7 @@ import {
   FolderKanban,
   Gavel,
   Layers,
+  LogOut,
   Orbit,
   Search,
   Settings2,
@@ -40,6 +41,7 @@ import ConstellationArtwork from "@/components/gamification/ConstellationArtwork
 import type { Group } from "@/contracts/groups";
 import type { Starpath } from "@/contracts/starpaths";
 import { ALT_COLORS } from "@/lib/theme";
+import { useAuth } from "@/context/useAuth";
 import backgroundimage from "@/assets/altair-bg-creator.png";
 
 const RARITY_OPTIONS = ["common", "rare", "epic", "legendary"] as const;
@@ -142,7 +144,7 @@ function StatusBadge({ status }: { status: "live" | "preview" | "soon" }) {
         ? "border-sky-400/20 bg-sky-400/10 text-sky-300"
         : "border-white/10 bg-white/[0.05] text-white/55";
 
-  const label = status === "live" ? "Live" : status === "preview" ? "Read-only" : "À implémenter";
+  const label = status === "live" ? "Live" : status === "preview" ? "Read-only" : "To implement";
 
   return (
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${config}`}>
@@ -369,6 +371,7 @@ function SideNav({
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [activeSection, setActiveSection] = useState<SectionId>("overview");
   const [templates, setTemplates] = useState<AdminTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
@@ -592,7 +595,7 @@ export default function AdminDashboard() {
     labCount: templates.length.toString(),
     groupCount: groups.length.toString(),
     starpathCount: starpaths.length.toString(),
-    alertCount: "À impl.",
+    alertCount: "TBD",
     capsuleCount: capsules.length,
     liveCapsuleCount: capsules.filter((capsule) => capsule.is_active).length,
     constellationCount: constellations.length,
@@ -859,7 +862,7 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Global control"
           title="Admin dashboard"
-          description="Supervise the parts that are already backed by real services. Missing moderation and operational features are marked as à implémenter."
+          description="Supervise the parts that are already backed by real services. Missing moderation and operational features are marked as to implement."
           action={<StatusBadge status="preview" />}
         />
 
@@ -899,8 +902,8 @@ export default function AdminDashboard() {
 
             <div className="grid grid-cols-2 gap-3">
               <MiniCard label="Real data" value="6 panels" helper="users, labs, groups, routes, market, game" />
-              <MiniCard label="Reports" value="À impl." helper="no moderation backend yet" />
-              <MiniCard label="Feedback" value="À impl." helper="no likes, dislikes, comments yet" />
+              <MiniCard label="Reports" value="TBD" helper="no moderation backend yet" />
+              <MiniCard label="Feedback" value="TBD" helper="no likes, dislikes, comments yet" />
               <MiniCard label="Current phase" value="Honest UI" helper="mock-only claims removed" />
             </div>
           </div>
@@ -923,7 +926,7 @@ export default function AdminDashboard() {
           <DashboardCard className="p-5">
             <p className="text-xs uppercase tracking-[0.16em] text-white/35">Priority</p>
             <p className="mt-3 text-lg font-medium text-white">Moderation</p>
-            <p className="mt-2 text-sm text-white/45">À implémenter: learners cannot report content yet.</p>
+            <p className="mt-2 text-sm text-white/45">To implement: learners cannot report content yet.</p>
           </DashboardCard>
           <DashboardCard className="p-5">
             <p className="text-xs uppercase tracking-[0.16em] text-white/35">Priority</p>
@@ -992,7 +995,7 @@ export default function AdminDashboard() {
             )}
           </div>
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">À implémenter</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-white/35">To implement</p>
             <div className="mt-4 space-y-3">
               <ActionTile title="Sanctions: warn, suspend, ban" description="No sanction model exists yet." tone="warning" />
               <ActionTile title="Owned content aggregation" description="Requires cross-service admin summary routes." />
@@ -1009,7 +1012,7 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Moderation"
-          title="À implémenter"
+          title="To implement"
           description="Learners cannot report labs, groups, starpaths, or users yet. This panel is intentionally non-functional until moderation routes exist."
           action={<StatusBadge status="soon" />}
         />
@@ -1076,7 +1079,7 @@ export default function AdminDashboard() {
                     onClick={() => handleToggleLabVisibility(template)}
                     className="rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-200 transition hover:bg-orange-400/15 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {template.visibility === "public" ? "Make private" : "Publish"}
+                    {template.visibility === "public" ? "Make private" : "Make public"}
                   </button>
                   <button
                     type="button"
@@ -1144,7 +1147,7 @@ export default function AdminDashboard() {
           </div>
         )}
         <ImplementationNotice
-          title="Group moderation actions à implémenter"
+          title="Group moderation actions to implement"
           description="Deletion is wired. Locking, reports, and a richer member/content drill-down still need dedicated admin screens."
           items={["Member drill-down", "Assigned labs/starpaths drill-down", "Report queue", "Suspend or lock group"]}
         />
@@ -1196,7 +1199,7 @@ export default function AdminDashboard() {
                       onClick={() => handleToggleStarpathVisibility(starpath)}
                       className="rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-200 transition hover:bg-orange-400/15 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {visibility === "public" ? "Make private" : "Publish"}
+                      {visibility === "public" ? "Make private" : "Make public"}
                     </button>
                     <button
                       type="button"
@@ -1213,7 +1216,7 @@ export default function AdminDashboard() {
           </div>
         )}
         <ImplementationNotice
-          title="Route health à implémenter"
+          title="Route health to implement"
           description="The backend can list starpaths and their labs, but it does not yet expose admin health signals."
           items={["Broken lab references", "Completion/drop-off analytics", "Private route audit", "Archive lifecycle"]}
         />
@@ -1582,7 +1585,7 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Marketplace"
           title="Catalog read-only"
-          description="Inspect the current marketplace catalog through the existing gamification endpoint. Admin pricing and visibility edits are à implémenter."
+          description="Inspect the current marketplace catalog through the existing gamification endpoint. Admin pricing and visibility edits are to implement."
           action={<StatusBadge status="preview" />}
         />
         <div className="grid gap-4 xl:grid-cols-3">
@@ -1600,7 +1603,7 @@ export default function AdminDashboard() {
             }
             helper="derived client-side"
           />
-          <MiniCard label="Admin editing" value="À impl." helper="needs dedicated routes" />
+          <MiniCard label="Admin editing" value="TBD" helper="needs dedicated routes" />
         </div>
         {marketplaceLoading ? (
           <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">Loading catalog...</DashboardCard>
@@ -1631,7 +1634,7 @@ export default function AdminDashboard() {
           </div>
         )}
         <ImplementationNotice
-          title="Marketplace admin editing à implémenter"
+          title="Marketplace admin editing to implement"
           description="The frontend can inspect the catalog today. Changing prices, visibility, or assets needs new admin routes in gamification."
           items={["Update price", "Toggle visibility", "Edit manifest/assets", "Audit purchase/ownership impact"]}
         />
@@ -1645,7 +1648,7 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Analytics"
           title="Available signals"
-          description="Client-side counts from endpoints already available to the admin dashboard. Usage, reports, and risk analytics are à implémenter."
+          description="Client-side counts from endpoints already available to the admin dashboard. Usage, reports, and risk analytics are to implement."
           action={<StatusBadge status="preview" />}
         />
         <div className="grid gap-4 xl:grid-cols-4">
@@ -1664,7 +1667,7 @@ export default function AdminDashboard() {
             </div>
           </DashboardCard>
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">À implémenter</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-white/35">To implement</p>
             <div className="mt-4 space-y-3">
               <ActionTile title="Usage analytics" description="Requires sessions aggregation routes." tone="warning" />
               <ActionTile title="Moderation analytics" description="Requires report tables and admin review routes." tone="warning" />
@@ -1772,6 +1775,14 @@ export default function AdminDashboard() {
             <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/55">
               Active panel: {activeMeta.label}
             </div>
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center gap-2 rounded-2xl border border-rose-300/20 bg-rose-400/10 px-3 py-2 text-xs font-medium text-rose-100 transition hover:border-rose-200/35 hover:bg-rose-400/15"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out
+            </button>
           </div>
         </motion.div>
 
