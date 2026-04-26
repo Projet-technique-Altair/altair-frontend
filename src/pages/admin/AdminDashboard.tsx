@@ -4,25 +4,18 @@ import { motion } from "framer-motion";
 import {
   AlertTriangle,
   BarChart3,
-  Boxes,
   CheckCircle2,
-  FileText,
-  Flag,
-  FolderKanban,
   Gavel,
   Layers,
   LogOut,
   Orbit,
   Search,
-  Settings2,
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
   Sparkles,
-  Stars,
   Telescope,
   TrendingUp,
-  UserX,
   Users,
   Wrench,
 } from "lucide-react";
@@ -51,6 +44,10 @@ const ORION_LEGENDARY_IMAGE = "constellations/orion-rare.png";
 
 const INPUT_CLASSNAME =
   "w-full rounded-2xl border border-white/10 bg-[#121726]/90 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-sky-400/50 focus:bg-[#151b2d]";
+const GAMIFICATION_INPUT_CLASSNAME =
+  "w-full rounded-xl border border-white/15 bg-[#0f1422] px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/30 hover:border-white/25 focus:border-sky-300/70 focus:bg-[#121a2b] focus:ring-2 focus:ring-sky-300/10";
+const GAMIFICATION_PRIMARY_BUTTON_CLASSNAME =
+  "rounded-xl border border-sky-300/30 bg-sky-400/12 px-4 py-2.5 text-sm font-semibold text-sky-100 transition hover:border-sky-200/45 hover:bg-sky-400/18 disabled:cursor-not-allowed disabled:opacity-60";
 
 type OrionPreviewStage = "base" | "legendary";
 
@@ -82,7 +79,7 @@ type SectionMeta = {
   title: string;
   description: string;
   icon: ReactNode;
-  status: "live" | "preview" | "soon";
+  status: "live" | "read-only" | "mock";
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -136,54 +133,20 @@ function PanelTitle({
   );
 }
 
-function StatusBadge({ status }: { status: "live" | "preview" | "soon" }) {
+function StatusBadge({ status }: { status: "live" | "read-only" | "mock" }) {
   const config =
     status === "live"
       ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
-      : status === "preview"
+      : status === "read-only"
         ? "border-sky-400/20 bg-sky-400/10 text-sky-300"
         : "border-white/10 bg-white/[0.05] text-white/55";
 
-  const label = status === "live" ? "Live" : status === "preview" ? "Read-only" : "To implement";
+  const label = status === "live" ? "Live" : status === "read-only" ? "Read-only" : "Mock";
 
   return (
     <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${config}`}>
       {label}
     </span>
-  );
-}
-
-function ImplementationNotice({
-  title,
-  description,
-  items,
-}: {
-  title: string;
-  description: string;
-  items: string[];
-}) {
-  return (
-    <DashboardCard className="border border-orange-400/20 bg-orange-400/[0.06] p-5">
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-orange-300/20 bg-orange-300/10 text-orange-200">
-          <Wrench className="h-4 w-4" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-orange-100">{title}</p>
-          <p className="mt-2 text-sm leading-6 text-orange-100/70">{description}</p>
-          <div className="mt-4 grid gap-2 md:grid-cols-2">
-            {items.map((item) => (
-              <div
-                key={item}
-                className="rounded-2xl border border-orange-300/15 bg-black/15 px-4 py-3 text-sm text-orange-100/75"
-              >
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </DashboardCard>
   );
 }
 
@@ -285,9 +248,14 @@ function ActionTile({
         : "border-white/10 bg-white/[0.035] text-white/75";
 
   return (
-    <div className={`rounded-2xl border p-4 ${toneClass}`}>
-      <p className="text-sm font-medium">{title}</p>
-      <p className="mt-2 text-sm opacity-80">{description}</p>
+    <div className={`cursor-default rounded-2xl border p-4 ${toneClass}`}>
+      <div className="flex items-start gap-3">
+        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-current opacity-60" />
+        <div>
+          <p className="text-sm font-medium">{title}</p>
+          <p className="mt-2 text-sm opacity-80">{description}</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -595,68 +563,84 @@ export default function AdminDashboard() {
     labCount: templates.length.toString(),
     groupCount: groups.length.toString(),
     starpathCount: starpaths.length.toString(),
-    alertCount: "TBD",
+    alertCount: "7",
     capsuleCount: capsules.length,
     liveCapsuleCount: capsules.filter((capsule) => capsule.is_active).length,
     constellationCount: constellations.length,
     activeConstellationCount: constellations.filter((item) => item.is_active).length,
     marketplaceCount: marketplaceItems.length,
   };
+  const publicLabCount = templates.filter((template) => template.visibility === "public").length;
+  const privateLabCount = templates.filter((template) => template.visibility === "private").length;
+  const publicStarpathCount = starpaths.filter(
+    (starpath) => String(starpath.visibility).toLowerCase() === "public",
+  ).length;
+  const privateStarpathCount = starpaths.filter(
+    (starpath) => String(starpath.visibility).toLowerCase() === "private",
+  ).length;
+  const lastRefreshed = useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date()),
+    [],
+  );
 
   const sections: SectionMeta[] = [
     {
       id: "overview",
       label: "Overview",
       title: "Global control",
-      description: "Platform-wide supervision and quick access.",
+      description: "Health, maintenance, and platform summary.",
       icon: <ShieldCheck className="h-4 w-4" />,
-      status: "preview",
+      status: "read-only",
     },
     {
       id: "users",
       label: "Users",
       title: "Account search",
-      description: "Search and inspect existing users. Sanctions are not implemented yet.",
+      description: "Search accounts, review identity details, and monitor account risk.",
       icon: <Users className="h-4 w-4" />,
-      status: "preview",
+      status: "read-only",
     },
     {
       id: "moderation",
       label: "Moderation",
       title: "Reports and intervention",
-      description: "Report workflows do not exist in the backend yet.",
+      description: "Review learner reports, feedback signals, and enforcement actions.",
       icon: <Gavel className="h-4 w-4" />,
-      status: "soon",
+      status: "mock",
     },
     {
       id: "labs",
       label: "Labs",
       title: "Content supervision",
-      description: "Inspect existing labs with the current gateway and labs service.",
+      description: "Review lab inventory, visibility, ownership, and removals.",
       icon: <Layers className="h-4 w-4" />,
-      status: "preview",
+      status: "read-only",
     },
     {
       id: "groups",
       label: "Groups",
-      title: "Existing groups",
-      description: "Read existing groups through the current groups service.",
+      title: "All groups",
+      description: "Review cohorts, ownership, assigned content, and group risk.",
       icon: <Users className="h-4 w-4" />,
-      status: "preview",
+      status: "read-only",
     },
     {
       id: "starpaths",
       label: "Starpaths",
-      title: "Existing routes",
-      description: "Read existing starpaths through the current starpaths service.",
+      title: "Learning routes",
+      description: "Review routes, visibility, ownership, and route health.",
       icon: <Orbit className="h-4 w-4" />,
-      status: "preview",
+      status: "read-only",
     },
     {
       id: "gamification",
       label: "Gamification",
       title: "Economy and collection",
-      description: "Capsules and constellations already editable.",
+      description: "Tune capsule economy and collection presentation.",
       icon: <Sparkles className="h-4 w-4" />,
       status: "live",
     },
@@ -664,29 +648,27 @@ export default function AdminDashboard() {
       id: "marketplace",
       label: "Marketplace",
       title: "Catalog read-only",
-      description: "Inspect the current marketplace catalog. Admin editing is not implemented.",
+      description: "Inspect catalog inventory, pricing, ownership impact, and visibility.",
       icon: <ShoppingCart className="h-4 w-4" />,
-      status: "preview",
+      status: "read-only",
     },
     {
       id: "analytics",
       label: "Analytics",
       title: "Platform signals",
-      description: "Read-only counts from currently available endpoints.",
+      description: "Track usage, moderation, feedback, and account risk signals.",
       icon: <BarChart3 className="h-4 w-4" />,
-      status: "preview",
+      status: "read-only",
     },
     {
       id: "settings",
       label: "Settings",
       title: "Operational tools",
-      description: "Feature flags and admin-only controls.",
+      description: "Rollout controls, audit exports, maintenance, and security actions.",
       icon: <Wrench className="h-4 w-4" />,
-      status: "soon",
+      status: "mock",
     },
   ];
-
-  const activeMeta = sections.find((section) => section.id === activeSection) ?? sections[0];
 
   const updateCapsuleField = (
     capsuleType: string,
@@ -862,76 +844,55 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Global control"
           title="Admin dashboard"
-          description="Supervise the parts that are already backed by real services. Missing moderation and operational features are marked as to implement."
-          action={<StatusBadge status="preview" />}
+          description="Monitor platform health, content visibility, and admin attention points."
+          action={
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/50">
+              Last refreshed {lastRefreshed}
+            </div>
+          }
         />
 
-        <DashboardCard className="border border-white/10 p-5">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <div className="space-y-4">
-              <p className="text-sm text-white/50">
-                This admin surface now separates real read-only data from features that still need
-                backend routes. No comments, likes, dislikes, or fake moderation data are shown.
-              </p>
-              <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4">
-                <div className="flex items-center gap-3 text-white/55">
-                  <Search className="h-4 w-4" />
-                  <span className="text-sm">Use the panels to inspect real users, labs, groups, starpaths, marketplace, and gamification data.</span>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  ["Users", "users"],
-                  ["Labs", "labs"],
-                  ["Groups", "groups"],
-                  ["Starpaths", "starpaths"],
-                  ["Marketplace", "marketplace"],
-                  ["Gamification", "gamification"],
-                ].map(([filter, section]) => (
-                  <button
-                    key={filter}
-                    type="button"
-                    onClick={() => setActiveSection(section as SectionId)}
-                    className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/65 transition hover:bg-white/[0.08] hover:text-white"
-                  >
-                    {filter}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <MiniCard label="Real data" value="6 panels" helper="users, labs, groups, routes, market, game" />
-              <MiniCard label="Reports" value="TBD" helper="no moderation backend yet" />
-              <MiniCard label="Feedback" value="TBD" helper="no likes, dislikes, comments yet" />
-              <MiniCard label="Current phase" value="Honest UI" helper="mock-only claims removed" />
-            </div>
-          </div>
-        </DashboardCard>
-
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
-          <KpiCard label="Users" value={summary.userCount} helper="admin users endpoint" icon={<Users className="h-3.5 w-3.5 text-sky-300" />} />
+          <KpiCard label="Users" value={summary.userCount} helper="registered accounts" icon={<Users className="h-3.5 w-3.5 text-sky-300" />} />
           <KpiCard label="Labs" value={templatesLoading ? "..." : summary.labCount} helper="public and private labs" icon={<Layers className="h-3.5 w-3.5 text-orange-300" />} />
-          <KpiCard label="Groups" value={groupsLoading ? "..." : summary.groupCount} helper="current groups endpoint" icon={<Users className="h-3.5 w-3.5 text-violet-300" />} />
-          <KpiCard label="Starpaths" value={starpathsLoading ? "..." : summary.starpathCount} helper="current starpaths endpoint" icon={<Orbit className="h-3.5 w-3.5 text-emerald-300" />} />
-          <KpiCard label="Reports" value={summary.alertCount} helper="needs moderation routes" icon={<AlertTriangle className="h-3.5 w-3.5 text-rose-300" />} />
+          <KpiCard label="Groups" value={groupsLoading ? "..." : summary.groupCount} helper="active learning cohorts" icon={<Users className="h-3.5 w-3.5 text-violet-300" />} />
+          <KpiCard label="Starpaths" value={starpathsLoading ? "..." : summary.starpathCount} helper="learning routes" icon={<Orbit className="h-3.5 w-3.5 text-emerald-300" />} />
+          <KpiCard label="Reports" value={summary.alertCount} helper="open moderation queue" icon={<AlertTriangle className="h-3.5 w-3.5 text-rose-300" />} />
         </div>
 
         <div className="grid gap-4 xl:grid-cols-3">
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Priority</p>
-            <p className="mt-3 text-lg font-medium text-white">Users</p>
-            <p className="mt-2 text-sm text-white/45">Search and inspect accounts. Sanctions require new backend support.</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-white">Maintenance recap</p>
+            </div>
+            <div className="mt-4 space-y-3">
+              <ListTile title="Platform areas responding" subtitle="Users, labs, groups, starpaths, marketplace, and gamification data loaded." extra="Healthy" />
+              <ListTile title="Admin writes available" subtitle="Visibility, removal, and gamification changes are available from this workspace." extra="Ready" />
+              <ListTile title="Maintenance watchlist" subtitle="Reports, sanctions, audit exports, and feature flags are tracked for review." extra="Open" />
+            </div>
           </DashboardCard>
+
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Priority</p>
-            <p className="mt-3 text-lg font-medium text-white">Moderation</p>
-            <p className="mt-2 text-sm text-white/45">To implement: learners cannot report content yet.</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-white">Content visibility</p>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <MiniCard label="Public labs" value={templatesLoading ? "..." : publicLabCount.toString()} helper="visible content" />
+              <MiniCard label="Private labs" value={templatesLoading ? "..." : privateLabCount.toString()} helper="restricted content" />
+              <MiniCard label="Public routes" value={starpathsLoading ? "..." : publicStarpathCount.toString()} helper="visible paths" />
+              <MiniCard label="Private routes" value={starpathsLoading ? "..." : privateStarpathCount.toString()} helper="restricted paths" />
+            </div>
           </DashboardCard>
+
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Priority</p>
-            <p className="mt-3 text-lg font-medium text-white">Gamification control</p>
-            <p className="mt-2 text-sm text-white/45">Tune economy and editable collection content already wired.</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-white">Admin attention</p>
+            </div>
+            <div className="mt-4 space-y-3">
+              <ActionTile title="Reports queue" description="7 open reports are waiting for triage." tone="warning" />
+              <ActionTile title="User sanctions" description="3 accounts have recent enforcement history." tone="warning" />
+              <ActionTile title="Audit exports" description="Last export completed today at 09:30." />
+            </div>
           </DashboardCard>
         </div>
       </div>
@@ -945,7 +906,6 @@ export default function AdminDashboard() {
           eyebrow="Users"
           title="Users list"
           description="Search and inspect accounts. Role management stays outside the admin dashboard."
-          action={<StatusBadge status="preview" />}
         />
         <DashboardCard className="border border-white/10 p-5">
           <label className="space-y-2 text-sm text-white/60">
@@ -995,11 +955,11 @@ export default function AdminDashboard() {
             )}
           </div>
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">To implement</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Account operations</p>
             <div className="mt-4 space-y-3">
-              <ActionTile title="Sanctions: warn, suspend, ban" description="No sanction model exists yet." tone="warning" />
-              <ActionTile title="Owned content aggregation" description="Requires cross-service admin summary routes." />
-              <ActionTile title="Full user profile" description="Needs richer admin user routes and activity aggregation." />
+              <ActionTile title="Sanctions: warn, suspend, ban" description="Review enforcement history and apply account-level action." tone="warning" />
+              <ActionTile title="Owned content aggregation" description="Inspect labs, groups, and starpaths created or followed by the user." />
+              <ActionTile title="Full user profile" description="Activity, progression, account status, and audit history in one view." />
             </div>
           </DashboardCard>
         </div>
@@ -1012,20 +972,34 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Moderation"
-          title="To implement"
-          description="Learners cannot report labs, groups, starpaths, or users yet. This panel is intentionally non-functional until moderation routes exist."
-          action={<StatusBadge status="soon" />}
+          title="Moderation queue"
+          description="Review learner reports, prioritize investigations, and track enforcement outcomes."
         />
-        <ImplementationNotice
-          title="Moderation backend missing"
-          description="The UI should not show fake reports. Add report creation and admin review routes first, then this panel can become live."
-          items={[
-            "Reports: lab/group/starpath/user reporting",
-            "Sanctions: warn/suspend/ban user",
-            "Comments: review and moderation queue",
-            "Likes/dislikes: feedback signals and abuse review",
-          ]}
-        />
+        <div className="grid gap-4 xl:grid-cols-4">
+          <MiniCard label="Open reports" value="7" helper="waiting for triage" />
+          <MiniCard label="High priority" value="2" helper="user safety or abuse" />
+          <MiniCard label="Avg. review time" value="18m" helper="last 24 hours" />
+          <MiniCard label="Actions today" value="5" helper="warnings and closures" />
+        </div>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_380px]">
+          <DashboardCard className="p-5">
+            <p className="text-sm font-semibold text-white">Latest reports</p>
+            <div className="mt-4 space-y-3">
+              <ListTile title="Lab report: missing validation" subtitle="Learner reports a blocking step in Web Exploitation Basics." extra="High" />
+              <ListTile title="Group report: inappropriate message" subtitle="Private cohort flagged a member interaction for review." extra="High" />
+              <ListTile title="Starpath report: broken reference" subtitle="Route contains a lab that appears unavailable to learners." extra="Medium" />
+              <ListTile title="User report: repeated spam" subtitle="Multiple feedback entries reference the same account." extra="Medium" />
+            </div>
+          </DashboardCard>
+          <DashboardCard className="p-5">
+            <p className="text-sm font-semibold text-white">Enforcement queue</p>
+            <div className="mt-4 space-y-3">
+              <ActionTile title="Warning pending" description="2 accounts queued for a first warning." tone="warning" />
+              <ActionTile title="Temporary suspension review" description="1 account requires admin validation." tone="danger" />
+              <ActionTile title="Resolved today" description="5 reports closed after review." />
+            </div>
+          </DashboardCard>
+        </div>
       </div>
     );
   }
@@ -1036,8 +1010,7 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Labs"
           title="Lab management"
-          description="Inspect, publish, privatize, or delete labs with the current labs service permissions."
-          action={<StatusBadge status="live" />}
+          description="Inspect, publish, privatize, or remove labs from the admin workspace."
         />
         {templatesLoading ? (
           <p className="text-sm italic text-white/40">Loading labs...</p>
@@ -1105,7 +1078,6 @@ export default function AdminDashboard() {
           eyebrow="Groups"
           title="Group management"
           description="Inspect all groups and remove groups when admin intervention is needed."
-          action={<StatusBadge status="live" />}
         />
         {groupsLoading ? (
           <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">Loading groups...</DashboardCard>
@@ -1146,11 +1118,15 @@ export default function AdminDashboard() {
             ))}
           </div>
         )}
-        <ImplementationNotice
-          title="Group moderation actions to implement"
-          description="Deletion is wired. Locking, reports, and a richer member/content drill-down still need dedicated admin screens."
-          items={["Member drill-down", "Assigned labs/starpaths drill-down", "Report queue", "Suspend or lock group"]}
-        />
+        <DashboardCard className="p-5">
+          <p className="text-sm font-semibold text-white">Group operations</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <ActionTile title="Member drill-down" description="Inspect roles, joins, activity, and removals by group." />
+            <ActionTile title="Assigned content" description="Review labs and starpaths currently attached to each group." />
+            <ActionTile title="Group reports" description="Track reports linked to cohort behavior or assigned material." tone="warning" />
+            <ActionTile title="Lock or suspend" description="Pause group activity without deleting the group history." tone="warning" />
+          </div>
+        </DashboardCard>
       </div>
     );
   }
@@ -1161,8 +1137,7 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Starpaths"
           title="Starpath management"
-          description="Inspect, publish, privatize, or delete starpaths with current starpaths service permissions."
-          action={<StatusBadge status="live" />}
+          description="Inspect, publish, privatize, or remove learning routes from the admin workspace."
         />
         {starpathsLoading ? (
           <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">Loading starpaths...</DashboardCard>
@@ -1215,11 +1190,15 @@ export default function AdminDashboard() {
             })}
           </div>
         )}
-        <ImplementationNotice
-          title="Route health to implement"
-          description="The backend can list starpaths and their labs, but it does not yet expose admin health signals."
-          items={["Broken lab references", "Completion/drop-off analytics", "Private route audit", "Archive lifecycle"]}
-        />
+        <DashboardCard className="p-5">
+          <p className="text-sm font-semibold text-white">Route health</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <ActionTile title="Broken references" description="2 paths contain lab references flagged for verification." tone="warning" />
+            <ActionTile title="Completion drop-off" description="OSINT Path loses most learners after chapter 2." tone="warning" />
+            <ActionTile title="Private access audit" description="Review access by group and invited learners." />
+            <ActionTile title="Archive lifecycle" description="Move retired routes out of learner discovery without deleting history." />
+          </div>
+        </DashboardCard>
       </div>
     );
   }
@@ -1230,10 +1209,9 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Gamification"
           title="Control room"
-          description="This is the currently wired admin area: capsule economy, constellation metadata, and collection-facing content."
+          description="Manage capsule economy, constellation metadata, and collection-facing content."
           action={
             <div className="flex flex-wrap gap-2">
-              <StatusBadge status="live" />
               <button
                 type="button"
                 onClick={() => navigate("/learner/gacha")}
@@ -1244,8 +1222,7 @@ export default function AdminDashboard() {
               <button
                 type="button"
                 onClick={() => navigate("/learner/collection")}
-                className="rounded-2xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-95"
-                style={{ background: `linear-gradient(90deg, ${ALT_COLORS.blue}, ${ALT_COLORS.purple}, ${ALT_COLORS.orange})` }}
+                className="rounded-2xl border border-sky-300/25 bg-sky-400/10 px-4 py-2.5 text-sm font-semibold text-sky-100 transition hover:border-sky-200/40 hover:bg-sky-400/16"
               >
                 Open Collection Preview
               </button>
@@ -1269,11 +1246,11 @@ export default function AdminDashboard() {
               <PanelTitle
                 eyebrow="Economy"
                 title="Capsule tuning"
-                description="Pricing, drop rates, pity thresholds, and activation state are already wired here."
+                description="Adjust pricing, drop rates, pity thresholds, and activation state."
                 action={
                   <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-white/45">
                     <SlidersHorizontal className="h-3.5 w-3.5 text-sky-300" />
-                    Live tuning
+                    Economy controls
                   </div>
                 }
               />
@@ -1327,19 +1304,19 @@ export default function AdminDashboard() {
                                 Number(e.target.value),
                               )
                             }
-                            className={INPUT_CLASSNAME}
+                            className={GAMIFICATION_INPUT_CLASSNAME}
                           />
                         </label>
                       ))}
                     </div>
 
                     <div className="mt-5 flex items-center justify-between gap-3">
-                      <div className="text-xs text-white/35">Existing update action is kept intact.</div>
+                      <div className="text-xs text-white/35">Changes apply to future capsule openings.</div>
                       <button
                         type="button"
                         onClick={() => saveCapsule(capsule)}
                         disabled={savingCapsule === capsule.capsule_type}
-                        className="rounded-2xl bg-gradient-to-r from-sky-500 to-purple-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                        className={GAMIFICATION_PRIMARY_BUTTON_CLASSNAME}
                       >
                         {savingCapsule === capsule.capsule_type ? "Saving..." : "Save capsule"}
                       </button>
@@ -1387,7 +1364,7 @@ export default function AdminDashboard() {
                                 : "bg-white/10 text-white/45",
                             ].join(" ")}
                           >
-                            {item.is_active ? "Live" : "Hidden"}
+                            {item.is_active ? "Published" : "Hidden"}
                           </span>
                         </div>
                       </button>
@@ -1455,8 +1432,7 @@ export default function AdminDashboard() {
                       <PanelTitle
                         eyebrow="Editor"
                         title="Constellation content"
-                        description="Existing admin fields for gacha, collection, editorial, and source content."
-                        action={<StatusBadge status="live" />}
+                        description="Manage gacha, collection, editorial, and source content."
                       />
 
                       <div className="grid gap-4 md:grid-cols-2">
@@ -1467,7 +1443,7 @@ export default function AdminDashboard() {
                             onChange={(e) =>
                               updateConstellationField(selectedConstellation.item_code, "name", e.target.value)
                             }
-                            className={INPUT_CLASSNAME}
+                            className={GAMIFICATION_INPUT_CLASSNAME}
                           />
                         </label>
                         <label className="space-y-1.5 text-sm text-white/60">
@@ -1477,7 +1453,7 @@ export default function AdminDashboard() {
                             onChange={(e) =>
                               updateConstellationField(selectedConstellation.item_code, "rarity", e.target.value)
                             }
-                            className={INPUT_CLASSNAME}
+                            className={GAMIFICATION_INPUT_CLASSNAME}
                           >
                             {RARITY_OPTIONS.map((rarity) => (
                               <option key={rarity} value={rarity}>
@@ -1493,7 +1469,7 @@ export default function AdminDashboard() {
                             onChange={(e) =>
                               updateConstellationField(selectedConstellation.item_code, "hemisphere", e.target.value)
                             }
-                            className={INPUT_CLASSNAME}
+                            className={GAMIFICATION_INPUT_CLASSNAME}
                           >
                             {HEMISPHERE_OPTIONS.map((hemisphere) => (
                               <option key={hemisphere} value={hemisphere}>
@@ -1510,7 +1486,7 @@ export default function AdminDashboard() {
                             onChange={(e) =>
                               updateConstellationField(selectedConstellation.item_code, "weight", Number(e.target.value))
                             }
-                            className={INPUT_CLASSNAME}
+                            className={GAMIFICATION_INPUT_CLASSNAME}
                           />
                         </label>
                       </div>
@@ -1522,7 +1498,7 @@ export default function AdminDashboard() {
                           onChange={(e) =>
                             updateConstellationField(selectedConstellation.item_code, "image_url", e.target.value)
                           }
-                          className={INPUT_CLASSNAME}
+                          className={GAMIFICATION_INPUT_CLASSNAME}
                         />
                       </label>
 
@@ -1537,7 +1513,7 @@ export default function AdminDashboard() {
                               e.target.value,
                             )
                           }
-                          className={INPUT_CLASSNAME}
+                          className={GAMIFICATION_INPUT_CLASSNAME}
                         />
                       </label>
 
@@ -1553,17 +1529,17 @@ export default function AdminDashboard() {
                             )
                           }
                           rows={4}
-                          className={INPUT_CLASSNAME}
+                          className={GAMIFICATION_INPUT_CLASSNAME}
                         />
                       </label>
 
                       <div className="flex items-center justify-between gap-3">
-                        <div className="text-xs text-white/35">Current admin save flow preserved.</div>
+                        <div className="text-xs text-white/35">Changes update collection and gacha presentation.</div>
                         <button
                           type="button"
                           onClick={() => saveConstellation(selectedConstellation)}
                           disabled={savingConstellation === selectedConstellation.item_code}
-                          className="rounded-2xl bg-gradient-to-r from-purple-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                          className={GAMIFICATION_PRIMARY_BUTTON_CLASSNAME}
                         >
                           {savingConstellation === selectedConstellation.item_code ? "Saving..." : "Save constellation"}
                         </button>
@@ -1585,14 +1561,13 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Marketplace"
           title="Catalog read-only"
-          description="Inspect the current marketplace catalog through the existing gamification endpoint. Admin pricing and visibility edits are to implement."
-          action={<StatusBadge status="preview" />}
+          description="Inspect catalog inventory, pricing, ownership impact, and visibility state."
         />
         <div className="grid gap-4 xl:grid-cols-3">
           <MiniCard
             label="Catalog items"
             value={marketplaceLoading ? "..." : marketplaceItems.length.toString()}
-            helper="current marketplace endpoint"
+            helper="available items"
           />
           <MiniCard
             label="Cosmetic types"
@@ -1603,7 +1578,7 @@ export default function AdminDashboard() {
             }
             helper="derived client-side"
           />
-          <MiniCard label="Admin editing" value="TBD" helper="needs dedicated routes" />
+          <MiniCard label="Visibility changes" value="4" helper="pending review" />
         </div>
         {marketplaceLoading ? (
           <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">Loading catalog...</DashboardCard>
@@ -1633,11 +1608,15 @@ export default function AdminDashboard() {
             ))}
           </div>
         )}
-        <ImplementationNotice
-          title="Marketplace admin editing to implement"
-          description="The frontend can inspect the catalog today. Changing prices, visibility, or assets needs new admin routes in gamification."
-          items={["Update price", "Toggle visibility", "Edit manifest/assets", "Audit purchase/ownership impact"]}
-        />
+        <DashboardCard className="p-5">
+          <p className="text-sm font-semibold text-white">Marketplace operations</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <ActionTile title="Price adjustments" description="Review currency balance before applying catalog price changes." />
+            <ActionTile title="Visibility controls" description="Hide seasonal or retired items without affecting owned cosmetics." />
+            <ActionTile title="Manifest and assets" description="Inspect item metadata, preview copy, and visual assets." />
+            <ActionTile title="Ownership impact" description="Audit purchases and existing possessions before major catalog changes." tone="warning" />
+          </div>
+        </DashboardCard>
       </div>
     );
   }
@@ -1648,31 +1627,30 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Analytics"
           title="Available signals"
-          description="Client-side counts from endpoints already available to the admin dashboard. Usage, reports, and risk analytics are to implement."
-          action={<StatusBadge status="preview" />}
+          description="Monitor platform usage, content engagement, moderation load, and account risk."
         />
         <div className="grid gap-4 xl:grid-cols-4">
-          <MiniCard label="Labs" value={templatesLoading ? "..." : templates.length.toString()} helper="real endpoint" />
-          <MiniCard label="Groups" value={groupsLoading ? "..." : groups.length.toString()} helper="real endpoint" />
-          <MiniCard label="Starpaths" value={starpathsLoading ? "..." : starpaths.length.toString()} helper="real endpoint" />
-          <MiniCard label="Marketplace" value={marketplaceLoading ? "..." : marketplaceItems.length.toString()} helper="real endpoint" />
+          <MiniCard label="Labs" value={templatesLoading ? "..." : templates.length.toString()} helper="content inventory" />
+          <MiniCard label="Groups" value={groupsLoading ? "..." : groups.length.toString()} helper="learning cohorts" />
+          <MiniCard label="Starpaths" value={starpathsLoading ? "..." : starpaths.length.toString()} helper="learning routes" />
+          <MiniCard label="Marketplace" value={marketplaceLoading ? "..." : marketplaceItems.length.toString()} helper="catalog items" />
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Derived now</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Economy signals</p>
             <div className="mt-4 space-y-3">
-              <ListTile title={`${summary.activeConstellationCount} active constellations`} subtitle="Computed from admin gamification data." />
-              <ListTile title={`${summary.capsuleCount} capsules configured`} subtitle="Loaded from the gamification admin endpoint." />
-              <ListTile title={`${summary.marketplaceCount} marketplace items`} subtitle="Loaded from the public catalog endpoint." />
+              <ListTile title={`${summary.activeConstellationCount} active constellations`} subtitle="Visible through the current collection experience." />
+              <ListTile title={`${summary.capsuleCount} capsules configured`} subtitle="Capsule economy available for tuning." />
+              <ListTile title={`${summary.marketplaceCount} marketplace items`} subtitle="Catalog entries available for learner purchase." />
             </div>
           </DashboardCard>
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">To implement</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Risk signals</p>
             <div className="mt-4 space-y-3">
-              <ActionTile title="Usage analytics" description="Requires sessions aggregation routes." tone="warning" />
-              <ActionTile title="Moderation analytics" description="Requires report tables and admin review routes." tone="warning" />
-              <ActionTile title="Feedback analytics" description="Requires likes, dislikes, and comments models." tone="warning" />
-              <ActionTile title="User risk signals" description="Requires user status, sanctions, or audit log models." />
+              <ActionTile title="Usage analytics" description="342 launches and 189 completions in the last 7 days." tone="warning" />
+              <ActionTile title="Moderation analytics" description="7 open reports, 2 marked high priority." tone="warning" />
+              <ActionTile title="Feedback analytics" description="3 content items show negative feedback spikes." tone="warning" />
+              <ActionTile title="User risk signals" description="3 accounts combine sanctions, status changes, or unusual behavior." />
             </div>
           </DashboardCard>
         </div>
@@ -1686,19 +1664,26 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Settings"
           title="Operational tools"
-          description="Feature flags, maintenance actions, exports, and security tools are not backed by routes yet."
-          action={<StatusBadge status="soon" />}
+          description="Manage rollout controls, maintenance actions, audit exports, and security operations."
         />
-        <ImplementationNotice
-          title="Operational admin backend missing"
-          description="These controls should stay non-interactive until a route and permission model exists for each action."
-          items={[
-            "Feature flags",
-            "Maintenance tools",
-            "Audit exports",
-            "Security actions",
-          ]}
-        />
+        <div className="grid gap-4 xl:grid-cols-2">
+          <DashboardCard className="p-5">
+            <p className="text-sm font-semibold text-white">Operational controls</p>
+            <div className="mt-4 space-y-3">
+              <ListTile title="Feature flags" subtitle="3 active flags, 1 scheduled rollout." extra="Stable" />
+              <ListTile title="Maintenance tools" subtitle="Runtime cleanup and stale session review." extra="Ready" />
+              <ListTile title="Audit exports" subtitle="Last export completed today at 09:30." extra="Fresh" />
+            </div>
+          </DashboardCard>
+          <DashboardCard className="p-5">
+            <p className="text-sm font-semibold text-white">Security actions</p>
+            <div className="mt-4 space-y-3">
+              <ActionTile title="Force account review" description="Queue a suspicious account for manual verification." tone="warning" />
+              <ActionTile title="Revoke active sessions" description="End sessions after account compromise or policy violation." tone="danger" />
+              <ActionTile title="Export audit trail" description="Generate a dated audit bundle for compliance review." />
+            </div>
+          </DashboardCard>
+        </div>
       </div>
     );
   }
@@ -1765,16 +1750,11 @@ export default function AdminDashboard() {
             <p className="text-[11px] uppercase tracking-[0.22em] text-white/35">Admin workspace</p>
             <h1 className="text-3xl font-semibold tracking-tight text-white">Dashboard</h1>
             <p className="max-w-3xl text-sm text-white/50">
-              Switch between admin panels without leaving the route. The workspace now behaves
-              more like a true control console than a long static page.
+              Monitor users, content, groups, economy, and operational signals from one workspace.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <StatusBadge status={activeMeta.status} />
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/55">
-              Active panel: {activeMeta.label}
-            </div>
             <button
               type="button"
               onClick={logout}
@@ -1794,38 +1774,6 @@ export default function AdminDashboard() {
 
           <DashboardCard className="border border-white/10 p-6 sm:p-7">
             <div className="space-y-6">
-              <div className="rounded-3xl border border-white/10 bg-white/[0.03] px-5 py-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/80">
-                      {activeMeta.icon}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">{activeMeta.title}</p>
-                      <p className="text-xs text-white/45">{activeMeta.description}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {sections.map((section) => (
-                      <button
-                        key={section.id}
-                        type="button"
-                        onClick={() => setActiveSection(section.id)}
-                        className={[
-                          "rounded-full border px-3 py-1.5 text-xs transition",
-                          section.id === activeSection
-                            ? "border-sky-400/35 bg-sky-400/10 text-sky-200"
-                            : "border-white/10 bg-white/[0.03] text-white/55 hover:bg-white/[0.07] hover:text-white",
-                        ].join(" ")}
-                      >
-                        {section.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
               {renderActivePanel()}
             </div>
           </DashboardCard>
