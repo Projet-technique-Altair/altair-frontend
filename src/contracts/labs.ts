@@ -30,6 +30,7 @@ export interface Lab {
   story?: string | null;
 
   estimated_duration?: string | null;
+  content_status?: "active" | "archived";
 
   created_at: string;
 }

@@ -7,6 +7,7 @@ export type Starpath = {
   description?: string;
   difficulty?: string;
   visibility: StarpathVisibility;
+  content_status?: "active" | "archived";
   created_at: string;
 };
 

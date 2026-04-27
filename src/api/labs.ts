@@ -14,6 +14,7 @@ export function getLabs() {
 export function getAdminLabs(params: {
   q?: string;
   visibility?: "all" | "public" | "private";
+  content_status?: "all" | "active" | "archived";
   limit?: number;
   offset?: number;
 } = {}) {
@@ -23,6 +24,9 @@ export function getAdminLabs(params: {
   }
   if (params.visibility) {
     search.set("visibility", params.visibility);
+  }
+  if (params.content_status) {
+    search.set("content_status", params.content_status);
   }
   if (params.limit) {
     search.set("limit", String(params.limit));
@@ -65,6 +69,13 @@ export function updateAdminLabVisibility(id: string, visibility: "private" | "pu
   return request<Lab>(`/labs/labs/${id}`, {
     method: "PUT",
     body: JSON.stringify({ visibility }),
+  });
+}
+
+export function updateAdminLabContentStatus(id: string, content_status: "active" | "archived") {
+  return request<Lab>(`/labs/admin/labs/${id}/content-status`, {
+    method: "PATCH",
+    body: JSON.stringify({ content_status }),
   });
 }
 

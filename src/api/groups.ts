@@ -2,6 +2,13 @@ import { request } from "./client";
 import type { Group } from "@/contracts/groups";
 import type { GroupLabResult, GroupMemberResult, GroupStarpathResult, PaginatedResponse } from "./types";
 
+export type AdminGroupDetail = {
+  group: Group;
+  members: GroupMemberResult[];
+  labs: GroupLabResult[];
+  starpaths: GroupStarpathResult[];
+};
+
 /* =========================
    Groups CRUD
 ========================= */
@@ -28,6 +35,21 @@ export function getAdminGroups(params: {
 
   const suffix = search.toString() ? `?${search.toString()}` : "";
   return request<PaginatedResponse<Group>>(`/groups/admin/groups${suffix}`);
+}
+
+export function getAdminUserGroups(userId: string) {
+  return request<Group[]>(`/groups/admin/users/${userId}/groups`);
+}
+
+export function getAdminGroupDetail(groupId: string) {
+  return request<AdminGroupDetail>(`/groups/admin/groups/${groupId}/detail`);
+}
+
+export function updateAdminGroupStatus(groupId: string, status: "active" | "locked") {
+  return request<Group>(`/groups/admin/groups/${groupId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
 export function getMyGroups() {

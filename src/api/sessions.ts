@@ -13,6 +13,10 @@ export type SessionSummary = {
   status?: string
   runtime_kind?: "terminal" | "web" | string | null
   webshell_url?: string | null
+  created_at?: string
+  completed_at?: string | null
+  last_activity_at?: string
+  expires_at?: string | null
 }
 
 export type OpenWebLabResponse = {
@@ -128,4 +132,12 @@ export function unfollowLab(labId: string) {
 
 export function getLearnerDashboardLabs() {
   return request<LearnerDashboardLab[]>("/sessions/learner/dashboard/labs")
+}
+
+export function getAdminUserDashboardLabs(userId: string) {
+  return request<LearnerDashboardLab[]>(`/sessions/admin/users/${userId}/dashboard/labs`)
+}
+
+export function getSessionsByUser(userId: string) {
+  return request<SessionSummary[]>(`/sessions/sessions/user/${userId}`)
 }

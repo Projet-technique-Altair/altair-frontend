@@ -26,9 +26,17 @@ import {
   type AdminCapsule,
   type AdminConstellation,
 } from "@/api/adminGamification";
-import { getCatalog, type MarketplaceItem } from "@/api/marketplace";
-import type { AdminUser } from "@/api/types";
+import {
+  getAdminMarketplaceCatalog,
+  getAdminMarketplaceItemImpact,
+  getCatalog,
+  updateAdminMarketplaceItem,
+  type MarketplaceItem,
+} from "@/api/marketplace";
+import type { AdminUser, AdminUserDetail } from "@/api/types";
+import type { LearnerDashboardLab, SessionSummary } from "@/api/sessions";
 import { api } from "@/api";
+import type { AdminGroupDetail } from "@/api/groups";
 import DashboardCard from "@/components/ui/DashboardCard";
 import ConstellationArtwork from "@/components/gamification/ConstellationArtwork";
 import type { Group } from "@/contracts/groups";
@@ -58,7 +66,17 @@ type AdminTemplate = {
   visibility: string;
   creatorId: string;
   stepsCount: number;
+  contentStatus: string;
   updatedAt: string;
+};
+
+type AdminStarpathProgress = {
+  user_id: string;
+  starpath_id: string;
+  current_position: number;
+  status: string;
+  started_at: string;
+  completed_at?: string | null;
 };
 
 type SectionId =
@@ -98,6 +116,7 @@ function normalizeTemplate(raw: {
   updated_at?: string | null;
   created_at?: string | null;
   updatedAt?: string | null;
+  content_status?: string | null;
 }): AdminTemplate {
   return {
     id: raw.lab_id ?? raw.id ?? raw.template_id ?? "unknown",
@@ -106,6 +125,7 @@ function normalizeTemplate(raw: {
     visibility: (raw.visibility ?? "unknown").toLowerCase(),
     creatorId: raw.creator_id ?? "unknown",
     stepsCount: raw.steps_count ?? 0,
+    contentStatus: raw.content_status ?? "active",
     updatedAt: raw.updated_at ?? raw.updatedAt ?? raw.created_at ?? "Unknown",
   };
 }
@@ -351,6 +371,7 @@ export default function AdminDashboard() {
   const [starpathsLoading, setStarpathsLoading] = useState(true);
   const [starpathsError, setStarpathsError] = useState<string | null>(null);
   const [marketplaceItems, setMarketplaceItems] = useState<MarketplaceItem[]>([]);
+  const [marketplaceImpacts, setMarketplaceImpacts] = useState<Record<string, { purchases: number; owners: number }>>({});
   const [marketplaceLoading, setMarketplaceLoading] = useState(true);
   const [marketplaceError, setMarketplaceError] = useState<string | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState("");
@@ -358,8 +379,22 @@ export default function AdminDashboard() {
   const [usersTotal, setUsersTotal] = useState(0);
   const [userSearchLoading, setUserSearchLoading] = useState(false);
   const [userSearchError, setUserSearchError] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserDetail, setSelectedUserDetail] = useState<AdminUserDetail | null>(null);
+  const [selectedUserSessions, setSelectedUserSessions] = useState<SessionSummary[]>([]);
+  const [selectedUserLabs, setSelectedUserLabs] = useState<LearnerDashboardLab[]>([]);
+  const [selectedUserGroups, setSelectedUserGroups] = useState<Group[]>([]);
+  const [selectedUserStarpathProgress, setSelectedUserStarpathProgress] = useState<AdminStarpathProgress[]>([]);
+  const [selectedUserLoading, setSelectedUserLoading] = useState(false);
+  const [selectedUserError, setSelectedUserError] = useState<string | null>(null);
+  const [sanctionAction, setSanctionAction] = useState<"warn" | "suspend" | "ban">("warn");
+  const [sanctionReason, setSanctionReason] = useState("");
+  const [sanctionDurationDays, setSanctionDurationDays] = useState(7);
+  const [savingUserAction, setSavingUserAction] = useState(false);
   const [savingLabId, setSavingLabId] = useState<string | null>(null);
   const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
+  const [selectedGroupDetail, setSelectedGroupDetail] = useState<AdminGroupDetail | null>(null);
+  const [groupDetailError, setGroupDetailError] = useState<string | null>(null);
   const [savingStarpathId, setSavingStarpathId] = useState<string | null>(null);
   const [capsules, setCapsules] = useState<AdminCapsule[]>([]);
   const [constellations, setConstellations] = useState<AdminConstellation[]>([]);
@@ -454,7 +489,7 @@ export default function AdminDashboard() {
 
     async function loadMarketplace() {
       try {
-        const data = await getCatalog();
+        const data = await getAdminMarketplaceCatalog().catch(() => getCatalog());
         if (!cancelled) {
           setMarketplaceItems(data.items);
         }
@@ -774,6 +809,25 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleToggleLabArchive = async (template: AdminTemplate) => {
+    const nextStatus = template.contentStatus === "archived" ? "active" : "archived";
+    setSavingLabId(template.id);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      const updated = await api.updateAdminLabContentStatus(template.id, nextStatus);
+      setTemplates((current) =>
+        current.map((entry) => (entry.id === template.id ? normalizeTemplate(updated) : entry)),
+      );
+      setFeedback(`Lab "${updated.name}" is now ${nextStatus}.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not update lab lifecycle."));
+    } finally {
+      setSavingLabId(null);
+    }
+  };
+
   const handleDeleteGroup = async (group: Group) => {
     const confirmed = window.confirm(`Delete group "${group.name}" permanently?`);
     if (!confirmed) {
@@ -790,6 +844,41 @@ export default function AdminDashboard() {
       setFeedback(`Group "${group.name}" deleted.`);
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Could not delete group."));
+    } finally {
+      setSavingGroupId(null);
+    }
+  };
+
+  const loadAdminGroupDetail = async (groupId: string) => {
+    setSavingGroupId(groupId);
+    setGroupDetailError(null);
+    try {
+      const detail = await api.getAdminGroupDetail(groupId);
+      setSelectedGroupDetail(detail);
+    } catch (err: unknown) {
+      setGroupDetailError(getErrorMessage(err, "Could not load group detail."));
+    } finally {
+      setSavingGroupId(null);
+    }
+  };
+
+  const handleToggleGroupLock = async (group: Group) => {
+    const nextStatus = group.status === "locked" ? "active" : "locked";
+    setSavingGroupId(group.group_id);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      const updated = await api.updateAdminGroupStatus(group.group_id, nextStatus);
+      setGroups((current) =>
+        current.map((entry) => (entry.group_id === updated.group_id ? updated : entry)),
+      );
+      if (selectedGroupDetail?.group.group_id === updated.group_id) {
+        setSelectedGroupDetail({ ...selectedGroupDetail, group: updated });
+      }
+      setFeedback(`Group "${updated.name}" is now ${nextStatus}.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not update group status."));
     } finally {
       setSavingGroupId(null);
     }
@@ -836,6 +925,262 @@ export default function AdminDashboard() {
     } finally {
       setSavingStarpathId(null);
     }
+  };
+
+  const handleToggleStarpathArchive = async (starpath: Starpath) => {
+    const nextStatus = starpath.content_status === "archived" ? "active" : "archived";
+    setSavingStarpathId(starpath.starpath_id);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      const updated = await api.updateAdminStarpathContentStatus(starpath.starpath_id, nextStatus);
+      setStarpaths((current) =>
+        current.map((entry) => (entry.starpath_id === updated.starpath_id ? updated : entry)),
+      );
+      setFeedback(`Starpath "${updated.name}" is now ${nextStatus}.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not update starpath lifecycle."));
+    } finally {
+      setSavingStarpathId(null);
+    }
+  };
+
+  const handleToggleMarketplaceItem = async (item: MarketplaceItem) => {
+    setFeedback(null);
+    setError(null);
+    try {
+      const updated = await updateAdminMarketplaceItem(item.item_code, {
+        is_active: !item.is_active,
+      });
+      setMarketplaceItems((current) =>
+        current.map((entry) => (entry.item_code === updated.item_code ? updated : entry)),
+      );
+      setFeedback(`Marketplace item "${updated.name}" updated.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not update marketplace item."));
+    }
+  };
+
+  const handleMarketplacePriceChange = async (item: MarketplaceItem) => {
+    const raw = window.prompt("New starlight price", String(item.price_starlight));
+    if (!raw) {
+      return;
+    }
+    const price = Number(raw);
+    if (!Number.isFinite(price) || price < 0) {
+      setError("Invalid marketplace price.");
+      return;
+    }
+
+    setFeedback(null);
+    setError(null);
+    try {
+      const updated = await updateAdminMarketplaceItem(item.item_code, {
+        price_starlight: price,
+      });
+      setMarketplaceItems((current) =>
+        current.map((entry) => (entry.item_code === updated.item_code ? updated : entry)),
+      );
+      setFeedback(`Marketplace item "${updated.name}" price updated.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not update marketplace price."));
+    }
+  };
+
+  const loadMarketplaceImpact = async (item: MarketplaceItem) => {
+    try {
+      const impact = await getAdminMarketplaceItemImpact(item.item_code);
+      setMarketplaceImpacts((current) => ({
+        ...current,
+        [item.item_code]: {
+          purchases: impact.purchases,
+          owners: impact.owners,
+        },
+      }));
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not load marketplace impact."));
+    }
+  };
+
+  const loadAdminUserDetail = async (userId: string) => {
+    setSelectedUserId(userId);
+    setSelectedUserLoading(true);
+    setSelectedUserError(null);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      const [detail, sessions, labs, userGroups, starpathProgress] = await Promise.all([
+        api.getAdminUserDetail(userId),
+        api.getSessionsByUser(userId),
+        api.getAdminUserDashboardLabs(userId),
+        api.getAdminUserGroups(userId),
+        api.getAdminUserStarpathProgress(userId),
+      ]);
+
+      setSelectedUserDetail(detail);
+      setSelectedUserSessions(sessions);
+      setSelectedUserLabs(labs);
+      setSelectedUserGroups(userGroups);
+      setSelectedUserStarpathProgress(starpathProgress);
+    } catch (err: unknown) {
+      setSelectedUserError(getErrorMessage(err, "Could not load user detail."));
+    } finally {
+      setSelectedUserLoading(false);
+    }
+  };
+
+  const applyUserSanction = async () => {
+    if (!selectedUserId) {
+      return;
+    }
+
+    const reason = sanctionReason.trim();
+    if (!reason) {
+      setSelectedUserError("Reason is required before applying a sanction.");
+      return;
+    }
+
+    setSavingUserAction(true);
+    setSelectedUserError(null);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      await api.createAdminUserSanction(selectedUserId, {
+        action: sanctionAction,
+        reason,
+        duration_days: sanctionAction === "suspend" ? sanctionDurationDays : undefined,
+      });
+      setSanctionReason("");
+      await loadAdminUserDetail(selectedUserId);
+      setUserResults((current) =>
+        current.map((user) =>
+          user.user_id === selectedUserId
+            ? {
+                ...user,
+                account_status:
+                  sanctionAction === "ban"
+                    ? "banned"
+                    : sanctionAction === "suspend"
+                      ? "suspended"
+                      : user.account_status,
+              }
+            : user,
+        ),
+      );
+      setFeedback(`Sanction ${sanctionAction} applied.`);
+    } catch (err: unknown) {
+      setSelectedUserError(getErrorMessage(err, "Could not apply sanction."));
+    } finally {
+      setSavingUserAction(false);
+    }
+  };
+
+  const reactivateSelectedUser = async () => {
+    if (!selectedUserId) {
+      return;
+    }
+
+    setSavingUserAction(true);
+    setSelectedUserError(null);
+    setFeedback(null);
+    setError(null);
+
+    try {
+      const updated = await api.updateAdminUserAccountStatus(selectedUserId, {
+        account_status: "active",
+        reason: "Manual admin reactivation",
+      });
+      await loadAdminUserDetail(selectedUserId);
+      setUserResults((current) =>
+        current.map((user) => (user.user_id === updated.user_id ? updated : user)),
+      );
+      setFeedback(`User "${updated.pseudo || updated.email}" reactivated.`);
+    } catch (err: unknown) {
+      setSelectedUserError(getErrorMessage(err, "Could not reactivate user."));
+    } finally {
+      setSavingUserAction(false);
+    }
+  };
+
+  const stopSelectedUserRuntime = async (sessionId: string) => {
+    setSavingUserAction(true);
+    setSelectedUserError(null);
+    setFeedback(null);
+
+    try {
+      await api.stopSession(sessionId);
+      setSelectedUserSessions((current) =>
+        current.map((session) =>
+          session.session_id === sessionId
+            ? { ...session, current_runtime_id: null, status: session.status ?? "IN_PROGRESS" }
+            : session,
+        ),
+      );
+      setFeedback("Runtime stopped.");
+    } catch (err: unknown) {
+      setSelectedUserError(getErrorMessage(err, "Could not stop runtime."));
+    } finally {
+      setSavingUserAction(false);
+    }
+  };
+
+  const selectedUserOwnedLabs = selectedUserDetail
+    ? templates.filter((lab) => lab.creatorId === selectedUserDetail.user.user_id)
+    : [];
+  const selectedUserOwnedStarpaths = selectedUserDetail
+    ? starpaths.filter((starpath) => starpath.creator_id === selectedUserDetail.user.user_id)
+    : [];
+  const selectedUserStartedLabs = selectedUserLabs.filter((lab) => lab.status !== "TODO");
+  const selectedUserFinishedLabs = selectedUserLabs.filter((lab) => lab.status === "FINISHED");
+  const selectedUserInProgressLabs = selectedUserLabs.filter((lab) => lab.status === "IN_PROGRESS");
+  const selectedUserTodoLabs = selectedUserLabs.filter((lab) => lab.status === "TODO");
+  const selectedUserLatestActivity = [
+    ...selectedUserLabs.map((lab) => lab.last_activity_at),
+    ...selectedUserSessions.map((session) => session.last_activity_at),
+  ]
+    .filter(Boolean)
+    .sort((a, b) => new Date(String(b)).getTime() - new Date(String(a)).getTime())[0];
+  const selectedUserRuntimeSessions = selectedUserSessions.slice(0, 5);
+  const selectedUserStaleLab = selectedUserInProgressLabs
+    .filter((lab) => {
+      const last = new Date(lab.last_activity_at).getTime();
+      return Number.isFinite(last) && Date.now() - last > 7 * 24 * 60 * 60 * 1000;
+    })
+    .sort((a, b) => new Date(a.last_activity_at).getTime() - new Date(b.last_activity_at).getTime())[0];
+  const selectedUserCompletedRuntimeMs = selectedUserSessions.reduce((total, session) => {
+    if (!session.created_at || !session.completed_at) {
+      return total;
+    }
+    const started = new Date(session.created_at).getTime();
+    const completed = new Date(session.completed_at).getTime();
+    if (!Number.isFinite(started) || !Number.isFinite(completed) || completed <= started) {
+      return total;
+    }
+    return total + completed - started;
+  }, 0);
+
+  const formatDateTime = (value?: string | null) =>
+    value ? new Date(value).toLocaleString() : "No activity";
+
+  const formatDuration = (ms: number) => {
+    if (ms <= 0) {
+      return "n/a";
+    }
+    const minutes = Math.round(ms / 60000);
+    if (minutes < 60) {
+      return `${minutes}m`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  };
+
+  const runtimeIsActive = (session: SessionSummary) => {
+    const normalized = String(session.status ?? "").toLowerCase();
+    return Boolean(session.current_runtime_id) && ["created", "in_progress"].includes(normalized);
   };
 
   function renderOverviewPanel() {
@@ -937,7 +1282,15 @@ export default function AdminDashboard() {
               </DashboardCard>
             ) : (
               userResults.map((user) => (
-                <DashboardCard key={user.user_id} className="border border-white/10 p-4">
+                <DashboardCard
+                  key={user.user_id}
+                  className={[
+                    "border p-4 transition",
+                    selectedUserId === user.user_id
+                      ? "border-sky-400/35 bg-sky-400/10"
+                      : "border-white/10 hover:border-white/20 hover:bg-white/[0.06]",
+                  ].join(" ")}
+                >
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-white">
@@ -946,8 +1299,29 @@ export default function AdminDashboard() {
                       <p className="mt-1 truncate text-xs text-white/45">{user.email}</p>
                       <p className="mt-1 truncate text-[11px] text-white/30">{user.user_id}</p>
                     </div>
-                    <div className="shrink-0 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs uppercase tracking-[0.16em] text-white/55">
-                      {user.role}
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs uppercase tracking-[0.16em] text-white/55">
+                        {user.role}
+                      </span>
+                      <span
+                        className={[
+                          "rounded-full border px-3 py-1.5 text-xs uppercase tracking-[0.16em]",
+                          user.account_status === "banned"
+                            ? "border-rose-400/25 bg-rose-400/10 text-rose-200"
+                            : user.account_status === "suspended"
+                              ? "border-orange-400/25 bg-orange-400/10 text-orange-200"
+                              : "border-emerald-400/25 bg-emerald-400/10 text-emerald-200",
+                        ].join(" ")}
+                      >
+                        {user.account_status}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => loadAdminUserDetail(user.user_id)}
+                        className="rounded-xl border border-sky-300/25 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:bg-sky-400/15"
+                      >
+                        Inspect
+                      </button>
                     </div>
                   </div>
                 </DashboardCard>
@@ -955,12 +1329,221 @@ export default function AdminDashboard() {
             )}
           </div>
           <DashboardCard className="p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/35">Account operations</p>
-            <div className="mt-4 space-y-3">
-              <ActionTile title="Sanctions: warn, suspend, ban" description="Review enforcement history and apply account-level action." tone="warning" />
-              <ActionTile title="Owned content aggregation" description="Inspect labs, groups, and starpaths created or followed by the user." />
-              <ActionTile title="Full user profile" description="Activity, progression, account status, and audit history in one view." />
-            </div>
+            {!selectedUserId ? (
+              <>
+                <p className="text-xs uppercase tracking-[0.16em] text-white/35">Account operations</p>
+                <div className="mt-4 space-y-3">
+	                  <ActionTile title="Select a user" description="Open an admin activity profile with sanctions, audit log, learner progression, linked content, and runtime controls." />
+                </div>
+              </>
+            ) : selectedUserLoading ? (
+              <p className="text-sm text-white/45">Loading admin user profile...</p>
+            ) : selectedUserError ? (
+              <p className="text-sm text-rose-200">{selectedUserError}</p>
+            ) : selectedUserDetail ? (
+              <div className="space-y-5">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-white/35">Admin profile</p>
+                  <h3 className="mt-2 truncate text-lg font-semibold text-white">
+                    {selectedUserDetail.user.pseudo || selectedUserDetail.user.email}
+                  </h3>
+                  <p className="mt-1 text-xs text-white/40">{selectedUserDetail.user.user_id}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <MiniCard label="Status" value={selectedUserDetail.user.account_status} helper={selectedUserDetail.user.role} />
+                  <MiniCard
+                    label="Last activity"
+                    value={selectedUserLatestActivity ? new Date(selectedUserLatestActivity).toLocaleDateString() : "None"}
+                    helper={selectedUserLatestActivity ? new Date(selectedUserLatestActivity).toLocaleTimeString() : "no signal"}
+                  />
+                  <MiniCard label="Labs launched" value={selectedUserStartedLabs.length.toString()} helper="started labs" />
+                  <MiniCard label="Labs completed" value={selectedUserFinishedLabs.length.toString()} helper="finished labs" />
+                  <MiniCard label="In progress" value={selectedUserInProgressLabs.length.toString()} helper="active learning" />
+                  <MiniCard label="Runtime time" value={formatDuration(selectedUserCompletedRuntimeMs)} helper="completed sessions" />
+                  <MiniCard label="Labs followed" value={selectedUserLabs.length.toString()} helper={`${selectedUserTodoLabs.length} todo`} />
+                  <MiniCard
+                    label="Labs owned"
+                    value={selectedUserOwnedLabs.length.toString()}
+                    helper="created content"
+                  />
+                  <MiniCard label="Groups" value={selectedUserGroups.length.toString()} helper="owned or member" />
+                  <MiniCard
+                    label="Starpaths followed"
+                    value={selectedUserStarpathProgress.length.toString()}
+                    helper="progress rows"
+                  />
+                  <MiniCard
+                    label="Starpaths owned"
+                    value={selectedUserOwnedStarpaths.length.toString()}
+                    helper="created routes"
+                  />
+                  <MiniCard
+                    label="Sanctions"
+                    value={selectedUserDetail.sanctions.length.toString()}
+                    helper="history"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-white">Learner progression</p>
+                  {selectedUserLabs.slice(0, 4).map((lab) => (
+                    <ListTile
+                      key={lab.lab_id}
+                      title={`${lab.name} · ${lab.progress}%`}
+                      subtitle={`${lab.status.toLowerCase()} · last activity ${formatDateTime(lab.last_activity_at)}`}
+                      extra={lab.visibility ?? undefined}
+                    />
+                  ))}
+                  {selectedUserLabs.length === 0 ? (
+                    <p className="text-sm text-white/40">No followed lab yet.</p>
+                  ) : null}
+                  {selectedUserStaleLab ? (
+                    <ActionTile
+                      title="Possible drop-off"
+                      description={`${selectedUserStaleLab.name} has been in progress since ${formatDateTime(selectedUserStaleLab.last_activity_at)}.`}
+                      tone="warning"
+                    />
+                  ) : null}
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-white">Linked content</p>
+                  <ListTile
+                    title={`${selectedUserOwnedLabs.length} owned labs`}
+                    subtitle={selectedUserOwnedLabs.slice(0, 2).map((lab) => lab.name).join(", ") || "No created lab."}
+                  />
+                  <ListTile
+                    title={`${selectedUserGroups.length} groups`}
+                    subtitle={selectedUserGroups.slice(0, 2).map((group) => group.name).join(", ") || "No group relationship."}
+                  />
+                  <ListTile
+                    title={`${selectedUserStarpathProgress.length} followed starpaths · ${selectedUserOwnedStarpaths.length} owned`}
+                    subtitle={selectedUserOwnedStarpaths.slice(0, 2).map((starpath) => starpath.name).join(", ") || "No created starpath."}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-white">Runtime activity</p>
+                  {selectedUserRuntimeSessions.map((session) => {
+                    const lab = templates.find((template) => template.id === session.lab_id);
+                    return (
+                      <div
+                        key={session.session_id}
+                        className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-white">
+                              {lab?.name ?? session.lab_id}
+                            </p>
+                            <p className="mt-1 text-xs text-white/40">{session.session_id}</p>
+                            <p className="mt-2 text-xs text-white/45">
+                              {session.status ?? "unknown"} · {session.runtime_kind ?? "runtime"} · last {formatDateTime(session.last_activity_at)}
+                            </p>
+                            <p className="mt-1 text-xs text-white/35">
+                              Created {formatDateTime(session.created_at)} · expires {formatDateTime(session.expires_at)}
+                            </p>
+                          </div>
+                          {runtimeIsActive(session) ? (
+                            <button
+                              type="button"
+                              disabled={savingUserAction}
+                              onClick={() => stopSelectedUserRuntime(session.session_id)}
+                              className="shrink-0 rounded-xl border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Stop
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {selectedUserRuntimeSessions.length === 0 ? (
+                    <p className="text-sm text-white/40">No runtime session history.</p>
+                  ) : null}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                  <p className="text-sm font-semibold text-white">Apply sanction</p>
+                  <div className="mt-3 grid gap-3">
+                    <select
+                      value={sanctionAction}
+                      onChange={(event) => setSanctionAction(event.target.value as "warn" | "suspend" | "ban")}
+                      className={INPUT_CLASSNAME}
+                    >
+                      <option value="warn">Warn</option>
+                      <option value="suspend">Suspend</option>
+                      <option value="ban">Ban</option>
+                    </select>
+                    {sanctionAction === "suspend" ? (
+                      <input
+                        type="number"
+                        min={1}
+                        value={sanctionDurationDays}
+                        onChange={(event) => setSanctionDurationDays(Number(event.target.value))}
+                        className={INPUT_CLASSNAME}
+                      />
+                    ) : null}
+                    <textarea
+                      value={sanctionReason}
+                      onChange={(event) => setSanctionReason(event.target.value)}
+                      placeholder="Reason..."
+                      rows={3}
+                      className={INPUT_CLASSNAME}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={savingUserAction}
+                        onClick={applyUserSanction}
+                        className="rounded-xl border border-orange-400/25 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-100 transition hover:bg-orange-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Apply
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingUserAction}
+                        onClick={reactivateSelectedUser}
+                        className="rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Reactivate
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-white">Latest sanctions</p>
+                  {selectedUserDetail.sanctions.slice(0, 3).map((sanction) => (
+                    <ListTile
+                      key={sanction.sanction_id}
+                      title={`${sanction.action} · ${sanction.status}`}
+                      subtitle={sanction.reason}
+                      extra={new Date(sanction.created_at).toLocaleDateString()}
+                    />
+                  ))}
+                  {selectedUserDetail.sanctions.length === 0 ? (
+                    <p className="text-sm text-white/40">No sanction history.</p>
+                  ) : null}
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-white">Audit log</p>
+                  {selectedUserDetail.audit_logs.slice(0, 4).map((entry) => (
+                    <ListTile
+                      key={entry.audit_id}
+                      title={entry.action}
+                      subtitle={JSON.stringify(entry.metadata)}
+                      extra={new Date(entry.created_at).toLocaleDateString()}
+                    />
+                  ))}
+                  {selectedUserDetail.audit_logs.length === 0 ? (
+                    <p className="text-sm text-white/40">No audit events yet.</p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </DashboardCard>
         </div>
       </div>
@@ -1030,8 +1613,8 @@ export default function AdminDashboard() {
                     <p className="truncate text-base font-semibold text-white">{template.name}</p>
                     <p className="mt-1 line-clamp-2 text-sm text-white/45">{template.description}</p>
                   </div>
-                  <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
-                    {template.visibility}
+	                  <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
+	                    {template.visibility} · {template.contentStatus}
                   </div>
                 </div>
                 <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-white/45">
@@ -1046,14 +1629,22 @@ export default function AdminDashboard() {
                   >
                     Inspect lab
                   </button>
-                  <button
-                    type="button"
-                    disabled={savingLabId === template.id}
-                    onClick={() => handleToggleLabVisibility(template)}
+	                  <button
+	                    type="button"
+	                    disabled={savingLabId === template.id}
+	                    onClick={() => handleToggleLabVisibility(template)}
                     className="rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-200 transition hover:bg-orange-400/15 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {template.visibility === "public" ? "Make private" : "Make public"}
-                  </button>
+	                    {template.visibility === "public" ? "Make private" : "Make public"}
+	                  </button>
+	                  <button
+	                    type="button"
+	                    disabled={savingLabId === template.id}
+	                    onClick={() => handleToggleLabArchive(template)}
+	                    className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+	                  >
+	                    {template.contentStatus === "archived" ? "Restore" : "Archive"}
+	                  </button>
                   <button
                     type="button"
                     disabled={savingLabId === template.id}
@@ -1096,8 +1687,8 @@ export default function AdminDashboard() {
                       {group.description ?? group.group_id}
                     </p>
                   </div>
-                  <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
-                    group
+	                  <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
+	                    {group.status ?? "active"}
                   </div>
                 </div>
                 <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-white/45">
@@ -1105,8 +1696,24 @@ export default function AdminDashboard() {
                   <span className="truncate">Created {group.created_at}</span>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
+	                  <button
+	                    type="button"
+	                    disabled={savingGroupId === group.group_id}
+	                    onClick={() => loadAdminGroupDetail(group.group_id)}
+	                    className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+	                  >
+	                    Inspect
+	                  </button>
+	                  <button
+	                    type="button"
+	                    disabled={savingGroupId === group.group_id}
+	                    onClick={() => handleToggleGroupLock(group)}
+	                    className="rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-200 transition hover:bg-orange-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+	                  >
+	                    {group.status === "locked" ? "Unlock" : "Lock"}
+	                  </button>
+	                  <button
+	                    type="button"
                     disabled={savingGroupId === group.group_id}
                     onClick={() => handleDeleteGroup(group)}
                     className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-50"
@@ -1118,14 +1725,22 @@ export default function AdminDashboard() {
             ))}
           </div>
         )}
-        <DashboardCard className="p-5">
-          <p className="text-sm font-semibold text-white">Group operations</p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <ActionTile title="Member drill-down" description="Inspect roles, joins, activity, and removals by group." />
-            <ActionTile title="Assigned content" description="Review labs and starpaths currently attached to each group." />
-            <ActionTile title="Group reports" description="Track reports linked to cohort behavior or assigned material." tone="warning" />
-            <ActionTile title="Lock or suspend" description="Pause group activity without deleting the group history." tone="warning" />
-          </div>
+	        <DashboardCard className="p-5">
+	          <p className="text-sm font-semibold text-white">Group operations</p>
+	          {groupDetailError ? <p className="mt-3 text-sm text-rose-200">{groupDetailError}</p> : null}
+	          {selectedGroupDetail ? (
+	            <div className="mt-4 grid gap-3 md:grid-cols-4">
+	              <MiniCard label="Members" value={selectedGroupDetail.members.length.toString()} helper={selectedGroupDetail.group.status ?? "active"} />
+	              <MiniCard label="Labs" value={selectedGroupDetail.labs.length.toString()} helper="assigned" />
+	              <MiniCard label="Starpaths" value={selectedGroupDetail.starpaths.length.toString()} helper="assigned" />
+	              <MiniCard label="Owner" value={selectedGroupDetail.group.creator_id.slice(0, 8)} helper="creator id" />
+	            </div>
+	          ) : null}
+	          <div className="mt-4 grid gap-3 md:grid-cols-2">
+	            <ActionTile title="Member drill-down" description="Inspect roles and membership counts by group." />
+	            <ActionTile title="Assigned content" description="Review labs and starpaths currently attached to each group." />
+	            <ActionTile title="Lock lifecycle" description="Pause group activity without deleting group history." tone="warning" />
+	          </div>
         </DashboardCard>
       </div>
     );
@@ -1159,8 +1774,8 @@ export default function AdminDashboard() {
                         {starpath.description ?? starpath.starpath_id}
                       </p>
                     </div>
-                    <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
-                      {visibility}
+	                    <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
+	                      {visibility} · {starpath.content_status ?? "active"}
                     </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-white/45">
@@ -1168,14 +1783,22 @@ export default function AdminDashboard() {
                     <span className="truncate">Created {starpath.created_at}</span>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={savingStarpathId === starpath.starpath_id}
-                      onClick={() => handleToggleStarpathVisibility(starpath)}
+	                    <button
+	                      type="button"
+	                      disabled={savingStarpathId === starpath.starpath_id}
+	                      onClick={() => handleToggleStarpathVisibility(starpath)}
                       className="rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-200 transition hover:bg-orange-400/15 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {visibility === "public" ? "Make private" : "Make public"}
-                    </button>
+	                      {visibility === "public" ? "Make private" : "Make public"}
+	                    </button>
+	                    <button
+	                      type="button"
+	                      disabled={savingStarpathId === starpath.starpath_id}
+	                      onClick={() => handleToggleStarpathArchive(starpath)}
+	                      className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/15 disabled:cursor-not-allowed disabled:opacity-50"
+	                    >
+	                      {starpath.content_status === "archived" ? "Restore" : "Archive"}
+	                    </button>
                     <button
                       type="button"
                       disabled={savingStarpathId === starpath.starpath_id}
@@ -1600,11 +2223,48 @@ export default function AdminDashboard() {
                       <p className="mt-3 line-clamp-2 text-sm text-white/45">{item.manifest.description}</p>
                     ) : null}
                   </div>
-                  <div className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/60">
-                    {item.price_starlight} starlight
-                  </div>
-                </div>
-              </DashboardCard>
+	                  <div className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/60">
+	                    {item.price_starlight} starlight · {item.is_active ? "visible" : "hidden"}
+	                  </div>
+	                </div>
+	                <div className="mt-4 flex flex-wrap gap-2">
+	                  <button
+	                    type="button"
+	                    onClick={() => handleMarketplacePriceChange(item)}
+	                    className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/15"
+	                  >
+	                    Price
+	                  </button>
+	                  <button
+	                    type="button"
+	                    onClick={() => handleToggleMarketplaceItem(item)}
+	                    className="rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-200 transition hover:bg-orange-400/15"
+	                  >
+	                    {item.is_active ? "Hide" : "Show"}
+	                  </button>
+	                  <button
+	                    type="button"
+	                    onClick={() => loadMarketplaceImpact(item)}
+	                    className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/70 transition hover:bg-white/[0.07]"
+	                  >
+	                    Impact
+	                  </button>
+	                </div>
+	                {marketplaceImpacts[item.item_code] ? (
+	                  <div className="mt-4 grid grid-cols-2 gap-3">
+	                    <MiniCard
+	                      label="Purchases"
+	                      value={marketplaceImpacts[item.item_code].purchases.toString()}
+	                      helper="buy requests"
+	                    />
+	                    <MiniCard
+	                      label="Owners"
+	                      value={marketplaceImpacts[item.item_code].owners.toString()}
+	                      helper="current cosmetics"
+	                    />
+	                  </div>
+	                ) : null}
+	              </DashboardCard>
             ))}
           </div>
         )}

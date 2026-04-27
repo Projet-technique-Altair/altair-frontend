@@ -18,6 +18,7 @@ export function getStarpaths() {
 export function getAdminStarpaths(params: {
   q?: string;
   visibility?: "all" | "public" | "private";
+  content_status?: "all" | "active" | "archived";
   limit?: number;
   offset?: number;
 } = {}) {
@@ -28,6 +29,9 @@ export function getAdminStarpaths(params: {
   if (params.visibility) {
     search.set("visibility", params.visibility);
   }
+  if (params.content_status) {
+    search.set("content_status", params.content_status);
+  }
   if (params.limit) {
     search.set("limit", String(params.limit));
   }
@@ -37,6 +41,19 @@ export function getAdminStarpaths(params: {
 
   const suffix = search.toString() ? `?${search.toString()}` : "";
   return request<PaginatedResponse<Starpath>>(`/starpaths/admin/starpaths${suffix}`);
+}
+
+export function getAdminUserStarpathProgress(userId: string) {
+  return request<
+    {
+      user_id: string;
+      starpath_id: string;
+      current_position: number;
+      status: string;
+      started_at: string;
+      completed_at?: string | null;
+    }[]
+  >(`/starpaths/admin/users/${userId}/progress`);
 }
 
 export function getMyStarpaths() {
@@ -78,6 +95,13 @@ export function updateAdminStarpathVisibility(id: string, visibility: "private" 
   return request<Starpath>(`/starpaths/starpaths/${id}`, {
     method: "PUT",
     body: JSON.stringify({ visibility }),
+  });
+}
+
+export function updateAdminStarpathContentStatus(id: string, content_status: "active" | "archived") {
+  return request<Starpath>(`/starpaths/admin/starpaths/${id}/content-status`, {
+    method: "PATCH",
+    body: JSON.stringify({ content_status }),
   });
 }
 

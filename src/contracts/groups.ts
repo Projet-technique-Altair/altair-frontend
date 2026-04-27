@@ -10,6 +10,7 @@ export interface Group {
 
   name: string;
   description: string | null;
+  status?: "active" | "locked";
 
   created_by: string;
 
