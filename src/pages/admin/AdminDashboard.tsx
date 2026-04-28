@@ -635,9 +635,9 @@ export default function AdminDashboard() {
       id: "users",
       label: "Users",
       title: "Account search",
-      description: "Search accounts, review identity details, and monitor account risk.",
+      description: "Search accounts, inspect risk, ban, suspend, reactivate, and stop runtimes.",
       icon: <Users className="h-4 w-4" />,
-      status: "read-only",
+      status: "live",
     },
     {
       id: "moderation",
@@ -651,25 +651,25 @@ export default function AdminDashboard() {
       id: "labs",
       label: "Labs",
       title: "Content supervision",
-      description: "Review lab inventory, visibility, ownership, and removals.",
+      description: "Review inventory, publish, privatize, archive, restore, and remove labs.",
       icon: <Layers className="h-4 w-4" />,
-      status: "read-only",
+      status: "live",
     },
     {
       id: "groups",
       label: "Groups",
       title: "All groups",
-      description: "Review cohorts, ownership, assigned content, and group risk.",
+      description: "Review cohorts, inspect assigned content, lock access, and remove groups.",
       icon: <Users className="h-4 w-4" />,
-      status: "read-only",
+      status: "live",
     },
     {
       id: "starpaths",
       label: "Starpaths",
       title: "Learning routes",
-      description: "Review routes, visibility, ownership, and route health.",
+      description: "Review routes, publish, privatize, archive, restore, and remove starpaths.",
       icon: <Orbit className="h-4 w-4" />,
-      status: "read-only",
+      status: "live",
     },
     {
       id: "gamification",
@@ -682,10 +682,10 @@ export default function AdminDashboard() {
     {
       id: "marketplace",
       label: "Marketplace",
-      title: "Catalog read-only",
-      description: "Inspect catalog inventory, pricing, ownership impact, and visibility.",
+      title: "Catalog operations",
+      description: "Inspect catalog inventory, edit pricing, visibility, and ownership impact.",
       icon: <ShoppingCart className="h-4 w-4" />,
-      status: "read-only",
+      status: "live",
     },
     {
       id: "analytics",
@@ -1250,7 +1250,7 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Users"
           title="Users list"
-          description="Search and inspect accounts. Role management stays outside the admin dashboard."
+          description="Search, inspect, sanction, reactivate, and stop active runtimes. Banned or suspended accounts are blocked by the gateway."
         />
         <DashboardCard className="border border-white/10 p-5">
           <label className="space-y-2 text-sm text-white/60">
@@ -1466,6 +1466,9 @@ export default function AdminDashboard() {
 
                 <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
                   <p className="text-sm font-semibold text-white">Apply sanction</p>
+                  <p className="mt-1 text-xs leading-5 text-white/40">
+                    Suspend and ban block future API access. Reactivate restores access and resolves active sanctions.
+                  </p>
                   <div className="mt-3 grid gap-3">
                     <select
                       value={sanctionAction}
@@ -1507,7 +1510,7 @@ export default function AdminDashboard() {
                         onClick={reactivateSelectedUser}
                         className="rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Reactivate
+                        Reactivate access
                       </button>
                     </div>
                   </div>
@@ -1668,7 +1671,7 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Groups"
           title="Group management"
-          description="Inspect all groups and remove groups when admin intervention is needed."
+          description="Inspect all groups, review assigned content, lock private access, or remove groups when admin intervention is needed."
         />
         {groupsLoading ? (
           <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">Loading groups...</DashboardCard>
@@ -1739,7 +1742,7 @@ export default function AdminDashboard() {
 	          <div className="mt-4 grid gap-3 md:grid-cols-2">
 	            <ActionTile title="Member drill-down" description="Inspect roles and membership counts by group." />
 	            <ActionTile title="Assigned content" description="Review labs and starpaths currently attached to each group." />
-	            <ActionTile title="Lock lifecycle" description="Pause group activity without deleting group history." tone="warning" />
+	            <ActionTile title="Lock lifecycle" description="Locked groups no longer grant access to assigned private labs or starpaths." tone="warning" />
 	          </div>
         </DashboardCard>
       </div>
