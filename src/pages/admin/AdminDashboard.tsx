@@ -36,7 +36,7 @@ import {
   updateAdminMarketplaceItem,
   type MarketplaceItem,
 } from "@/api/marketplace";
-import type { AdminUser, AdminUserDetail } from "@/api/types";
+import type { AdminUser, AdminUserDetail, UserAuditLog } from "@/api/types";
 import type { AdminSessionsAnalytics, LearnerDashboardLab, SessionSummary } from "@/api/sessions";
 import type { AuditEvent, ModerationReport, ReportStatus } from "@/api/moderation";
 import { api } from "@/api";
@@ -60,6 +60,81 @@ const GAMIFICATION_INPUT_CLASSNAME =
   "w-full rounded-xl border border-white/15 bg-[#0f1422] px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/30 hover:border-white/25 focus:border-sky-300/70 focus:bg-[#121a2b] focus:ring-2 focus:ring-sky-300/10";
 const GAMIFICATION_PRIMARY_BUTTON_CLASSNAME =
   "rounded-xl border border-sky-300/30 bg-sky-400/12 px-4 py-2.5 text-sm font-semibold text-sky-100 transition hover:border-sky-200/45 hover:bg-sky-400/18 disabled:cursor-not-allowed disabled:opacity-60";
+
+function humanizeAuditAction(action: string) {
+  const knownActions: Record<string, string> = {
+    "user.account_status.updated": "Account status updated",
+    "user.sanction.created": "Sanction created",
+    "moderation.report.created": "Report created",
+    "moderation.report.assigned": "Report assigned",
+    "moderation.report.status.updated": "Report status updated",
+    "moderation.report.bulk.updated": "Reports bulk updated",
+  };
+
+  if (knownActions[action]) {
+    return knownActions[action];
+  }
+
+  return action
+    .split(".")
+    .filter(Boolean)
+    .slice(-3)
+    .join(" ")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatAuditMetadataValue(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatUserAuditMetadata(entry: UserAuditLog) {
+  const metadata = entry.metadata ?? {};
+
+  if (entry.action === "user.account_status.updated") {
+    const status = formatAuditMetadataValue(metadata.account_status);
+    const reason = formatAuditMetadataValue(metadata.reason);
+    return [status ? `Status: ${status}` : null, reason ? `Reason: ${reason}` : null]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (entry.action === "user.sanction.created") {
+    const action = formatAuditMetadataValue(metadata.action);
+    const reason = formatAuditMetadataValue(metadata.reason);
+    const expiresAt = formatAuditMetadataValue(metadata.expires_at);
+    return [
+      action ? `Action: ${action}` : null,
+      reason ? `Reason: ${reason}` : null,
+      expiresAt ? `Expires: ${new Date(expiresAt).toLocaleDateString()}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  const summary = Object.entries(metadata)
+    .map(([key, value]) => {
+      const formatted = formatAuditMetadataValue(value);
+      return formatted ? `${key.replace(/_/g, " ")}: ${formatted}` : null;
+    })
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(" · ");
+
+  return summary || "No details";
+}
 
 type OrionPreviewStage = "base" | "legendary";
 
@@ -1839,9 +1914,9 @@ export default function AdminDashboard() {
                   {selectedUserDetail.audit_logs.slice(0, 4).map((entry) => (
                     <ListTile
                       key={entry.audit_id}
-                      title={entry.action}
-                      subtitle={JSON.stringify(entry.metadata)}
-                      extra={new Date(entry.created_at).toLocaleDateString()}
+                      title={humanizeAuditAction(entry.action)}
+                      subtitle={formatUserAuditMetadata(entry)}
+                      extra={new Date(entry.created_at).toLocaleString()}
                     />
                   ))}
                   {selectedUserDetail.audit_logs.length === 0 ? (
@@ -2797,7 +2872,7 @@ export default function AdminDashboard() {
                 auditEvents.slice(0, 8).map((entry) => (
                   <ListTile
                     key={entry.audit_id}
-                    title={entry.action}
+                    title={humanizeAuditAction(entry.action)}
                     subtitle={`${entry.service ?? "unknown"} · ${entry.http_method ?? ""} ${entry.http_path ?? ""}`}
                     extra={entry.status_code ? String(entry.status_code) : new Date(entry.created_at).toLocaleDateString()}
                   />
