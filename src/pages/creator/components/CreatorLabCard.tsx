@@ -7,6 +7,7 @@ import { Eye, EyeOff, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 
 import DashboardCard from "@/components/ui/DashboardCard";
+import ReportButton from "@/components/moderation/ReportButton";
 
 /* =========================
    TYPES (LOCAL — NO IMPORT)
@@ -100,6 +101,12 @@ export default function CreatorLabCard({
                 <EyeOff className="h-4 w-4 text-white/40" />
               )}
             </button>
+            <ReportButton
+              targetType="lab"
+              targetId={lab.id}
+              targetLabel={lab.title}
+              compact
+            />
           </div>
         </div>
 

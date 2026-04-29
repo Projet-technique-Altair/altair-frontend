@@ -45,8 +45,29 @@ export type AdminGamificationDashboard = {
   constellations: AdminConstellation[];
 };
 
+export type AdminEconomyAnalytics = {
+  active_capsules: number;
+  inactive_capsules: number;
+  active_gacha_items: number;
+  inactive_gacha_items: number;
+  total_gacha_rolls: number;
+  gacha_rolls_last_7d: number;
+  starlight_spent_gacha: number;
+  marketplace_items: number;
+  active_marketplace_items: number;
+  marketplace_purchases: number;
+  marketplace_purchases_last_7d: number;
+  marketplace_owners: number;
+  currency_ledger_entries: number;
+  net_currency_ledger_amount: number;
+};
+
 export async function getAdminGamificationDashboard(): Promise<AdminGamificationDashboard> {
   return request("/gamification/admin/gamification/dashboard");
+}
+
+export async function getAdminEconomyAnalytics(): Promise<AdminEconomyAnalytics> {
+  return request("/gamification/admin/gamification/economy-analytics");
 }
 
 export async function updateAdminCapsule(

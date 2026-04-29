@@ -70,9 +70,21 @@ export async function request<T>(
   }
 
   if (!res.ok) {
+    const message = parsed?.error?.message ?? "Unknown error";
+    if (res.status === 403 && typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("altair-access-denied", {
+          detail: {
+            message,
+            code: parsed?.error?.code,
+          },
+        }),
+      );
+    }
+
     throw new ApiError(
       res.status,
-      parsed?.error?.message ?? "Unknown error",
+      message,
       parsed?.error?.code
     )
   }

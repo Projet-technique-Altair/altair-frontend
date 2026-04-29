@@ -14,12 +14,14 @@
 
 import { ALT_COLORS } from "@/lib/theme";
 import { ArrowLeft, Clock3, LogOut } from "lucide-react";
+import type { ReactNode } from "react";
 
 interface LabHeaderProps {
   labName: string;
   timer?: string;
   onExit?: () => void;
   onResumeLater?: () => void;
+  action?: ReactNode;
 }
 
 export default function LabHeader({
@@ -27,6 +29,7 @@ export default function LabHeader({
   timer,
   onExit,
   onResumeLater,
+  action,
 }: LabHeaderProps) {
   return (
     <div className="w-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -56,6 +59,8 @@ export default function LabHeader({
 
       {/* Controls */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {action}
+
         {timer && (
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/70 backdrop-blur-md">
             <Clock3 className="h-4 w-4 text-white/60" />

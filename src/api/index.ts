@@ -9,6 +9,7 @@ import * as users from "./users";
 import * as groups from "./groups";
 import * as sessions from "./sessions";
 import * as starpaths from "./starpaths";
+import * as moderation from "./moderation";
 
 export const api = {
   ...labs,
@@ -16,4 +17,5 @@ export const api = {
   ...groups,
   ...sessions,
   ...starpaths,
+  ...moderation,
 };

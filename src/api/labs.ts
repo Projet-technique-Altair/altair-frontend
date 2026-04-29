@@ -1,7 +1,7 @@
 import { request } from "./client";
 import type { Lab, LabUpsertPayload } from "@/contracts/labs";
 import type { SessionSummary } from "./sessions";
-import type { LabFileEntry, LabHint, LabStep, SearchLabResult } from "./types";
+import type { LabFileEntry, LabHint, LabStep, PaginatedResponse, SearchLabResult } from "./types";
 
 /* =======================================================
    LABS
@@ -9,6 +9,34 @@ import type { LabFileEntry, LabHint, LabStep, SearchLabResult } from "./types";
 
 export function getLabs() {
   return request<Lab[]>("/labs/labs");
+}
+
+export function getAdminLabs(params: {
+  q?: string;
+  visibility?: "all" | "public" | "private";
+  content_status?: "all" | "active" | "archived";
+  limit?: number;
+  offset?: number;
+} = {}) {
+  const search = new URLSearchParams();
+  if (params.q) {
+    search.set("q", params.q);
+  }
+  if (params.visibility) {
+    search.set("visibility", params.visibility);
+  }
+  if (params.content_status) {
+    search.set("content_status", params.content_status);
+  }
+  if (params.limit) {
+    search.set("limit", String(params.limit));
+  }
+  if (params.offset) {
+    search.set("offset", String(params.offset));
+  }
+
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return request<PaginatedResponse<Lab>>(`/labs/admin/labs${suffix}`);
 }
 
 export function getMyLabs() {
@@ -34,6 +62,20 @@ export function updateLab(id: string, payload: LabUpsertPayload) {
   return request<Lab>(`/labs/labs/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminLabVisibility(id: string, visibility: "private" | "public") {
+  return request<Lab>(`/labs/labs/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ visibility }),
+  });
+}
+
+export function updateAdminLabContentStatus(id: string, content_status: "active" | "archived") {
+  return request<Lab>(`/labs/admin/labs/${id}/content-status`, {
+    method: "PATCH",
+    body: JSON.stringify({ content_status }),
   });
 }
 

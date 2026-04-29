@@ -5,7 +5,7 @@ import type {
   StarpathLabUpsertPayload,
   StarpathProgress,
 } from "@/contracts/starpaths";
-import type { GroupLabResult, SearchStarpathResult } from "./types";
+import type { GroupLabResult, PaginatedResponse, SearchStarpathResult } from "./types";
 
 /* =========================
    Starpaths CRUD
@@ -13,6 +13,47 @@ import type { GroupLabResult, SearchStarpathResult } from "./types";
 
 export function getStarpaths() {
   return request<Starpath[]>("/starpaths/starpaths");
+}
+
+export function getAdminStarpaths(params: {
+  q?: string;
+  visibility?: "all" | "public" | "private";
+  content_status?: "all" | "active" | "archived";
+  limit?: number;
+  offset?: number;
+} = {}) {
+  const search = new URLSearchParams();
+  if (params.q) {
+    search.set("q", params.q);
+  }
+  if (params.visibility) {
+    search.set("visibility", params.visibility);
+  }
+  if (params.content_status) {
+    search.set("content_status", params.content_status);
+  }
+  if (params.limit) {
+    search.set("limit", String(params.limit));
+  }
+  if (params.offset) {
+    search.set("offset", String(params.offset));
+  }
+
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return request<PaginatedResponse<Starpath>>(`/starpaths/admin/starpaths${suffix}`);
+}
+
+export function getAdminUserStarpathProgress(userId: string) {
+  return request<
+    {
+      user_id: string;
+      starpath_id: string;
+      current_position: number;
+      status: string;
+      started_at: string;
+      completed_at?: string | null;
+    }[]
+  >(`/starpaths/admin/users/${userId}/progress`);
 }
 
 export function getMyStarpaths() {
@@ -47,6 +88,20 @@ export function updateStarpath(
 export function deleteStarpath(id: string) {
   return request<void>(`/starpaths/starpaths/${id}`, {
     method: "DELETE",
+  });
+}
+
+export function updateAdminStarpathVisibility(id: string, visibility: "private" | "public") {
+  return request<Starpath>(`/starpaths/starpaths/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ visibility }),
+  });
+}
+
+export function updateAdminStarpathContentStatus(id: string, content_status: "active" | "archived") {
+  return request<Starpath>(`/starpaths/admin/starpaths/${id}/content-status`, {
+    method: "PATCH",
+    body: JSON.stringify({ content_status }),
   });
 }
 

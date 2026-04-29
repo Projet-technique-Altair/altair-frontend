@@ -12,6 +12,52 @@ export type SearchUserResult = {
   email?: string;
 };
 
+export type AdminUser = {
+  user_id: string;
+  role: string;
+  account_status: "active" | "suspended" | "banned";
+  name: string;
+  pseudo: string;
+  email: string;
+  avatar?: string | null;
+  last_login?: string | null;
+  created_at: string;
+};
+
+export type UserSanction = {
+  sanction_id: string;
+  user_id: string;
+  actor_user_id: string;
+  action: "warn" | "suspend" | "ban";
+  reason: string;
+  status: "active" | "resolved";
+  expires_at?: string | null;
+  created_at: string;
+  resolved_at?: string | null;
+};
+
+export type UserAuditLog = {
+  audit_id: string;
+  actor_user_id?: string | null;
+  target_user_id?: string | null;
+  action: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AdminUserDetail = {
+  user: AdminUser;
+  sanctions: UserSanction[];
+  audit_logs: UserAuditLog[];
+};
+
+export type PaginatedResponse<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type SearchStarpathResult = {
   starpath_id: string;
   name: string;

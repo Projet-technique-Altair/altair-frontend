@@ -18,6 +18,7 @@ import {
   type LearnerLabStatus,
   unfollowLab,
 } from "@/api/sessions";
+import ReportButton from "@/components/moderation/ReportButton";
 import type { Lab } from "@/contracts/labs";
 
 /**
@@ -293,6 +294,12 @@ export default function LabView() {
               </span>
             )}
           </div>
+
+          {!lab.mock ? (
+            <div className="mt-5">
+              <ReportButton targetType="lab" targetId={lab.id} targetLabel={lab.name} />
+            </div>
+          ) : null}
 
           {followError && (
             <div className="mt-5 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">

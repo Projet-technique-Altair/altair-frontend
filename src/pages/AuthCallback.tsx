@@ -51,10 +51,21 @@ import { useAuth } from "@/context/useAuth";
 
 const PKCE_KEY = "pkce_verifier";
 const STATE_KEY = "oauth_state";
+const TOKEN_KEY = "altair_token";
+const REFRESH_KEY = "altair_refresh_token";
+const ID_TOKEN_KEY = "altair_id_token";
+
+function clearLocalAuthState() {
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_KEY);
+  sessionStorage.removeItem(ID_TOKEN_KEY);
+  sessionStorage.removeItem(PKCE_KEY);
+  sessionStorage.removeItem(STATE_KEY);
+}
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const { completeLogin, logout } = useAuth();
+  const { completeLogin } = useAuth();
   const hasRun = useRef(false); // StrictMode guard
 
   console.log("AuthCallback component mounted");
@@ -86,7 +97,7 @@ export default function AuthCallback() {
       returnedState !== storedState
     ) {
       console.error("Invalid OAuth callback parameters");
-      logout();
+      clearLocalAuthState();
       navigate("/", { replace: true });
       return;
     }
@@ -100,7 +111,7 @@ export default function AuthCallback() {
 
     if (!clientId || !keycloakUrl || !realm) {
       console.error("Missing Keycloak environment variables");
-      logout();
+      clearLocalAuthState();
       navigate("/", { replace: true });
       return;
     }
@@ -154,13 +165,13 @@ export default function AuthCallback() {
         navigate("/app", { replace: true });
       } catch (err) {
         console.error("SSO exchange failed", err);
-        logout();
+        clearLocalAuthState();
         navigate("/", { replace: true });
       }
     }
 
     exchangeCode();
-  }, [navigate, completeLogin, logout]);
+  }, [navigate, completeLogin]);
 
   return null;
 }

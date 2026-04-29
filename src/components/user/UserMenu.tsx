@@ -10,17 +10,17 @@ export default function UserMenu() {
 
   const menuItems = [
     {
-      label: "Profil",
+      label: "Profile",
       icon: <User className="w-4 h-4 text-sky-400" />,
       action: () => navigate("/learner/profile"),
     },
     {
-      label: "Paramètres",
+      label: "Settings",
       icon: <Settings className="w-4 h-4 text-purple-400" />,
       action: () => navigate("/learner/settings"),
     },
     {
-      label: "Mode Créateur",
+      label: "Creator Mode",
       icon: <Sparkles className="w-4 h-4 text-orange-400" />,
       action: () => navigate("/learner/settings#creator"),
     },
@@ -69,7 +69,7 @@ export default function UserMenu() {
             {/* === Séparation === */}
             <div className="border-t border-white/10 my-1" />
 
-            {/* === Déconnexion === */}
+            {/* === Sign out === */}
             <button
               onClick={() => {
                 setOpen(false);
@@ -78,7 +78,7 @@ export default function UserMenu() {
               className="flex items-center gap-3 w-full px-4 py-3 text-sm text-gray-200 hover:bg-red-500/10 transition"
             >
               <LogOut className="w-4 h-4 text-red-400" />
-              <span>Déconnexion</span>
+              <span>Sign out</span>
             </button>
           </motion.div>
         )}

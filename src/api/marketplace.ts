@@ -5,6 +5,7 @@ export interface MarketplaceItem {
   name: string;
   cosmetic_type: string;
   price_starlight: number;
+  is_active: boolean;
   manifest: {
     image_url?: string;
     description?: string;
@@ -24,6 +25,32 @@ export interface MarketplacePurchaseResponse {
 
 export async function getCatalog(): Promise<CatalogResponse> {
   return request("/gamification/marketplace/catalog");
+}
+
+export async function getAdminMarketplaceCatalog(): Promise<CatalogResponse> {
+  return request("/gamification/admin/marketplace/catalog");
+}
+
+export async function updateAdminMarketplaceItem(
+  itemCode: string,
+  payload: {
+    price_starlight?: number;
+    is_active?: boolean;
+    manifest?: MarketplaceItem["manifest"];
+  },
+): Promise<MarketplaceItem> {
+  return request(`/gamification/admin/marketplace/items/${itemCode}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAdminMarketplaceItemImpact(itemCode: string): Promise<{
+  item_code: string;
+  purchases: number;
+  owners: number;
+}> {
+  return request(`/gamification/admin/marketplace/items/${itemCode}/impact`);
 }
 
 export async function buyItem(item_code: string): Promise<MarketplacePurchaseResponse> {

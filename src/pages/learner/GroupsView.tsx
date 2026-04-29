@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 
 import { ALT_COLORS } from "@/lib/theme";
+import ReportButton from "@/components/moderation/ReportButton";
 
 type GroupVisibility = "private" | "public";
 
@@ -396,6 +397,14 @@ export default function GroupsView() {
                       </span>
                       <ChevronRight className="h-4 w-4 text-white/55" />
                     </button>
+                    <div className="mt-3">
+                      <ReportButton
+                        targetType="group"
+                        targetId={g.id}
+                        targetLabel={g.name}
+                        className="w-full"
+                      />
+                    </div>
                   </GlassCard>
                 );
               })
@@ -466,6 +475,12 @@ export default function GroupsView() {
                           {selected.tagline}
                         </div>
                       )}
+
+                      <ReportButton
+                        targetType="group"
+                        targetId={selected.id}
+                        targetLabel={selected.name}
+                      />
 
                       <div className="flex flex-wrap gap-2 pt-2">
                         {selected.tags.map((t) => (

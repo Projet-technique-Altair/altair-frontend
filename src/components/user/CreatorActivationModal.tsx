@@ -34,13 +34,13 @@ export default function CreatorActivationModal({
           transition={{ type: "spring", stiffness: 200, damping: 25 }}
         >
           <h2 className="text-2xl font-bold text-purple-400 mb-3">
-            Activer le Mode Créateur
+            Activate Creator Mode
           </h2>
           <p className="text-sm text-gray-400 mb-6">
-            En activant ce mode, vous pourrez créer vos propres labs, scénarios et
-            starpaths interactifs.  
+            By activating this mode, you will be able to create your own labs,
+            scenarios, and interactive starpaths.
             <br />
-            Vous pourrez aussi suivre les retours et évaluations de vos étudiants.
+            You will also be able to track feedback and evaluations from your learners.
           </p>
 
           <div className="flex justify-center gap-4 mt-6">
@@ -48,14 +48,14 @@ export default function CreatorActivationModal({
               onClick={onClose}
               className="px-5 py-2 rounded-lg bg-[#1F2433] text-gray-300 hover:bg-[#262b3d] transition"
             >
-              Annuler
+              Cancel
             </button>
 
             <button
               onClick={onActivate}
               className="px-5 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-orange-400 font-semibold text-white hover:opacity-90 transition"
             >
-              ✨ Activer
+              Activate
             </button>
           </div>
         </motion.div>

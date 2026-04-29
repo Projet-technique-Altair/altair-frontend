@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Orbit } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 
 import DashboardCard from "@/components/ui/DashboardCard";
+import ReportButton from "@/components/moderation/ReportButton";
 
 /* =========================
    TYPES
@@ -63,6 +64,14 @@ export default function CreatorStarpathCard({
                 ? new Date(starpath.created_at).toLocaleDateString("en-GB")
                 : "—"}
             </p>
+          </div>
+          <div onClick={(e) => e.stopPropagation()}>
+            <ReportButton
+              targetType="starpath"
+              targetId={starpath.starpath_id}
+              targetLabel={starpath.name}
+              compact
+            />
           </div>
         </div>
 
