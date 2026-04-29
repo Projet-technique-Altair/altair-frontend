@@ -27,6 +27,7 @@ import {
 import type { Lab } from "@/contracts/labs";
 
 import LabHeader from "@/components/labs/LabHeader";
+import ReportButton from "@/components/moderation/ReportButton";
 import LabInstructions from "@/components/labs/LabInstructions";
 import Terminal from "@/components/labs/Terminal";
 import { useLabTimer } from "@/hooks/useLabTimer";
@@ -821,6 +822,16 @@ export default function LabSession() {
           onExit={handleEndSession}
           onResumeLater={handleResumeLater}
           timer={formatted}
+          action={
+            !mockUI && lab?.lab_id ? (
+              <ReportButton
+                targetType="lab"
+                targetId={lab.lab_id}
+                targetLabel={labName}
+                compact
+              />
+            ) : undefined
+          }
         />
       </div>
 

@@ -135,13 +135,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const baseUrl = import.meta.env.VITE_KEYCLOAK_URL;
     const realm = import.meta.env.VITE_KEYCLOAK_REALM;
 
+    if (!baseUrl || !realm || !idToken) {
+      window.location.assign(window.location.origin);
+      return;
+    }
+
     const params = new URLSearchParams({
       post_logout_redirect_uri: window.location.origin,
-      ...(idToken && { id_token_hint: idToken }),
+      id_token_hint: idToken,
     });
 
-    window.location.href =
-      `${baseUrl}/realms/${realm}/protocol/openid-connect/logout?${params}`;
+    window.location.assign(
+      `${baseUrl}/realms/${realm}/protocol/openid-connect/logout?${params}`
+    );
   }, []);
 
   /**

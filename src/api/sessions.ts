@@ -138,6 +138,21 @@ export function getAdminUserDashboardLabs(userId: string) {
   return request<LearnerDashboardLab[]>(`/sessions/admin/users/${userId}/dashboard/labs`)
 }
 
+export type AdminSessionsAnalytics = {
+  total_sessions: number
+  launched_sessions: number
+  completed_sessions: number
+  active_sessions: number
+  active_runtimes: number
+  completion_rate: number
+  launches_last_7d: number
+  completions_last_7d: number
+}
+
+export function getAdminSessionsAnalytics() {
+  return request<AdminSessionsAnalytics>("/sessions/admin/analytics/sessions")
+}
+
 export function getSessionsByUser(userId: string) {
   return request<SessionSummary[]>(`/sessions/sessions/user/${userId}`)
 }

@@ -15,6 +15,7 @@ import {
 
 import { getLab } from "@/api/labs";
 import { getStarpath, getStarpathLabs } from "@/api/starpaths";
+import ReportButton from "@/components/moderation/ReportButton";
 
 type StarpathDifficulty = "beginner" | "intermediate" | "advanced";
 type StarpathVisibility = "PRIVATE" | "PUBLIC";
@@ -319,6 +320,10 @@ export default function CreatorStarpathDetailsPage() {
               <BarChart3 className="h-4 w-4" />
               <span>Analytics</span>
             </button>
+
+            {id ? (
+              <ReportButton targetType="starpath" targetId={id} targetLabel={starpath?.name ?? "Starpath"} />
+            ) : null}
           </div>
 
           <div className="mt-6 h-px w-full bg-white/10" />

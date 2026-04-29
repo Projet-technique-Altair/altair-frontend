@@ -34,6 +34,7 @@ export default function LearnerLayout() {
   const [gachaSceneMode, setGachaSceneMode] = useState<GachaSceneMode>("menu");
   const [showCreatorOverlay, setShowCreatorOverlay] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
 
   const leftNav: GamificationNavbarItem[] = [
     { label: "Explorer", path: "/learner/explorer", Icon: Compass },
@@ -45,6 +46,20 @@ export default function LearnerLayout() {
     { label: "Market", path: "/learner/marketplace", Icon: ShoppingCart },
     { label: "Collection", path: "/learner/collection", Icon: Star },
   ];
+
+  useEffect(() => {
+    const onAccessDenied = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      setAccessDeniedMessage(
+        detail?.message?.includes("suspended or banned")
+          ? "Your account is suspended or banned. Access to learner and creator features is blocked until an admin reactivates it."
+          : detail?.message ?? "This resource is no longer available to your account.",
+      );
+    };
+
+    window.addEventListener("altair-access-denied", onAccessDenied);
+    return () => window.removeEventListener("altair-access-denied", onAccessDenied);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,6 +212,18 @@ export default function LearnerLayout() {
             </div>
           </div>
         </header>
+      ) : null}
+      {accessDeniedMessage ? (
+        <div className="mx-auto mt-4 max-w-7xl px-6">
+          <div className="rounded-2xl border border-rose-400/25 bg-rose-400/12 px-4 py-3 text-sm text-rose-100">
+            <div className="flex items-start justify-between gap-3">
+              <span>{accessDeniedMessage}</span>
+              <button type="button" onClick={() => setAccessDeniedMessage(null)} className="text-rose-100/70">
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       <main

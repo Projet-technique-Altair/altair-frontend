@@ -9,6 +9,7 @@ import {
   Layers,
   LogOut,
   Orbit,
+  RefreshCw,
   Search,
   ShieldCheck,
   ShoppingCart,
@@ -21,10 +22,12 @@ import {
 } from "lucide-react";
 import {
   getAdminGamificationDashboard,
+  getAdminEconomyAnalytics,
   updateAdminCapsule,
   updateAdminConstellation,
   type AdminCapsule,
   type AdminConstellation,
+  type AdminEconomyAnalytics,
 } from "@/api/adminGamification";
 import {
   getAdminMarketplaceCatalog,
@@ -34,7 +37,8 @@ import {
   type MarketplaceItem,
 } from "@/api/marketplace";
 import type { AdminUser, AdminUserDetail } from "@/api/types";
-import type { LearnerDashboardLab, SessionSummary } from "@/api/sessions";
+import type { AdminSessionsAnalytics, LearnerDashboardLab, SessionSummary } from "@/api/sessions";
+import type { AuditEvent, ModerationReport, ReportStatus } from "@/api/moderation";
 import { api } from "@/api";
 import type { AdminGroupDetail } from "@/api/groups";
 import DashboardCard from "@/components/ui/DashboardCard";
@@ -97,7 +101,15 @@ type SectionMeta = {
   title: string;
   description: string;
   icon: ReactNode;
-  status: "live" | "read-only" | "mock";
+  status: "live" | "read-only";
+};
+
+type ConfirmationState = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  tone?: "danger" | "warning";
+  onConfirm: () => Promise<void>;
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -405,6 +417,28 @@ export default function AdminDashboard() {
   const [savingCapsule, setSavingCapsule] = useState<string | null>(null);
   const [savingConstellation, setSavingConstellation] = useState<string | null>(null);
   const [orionPreviewStage, setOrionPreviewStage] = useState<OrionPreviewStage>("base");
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [reports, setReports] = useState<ModerationReport[]>([]);
+  const [reportsTotal, setReportsTotal] = useState(0);
+  const [reportsLoading, setReportsLoading] = useState(true);
+  const [reportsError, setReportsError] = useState<string | null>(null);
+  const [reportStatusFilter, setReportStatusFilter] = useState<ReportStatus | "all">("open");
+  const [reportTargetFilter, setReportTargetFilter] = useState("");
+  const [reportQuery, setReportQuery] = useState("");
+  const [reportPage, setReportPage] = useState(0);
+  const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [auditLoading, setAuditLoading] = useState(true);
+  const [auditError, setAuditError] = useState<string | null>(null);
+  const [auditQuery, setAuditQuery] = useState("");
+  const [auditServiceFilter, setAuditServiceFilter] = useState("");
+  const [auditPage, setAuditPage] = useState(0);
+  const [sessionsAnalytics, setSessionsAnalytics] = useState<AdminSessionsAnalytics | null>(null);
+  const [economyAnalytics, setEconomyAnalytics] = useState<AdminEconomyAnalytics | null>(null);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -430,7 +464,7 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshNonce]);
 
   useEffect(() => {
     let cancelled = false;
@@ -456,7 +490,7 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshNonce]);
 
   useEffect(() => {
     let cancelled = false;
@@ -482,7 +516,7 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshNonce]);
 
   useEffect(() => {
     let cancelled = false;
@@ -508,7 +542,7 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshNonce]);
 
   useEffect(() => {
     const query = userSearchQuery.trim();
@@ -541,7 +575,7 @@ export default function AdminDashboard() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [userSearchQuery]);
+  }, [userSearchQuery, refreshNonce]);
 
   useEffect(() => {
     let cancelled = false;
@@ -571,7 +605,104 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshNonce]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadReports() {
+      setReportsLoading(true);
+      setReportsError(null);
+      try {
+        const data = await api.getAdminReports({
+          status: reportStatusFilter === "all" ? undefined : reportStatusFilter,
+          target_type: reportTargetFilter || undefined,
+          q: reportQuery || undefined,
+          limit: 25,
+          offset: reportPage * 25,
+        });
+        if (!cancelled) {
+          setReports(data.items);
+          setReportsTotal(data.total);
+          setSelectedReportIds([]);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setReportsError(getErrorMessage(err, "Could not load moderation reports."));
+        }
+      } finally {
+        if (!cancelled) {
+          setReportsLoading(false);
+        }
+      }
+    }
+
+    loadReports();
+    return () => {
+      cancelled = true;
+    };
+  }, [reportStatusFilter, reportTargetFilter, reportQuery, reportPage, refreshNonce]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAudit() {
+      setAuditLoading(true);
+      setAuditError(null);
+      try {
+        const data = await api.getAdminAudit({
+          q: auditQuery || undefined,
+          service: auditServiceFilter || undefined,
+          limit: 50,
+          offset: auditPage * 50,
+        });
+        if (!cancelled) {
+          setAuditEvents(data.items);
+          setAuditTotal(data.total);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setAuditError(getErrorMessage(err, "Could not load audit events."));
+        }
+      } finally {
+        if (!cancelled) {
+          setAuditLoading(false);
+        }
+      }
+    }
+
+    loadAudit();
+    return () => {
+      cancelled = true;
+    };
+  }, [auditQuery, auditServiceFilter, auditPage, refreshNonce]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAnalytics() {
+      setAnalyticsError(null);
+      try {
+        const [sessions, economy] = await Promise.all([
+          api.getAdminSessionsAnalytics(),
+          getAdminEconomyAnalytics(),
+        ]);
+        if (!cancelled) {
+          setSessionsAnalytics(sessions);
+          setEconomyAnalytics(economy);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setAnalyticsError(getErrorMessage(err, "Could not load admin analytics."));
+        }
+      }
+    }
+
+    loadAnalytics();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshNonce]);
 
   const selectedConstellation = useMemo(
     () =>
@@ -598,7 +729,12 @@ export default function AdminDashboard() {
     labCount: templates.length.toString(),
     groupCount: groups.length.toString(),
     starpathCount: starpaths.length.toString(),
-    alertCount: "7",
+    alertCount: (
+      userResults.filter((user) => user.account_status !== "active").length +
+      groups.filter((group) => group.status === "locked").length +
+      templates.filter((template) => template.contentStatus === "archived").length +
+      starpaths.filter((starpath) => starpath.content_status === "archived").length
+    ).toString(),
     capsuleCount: capsules.length,
     liveCapsuleCount: capsules.filter((capsule) => capsule.is_active).length,
     constellationCount: constellations.length,
@@ -643,9 +779,9 @@ export default function AdminDashboard() {
       id: "moderation",
       label: "Moderation",
       title: "Reports and intervention",
-      description: "Review learner reports, feedback signals, and enforcement actions.",
+      description: "Review account risk, locked groups, and archived content signals.",
       icon: <Gavel className="h-4 w-4" />,
-      status: "mock",
+      status: "live",
     },
     {
       id: "labs",
@@ -699,9 +835,9 @@ export default function AdminDashboard() {
       id: "settings",
       label: "Settings",
       title: "Operational tools",
-      description: "Rollout controls, audit exports, maintenance, and security actions.",
+      description: "Operational state, active interventions, and available admin controls.",
       icon: <Wrench className="h-4 w-4" />,
-      status: "mock",
+      status: "read-only",
     },
   ];
 
@@ -789,24 +925,27 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteLab = async (template: AdminTemplate) => {
-    const confirmed = window.confirm(`Delete lab "${template.name}" permanently?`);
-    if (!confirmed) {
-      return;
-    }
+    setConfirmation({
+      title: "Delete lab",
+      message: `Delete lab "${template.name}" permanently? This removes it from the catalog and cannot be undone from the dashboard.`,
+      confirmLabel: "Delete lab",
+      tone: "danger",
+      onConfirm: async () => {
+        setSavingLabId(template.id);
+        setFeedback(null);
+        setError(null);
 
-    setSavingLabId(template.id);
-    setFeedback(null);
-    setError(null);
-
-    try {
-      await api.deleteLab(template.id);
-      setTemplates((current) => current.filter((entry) => entry.id !== template.id));
-      setFeedback(`Lab "${template.name}" deleted.`);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, "Could not delete lab."));
-    } finally {
-      setSavingLabId(null);
-    }
+        try {
+          await api.deleteLab(template.id);
+          setTemplates((current) => current.filter((entry) => entry.id !== template.id));
+          setFeedback(`Lab "${template.name}" deleted.`);
+        } catch (err: unknown) {
+          setError(getErrorMessage(err, "Could not delete lab."));
+        } finally {
+          setSavingLabId(null);
+        }
+      },
+    });
   };
 
   const handleToggleLabArchive = async (template: AdminTemplate) => {
@@ -829,24 +968,27 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteGroup = async (group: Group) => {
-    const confirmed = window.confirm(`Delete group "${group.name}" permanently?`);
-    if (!confirmed) {
-      return;
-    }
+    setConfirmation({
+      title: "Delete group",
+      message: `Delete group "${group.name}" permanently? Members will lose this group relationship and assigned access.`,
+      confirmLabel: "Delete group",
+      tone: "danger",
+      onConfirm: async () => {
+        setSavingGroupId(group.group_id);
+        setFeedback(null);
+        setError(null);
 
-    setSavingGroupId(group.group_id);
-    setFeedback(null);
-    setError(null);
-
-    try {
-      await api.deleteGroup(group.group_id);
-      setGroups((current) => current.filter((entry) => entry.group_id !== group.group_id));
-      setFeedback(`Group "${group.name}" deleted.`);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, "Could not delete group."));
-    } finally {
-      setSavingGroupId(null);
-    }
+        try {
+          await api.deleteGroup(group.group_id);
+          setGroups((current) => current.filter((entry) => entry.group_id !== group.group_id));
+          setFeedback(`Group "${group.name}" deleted.`);
+        } catch (err: unknown) {
+          setError(getErrorMessage(err, "Could not delete group."));
+        } finally {
+          setSavingGroupId(null);
+        }
+      },
+    });
   };
 
   const loadAdminGroupDetail = async (groupId: string) => {
@@ -905,26 +1047,29 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteStarpath = async (starpath: Starpath) => {
-    const confirmed = window.confirm(`Delete starpath "${starpath.name}" permanently?`);
-    if (!confirmed) {
-      return;
-    }
+    setConfirmation({
+      title: "Delete starpath",
+      message: `Delete starpath "${starpath.name}" permanently? Learners will no longer be able to discover or continue this route.`,
+      confirmLabel: "Delete starpath",
+      tone: "danger",
+      onConfirm: async () => {
+        setSavingStarpathId(starpath.starpath_id);
+        setFeedback(null);
+        setError(null);
 
-    setSavingStarpathId(starpath.starpath_id);
-    setFeedback(null);
-    setError(null);
-
-    try {
-      await api.deleteStarpath(starpath.starpath_id);
-      setStarpaths((current) =>
-        current.filter((entry) => entry.starpath_id !== starpath.starpath_id),
-      );
-      setFeedback(`Starpath "${starpath.name}" deleted.`);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, "Could not delete starpath."));
-    } finally {
-      setSavingStarpathId(null);
-    }
+        try {
+          await api.deleteStarpath(starpath.starpath_id);
+          setStarpaths((current) =>
+            current.filter((entry) => entry.starpath_id !== starpath.starpath_id),
+          );
+          setFeedback(`Starpath "${starpath.name}" deleted.`);
+        } catch (err: unknown) {
+          setError(getErrorMessage(err, "Could not delete starpath."));
+        } finally {
+          setSavingStarpathId(null);
+        }
+      },
+    });
   };
 
   const handleToggleStarpathArchive = async (starpath: Starpath) => {
@@ -1127,6 +1272,108 @@ export default function AdminDashboard() {
     }
   };
 
+  const refreshAdminWorkspace = () => {
+    setFeedback("Refreshing admin workspace...");
+    setRefreshNonce((value) => value + 1);
+  };
+
+  const runConfirmation = async () => {
+    if (!confirmation) {
+      return;
+    }
+    setConfirmBusy(true);
+    try {
+      await confirmation.onConfirm();
+      setConfirmation(null);
+      setRefreshNonce((value) => value + 1);
+    } finally {
+      setConfirmBusy(false);
+    }
+  };
+
+  const assignReportToMe = async (report: ModerationReport) => {
+    setFeedback(null);
+    setError(null);
+    try {
+      const updated = await api.assignAdminReport(report.report_id);
+      setReports((current) =>
+        current.map((entry) => (entry.report_id === updated.report_id ? updated : entry)),
+      );
+      setFeedback("Report assigned.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not assign report."));
+    }
+  };
+
+  const resolveReport = async (report: ModerationReport, status: ReportStatus) => {
+    const resolution = status === "resolved" || status === "dismissed"
+      ? window.prompt("Resolution note", report.resolution ?? "")
+      : undefined;
+    if ((status === "resolved" || status === "dismissed") && resolution === null) {
+      return;
+    }
+    setFeedback(null);
+    setError(null);
+    try {
+      const updated = await api.updateAdminReportStatus(report.report_id, status, resolution || undefined);
+      setReports((current) =>
+        current.map((entry) => (entry.report_id === updated.report_id ? updated : entry)),
+      );
+      setFeedback(`Report marked ${status}.`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not update report."));
+    }
+  };
+
+  const bulkResolveReports = async (status: ReportStatus) => {
+    if (selectedReportIds.length === 0) {
+      setError("Select at least one report first.");
+      return;
+    }
+    setConfirmation({
+      title: "Bulk update reports",
+      message: `Update ${selectedReportIds.length} selected report(s) to ${status}?`,
+      confirmLabel: "Update reports",
+      tone: status === "dismissed" ? "warning" : undefined,
+      onConfirm: async () => {
+        const updated = await api.bulkUpdateAdminReports({
+          report_ids: selectedReportIds,
+          status,
+          resolution: status === "resolved" ? "Bulk resolved by admin" : status === "dismissed" ? "Bulk dismissed by admin" : undefined,
+        });
+        setReports((current) =>
+          current.map((entry) => updated.find((item) => item.report_id === entry.report_id) ?? entry),
+        );
+        setSelectedReportIds([]);
+        setFeedback(`${updated.length} report(s) updated.`);
+      },
+    });
+  };
+
+  const exportAudit = async (format: "json" | "csv") => {
+    setFeedback(null);
+    setError(null);
+    try {
+      const data = await api.exportAdminAudit(format);
+      const size =
+        typeof data === "string"
+          ? data.length
+          : JSON.stringify(data).length;
+      const blob = new Blob([typeof data === "string" ? data : JSON.stringify(data, null, 2)], {
+        type: format === "csv" ? "text/csv" : "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `altair-admin-audit.${format}`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setFeedback(`Audit ${format.toUpperCase()} export generated (${size} bytes).`);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Could not export audit."));
+    }
+  };
+
   const selectedUserOwnedLabs = selectedUserDetail
     ? templates.filter((lab) => lab.creatorId === selectedUserDetail.user.user_id)
     : [];
@@ -1183,6 +1430,62 @@ export default function AdminDashboard() {
     return Boolean(session.current_runtime_id) && ["created", "in_progress"].includes(normalized);
   };
 
+  const adminSignals = {
+    blockedUsers: userResults.filter((user) => user.account_status !== "active"),
+    suspendedUsers: userResults.filter((user) => user.account_status === "suspended"),
+    bannedUsers: userResults.filter((user) => user.account_status === "banned"),
+    lockedGroups: groups.filter((group) => group.status === "locked"),
+    archivedLabs: templates.filter((template) => template.contentStatus === "archived"),
+    archivedStarpaths: starpaths.filter((starpath) => starpath.content_status === "archived"),
+    privateLabs: templates.filter((template) => template.visibility === "private"),
+    privateStarpaths: starpaths.filter(
+      (starpath) => String(starpath.visibility).toLowerCase() === "private",
+    ),
+    hiddenMarketplaceItems: marketplaceItems.filter((item) => !item.is_active),
+    inactiveCapsules: capsules.filter((capsule) => !capsule.is_active),
+    inactiveConstellations: constellations.filter((item) => !item.is_active),
+    selectedUserActiveRuntimes: selectedUserSessions.filter(runtimeIsActive),
+    selectedUserActiveSanctions: selectedUserDetail?.sanctions.filter((item) => item.status === "active") ?? [],
+  };
+
+  const moderationQueue = [
+    ...adminSignals.bannedUsers.map((user) => ({
+      id: `banned-${user.user_id}`,
+      title: `Banned account: ${user.pseudo || user.email || user.user_id}`,
+      description: user.email || user.user_id,
+      extra: "Banned",
+      tone: "danger" as const,
+    })),
+    ...adminSignals.suspendedUsers.map((user) => ({
+      id: `suspended-${user.user_id}`,
+      title: `Suspended account: ${user.pseudo || user.email || user.user_id}`,
+      description: user.email || user.user_id,
+      extra: "Suspended",
+      tone: "warning" as const,
+    })),
+    ...adminSignals.lockedGroups.map((group) => ({
+      id: `locked-group-${group.group_id}`,
+      title: `Locked group: ${group.name}`,
+      description: group.description ?? group.group_id,
+      extra: "Locked",
+      tone: "warning" as const,
+    })),
+    ...adminSignals.archivedLabs.slice(0, 4).map((lab) => ({
+      id: `archived-lab-${lab.id}`,
+      title: `Archived lab: ${lab.name}`,
+      description: lab.description || lab.id,
+      extra: "Archived",
+      tone: "neutral" as const,
+    })),
+    ...adminSignals.archivedStarpaths.slice(0, 4).map((starpath) => ({
+      id: `archived-starpath-${starpath.starpath_id}`,
+      title: `Archived starpath: ${starpath.name}`,
+      description: starpath.description ?? starpath.starpath_id,
+      extra: "Archived",
+      tone: "neutral" as const,
+    })),
+  ];
+
   function renderOverviewPanel() {
     return (
       <div className="space-y-6">
@@ -1202,7 +1505,7 @@ export default function AdminDashboard() {
           <KpiCard label="Labs" value={templatesLoading ? "..." : summary.labCount} helper="public and private labs" icon={<Layers className="h-3.5 w-3.5 text-orange-300" />} />
           <KpiCard label="Groups" value={groupsLoading ? "..." : summary.groupCount} helper="active learning cohorts" icon={<Users className="h-3.5 w-3.5 text-violet-300" />} />
           <KpiCard label="Starpaths" value={starpathsLoading ? "..." : summary.starpathCount} helper="learning routes" icon={<Orbit className="h-3.5 w-3.5 text-emerald-300" />} />
-          <KpiCard label="Reports" value={summary.alertCount} helper="open moderation queue" icon={<AlertTriangle className="h-3.5 w-3.5 text-rose-300" />} />
+          <KpiCard label="Signals" value={summary.alertCount} helper="admin attention items" icon={<AlertTriangle className="h-3.5 w-3.5 text-rose-300" />} />
         </div>
 
         <div className="grid gap-4 xl:grid-cols-3">
@@ -1213,7 +1516,7 @@ export default function AdminDashboard() {
             <div className="mt-4 space-y-3">
               <ListTile title="Platform areas responding" subtitle="Users, labs, groups, starpaths, marketplace, and gamification data loaded." extra="Healthy" />
               <ListTile title="Admin writes available" subtitle="Visibility, removal, and gamification changes are available from this workspace." extra="Ready" />
-              <ListTile title="Maintenance watchlist" subtitle="Reports, sanctions, audit exports, and feature flags are tracked for review." extra="Open" />
+              <ListTile title="Maintenance watchlist" subtitle="Blocked accounts, locked groups, archived content, and hidden economy items are tracked for review." extra={summary.alertCount} />
             </div>
           </DashboardCard>
 
@@ -1234,9 +1537,9 @@ export default function AdminDashboard() {
               <p className="text-sm font-semibold text-white">Admin attention</p>
             </div>
             <div className="mt-4 space-y-3">
-              <ActionTile title="Reports queue" description="7 open reports are waiting for triage." tone="warning" />
-              <ActionTile title="User sanctions" description="3 accounts have recent enforcement history." tone="warning" />
-              <ActionTile title="Audit exports" description="Last export completed today at 09:30." />
+              <ActionTile title="Blocked accounts" description={`${adminSignals.blockedUsers.length} account(s) are currently suspended or banned.`} tone={adminSignals.blockedUsers.length ? "danger" : "neutral"} />
+              <ActionTile title="Locked groups" description={`${adminSignals.lockedGroups.length} group(s) currently restrict assigned private access.`} tone={adminSignals.lockedGroups.length ? "warning" : "neutral"} />
+              <ActionTile title="Archived content" description={`${adminSignals.archivedLabs.length + adminSignals.archivedStarpaths.length} lab(s) or route(s) are hidden from learner discovery.`} tone={adminSignals.archivedLabs.length + adminSignals.archivedStarpaths.length ? "warning" : "neutral"} />
             </div>
           </DashboardCard>
         </div>
@@ -1558,31 +1861,142 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Moderation"
-          title="Moderation queue"
-          description="Review learner reports, prioritize investigations, and track enforcement outcomes."
+          title="Intervention queue"
+          description="Review live admin signals produced by account sanctions, locked groups, and archived content."
         />
         <div className="grid gap-4 xl:grid-cols-4">
-          <MiniCard label="Open reports" value="7" helper="waiting for triage" />
-          <MiniCard label="High priority" value="2" helper="user safety or abuse" />
-          <MiniCard label="Avg. review time" value="18m" helper="last 24 hours" />
-          <MiniCard label="Actions today" value="5" helper="warnings and closures" />
+          <MiniCard label="Blocked users" value={adminSignals.blockedUsers.length.toString()} helper={`${adminSignals.bannedUsers.length} banned`} />
+          <MiniCard label="Suspended" value={adminSignals.suspendedUsers.length.toString()} helper="gateway-blocked" />
+          <MiniCard label="Locked groups" value={adminSignals.lockedGroups.length.toString()} helper="access restricted" />
+          <MiniCard label="Archived content" value={(adminSignals.archivedLabs.length + adminSignals.archivedStarpaths.length).toString()} helper="hidden from discovery" />
         </div>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_380px]">
           <DashboardCard className="p-5">
-            <p className="text-sm font-semibold text-white">Latest reports</p>
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-white">Reports queue</p>
+                <p className="mt-1 text-xs text-white/40">{reportsTotal} report(s) matching filters</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={reportStatusFilter}
+                  onChange={(event) => {
+                    setReportStatusFilter(event.target.value as ReportStatus | "all");
+                    setReportPage(0);
+                  }}
+                  className={INPUT_CLASSNAME}
+                >
+                  <option value="all">All</option>
+                  <option value="open">Open</option>
+                  <option value="in_review">In review</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="dismissed">Dismissed</option>
+                </select>
+                <input
+                  value={reportTargetFilter}
+                  onChange={(event) => {
+                    setReportTargetFilter(event.target.value);
+                    setReportPage(0);
+                  }}
+                  placeholder="target type"
+                  className={INPUT_CLASSNAME}
+                />
+                <input
+                  value={reportQuery}
+                  onChange={(event) => {
+                    setReportQuery(event.target.value);
+                    setReportPage(0);
+                  }}
+                  placeholder="search reports"
+                  className={INPUT_CLASSNAME}
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={() => bulkResolveReports("in_review")} className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-200">
+                Bulk in review
+              </button>
+              <button type="button" onClick={() => bulkResolveReports("resolved")} className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-200">
+                Bulk resolve
+              </button>
+              <button type="button" onClick={() => bulkResolveReports("dismissed")} className="rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-200">
+                Bulk dismiss
+              </button>
+            </div>
+
             <div className="mt-4 space-y-3">
-              <ListTile title="Lab report: missing validation" subtitle="Learner reports a blocking step in Web Exploitation Basics." extra="High" />
-              <ListTile title="Group report: inappropriate message" subtitle="Private cohort flagged a member interaction for review." extra="High" />
-              <ListTile title="Starpath report: broken reference" subtitle="Route contains a lab that appears unavailable to learners." extra="Medium" />
-              <ListTile title="User report: repeated spam" subtitle="Multiple feedback entries reference the same account." extra="Medium" />
+              {reportsLoading ? (
+                <p className="text-sm text-white/40">Loading reports...</p>
+              ) : reportsError ? (
+                <p className="text-sm text-rose-200">{reportsError}</p>
+              ) : reports.length === 0 ? (
+                <p className="text-sm text-white/40">No moderation report found.</p>
+              ) : (
+                reports.map((report) => (
+                  <div key={report.report_id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <label className="flex min-w-0 items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedReportIds.includes(report.report_id)}
+                          onChange={(event) =>
+                            setSelectedReportIds((current) =>
+                              event.target.checked
+                                ? [...current, report.report_id]
+                                : current.filter((id) => id !== report.report_id),
+                            )
+                          }
+                          className="mt-1"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-white">
+                            {report.target_type} · {report.target_id}
+                          </span>
+                          <span className="mt-1 block text-sm text-white/45">{report.reason}</span>
+                          {report.details ? <span className="mt-1 block text-xs text-white/35">{report.details}</span> : null}
+                        </span>
+                      </label>
+                      <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/55">
+                        {report.status} · {report.priority}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button type="button" onClick={() => assignReportToMe(report)} className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-200">
+                        Assign
+                      </button>
+                      <button type="button" onClick={() => resolveReport(report, "in_review")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/70">
+                        In review
+                      </button>
+                      <button type="button" onClick={() => resolveReport(report, "resolved")} className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-200">
+                        Resolve
+                      </button>
+                      <button type="button" onClick={() => resolveReport(report, "dismissed")} className="rounded-xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-xs font-semibold text-orange-200">
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+              {!reportsLoading && reportsTotal > 25 ? (
+                <div className="flex items-center justify-between pt-2 text-xs text-white/45">
+                  <button type="button" disabled={reportPage === 0} onClick={() => setReportPage((page) => Math.max(0, page - 1))} className="rounded-xl border border-white/10 px-3 py-2 disabled:opacity-40">
+                    Previous
+                  </button>
+                  <span>Page {reportPage + 1}</span>
+                  <button type="button" disabled={(reportPage + 1) * 25 >= reportsTotal} onClick={() => setReportPage((page) => page + 1)} className="rounded-xl border border-white/10 px-3 py-2 disabled:opacity-40">
+                    Next
+                  </button>
+                </div>
+              ) : null}
             </div>
           </DashboardCard>
           <DashboardCard className="p-5">
-            <p className="text-sm font-semibold text-white">Enforcement queue</p>
+            <p className="text-sm font-semibold text-white">Available enforcement</p>
             <div className="mt-4 space-y-3">
-              <ActionTile title="Warning pending" description="2 accounts queued for a first warning." tone="warning" />
-              <ActionTile title="Temporary suspension review" description="1 account requires admin validation." tone="danger" />
-              <ActionTile title="Resolved today" description="5 reports closed after review." />
+              <ActionTile title="Account sanctions" description="Open a user profile to warn, suspend, ban, or reactivate. Suspended and banned accounts are blocked by the gateway." tone={adminSignals.blockedUsers.length ? "danger" : "neutral"} />
+              <ActionTile title="Runtime shutdown" description={selectedUserId ? `${adminSignals.selectedUserActiveRuntimes.length} active runtime(s) available on the selected user.` : "Select a user to stop active runtimes."} tone={adminSignals.selectedUserActiveRuntimes.length ? "warning" : "neutral"} />
+              <ActionTile title="Content lifecycle" description="Archive, restore, privatize, publish, or delete labs and starpaths from their admin sections." tone={adminSignals.archivedLabs.length + adminSignals.archivedStarpaths.length ? "warning" : "neutral"} />
             </div>
           </DashboardCard>
         </div>
@@ -1819,10 +2233,10 @@ export default function AdminDashboard() {
         <DashboardCard className="p-5">
           <p className="text-sm font-semibold text-white">Route health</p>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <ActionTile title="Broken references" description="2 paths contain lab references flagged for verification." tone="warning" />
-            <ActionTile title="Completion drop-off" description="OSINT Path loses most learners after chapter 2." tone="warning" />
-            <ActionTile title="Private access audit" description="Review access by group and invited learners." />
-            <ActionTile title="Archive lifecycle" description="Move retired routes out of learner discovery without deleting history." />
+            <ActionTile title="Public routes" description={`${publicStarpathCount} route(s) are visible to learners.`} />
+            <ActionTile title="Private routes" description={`${privateStarpathCount} route(s) require ownership or group access.`} />
+            <ActionTile title="Archived routes" description={`${adminSignals.archivedStarpaths.length} route(s) are removed from learner discovery without deleting history.`} tone={adminSignals.archivedStarpaths.length ? "warning" : "neutral"} />
+            <ActionTile title="Private access audit" description={`${adminSignals.lockedGroups.length} locked group(s) currently reduce assigned private access.`} tone={adminSignals.lockedGroups.length ? "warning" : "neutral"} />
           </div>
         </DashboardCard>
       </div>
@@ -2186,8 +2600,8 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <PanelTitle
           eyebrow="Marketplace"
-          title="Catalog read-only"
-          description="Inspect catalog inventory, pricing, ownership impact, and visibility state."
+          title="Catalog operations"
+          description="Inspect catalog inventory, edit pricing, toggle visibility, and review ownership impact."
         />
         <div className="grid gap-4 xl:grid-cols-3">
           <MiniCard
@@ -2204,7 +2618,7 @@ export default function AdminDashboard() {
             }
             helper="derived client-side"
           />
-          <MiniCard label="Visibility changes" value="4" helper="pending review" />
+          <MiniCard label="Hidden items" value={adminSignals.hiddenMarketplaceItems.length.toString()} helper="not purchasable" />
         </div>
         {marketplaceLoading ? (
           <DashboardCard className="border border-white/10 p-5 text-sm text-white/45">Loading catalog...</DashboardCard>
@@ -2293,27 +2707,29 @@ export default function AdminDashboard() {
           description="Monitor platform usage, content engagement, moderation load, and account risk."
         />
         <div className="grid gap-4 xl:grid-cols-4">
-          <MiniCard label="Labs" value={templatesLoading ? "..." : templates.length.toString()} helper="content inventory" />
-          <MiniCard label="Groups" value={groupsLoading ? "..." : groups.length.toString()} helper="learning cohorts" />
-          <MiniCard label="Starpaths" value={starpathsLoading ? "..." : starpaths.length.toString()} helper="learning routes" />
-          <MiniCard label="Marketplace" value={marketplaceLoading ? "..." : marketplaceItems.length.toString()} helper="catalog items" />
+          <MiniCard label="Launches" value={sessionsAnalytics ? sessionsAnalytics.launched_sessions.toString() : "..."} helper={`${sessionsAnalytics?.launches_last_7d ?? 0} last 7d`} />
+          <MiniCard label="Completions" value={sessionsAnalytics ? sessionsAnalytics.completed_sessions.toString() : "..."} helper={`${sessionsAnalytics?.completions_last_7d ?? 0} last 7d`} />
+          <MiniCard label="Active sessions" value={sessionsAnalytics ? sessionsAnalytics.active_sessions.toString() : "..."} helper={`${sessionsAnalytics?.active_runtimes ?? 0} runtimes`} />
+          <MiniCard label="Gacha rolls" value={economyAnalytics ? economyAnalytics.total_gacha_rolls.toString() : "..."} helper={`${economyAnalytics?.gacha_rolls_last_7d ?? 0} last 7d`} />
         </div>
+        {analyticsError ? <StatusBanner tone="error">{analyticsError}</StatusBanner> : null}
         <div className="grid gap-4 xl:grid-cols-2">
           <DashboardCard className="p-5">
             <p className="text-xs uppercase tracking-[0.16em] text-white/35">Economy signals</p>
             <div className="mt-4 space-y-3">
-              <ListTile title={`${summary.activeConstellationCount} active constellations`} subtitle="Visible through the current collection experience." />
-              <ListTile title={`${summary.capsuleCount} capsules configured`} subtitle="Capsule economy available for tuning." />
-              <ListTile title={`${summary.marketplaceCount} marketplace items`} subtitle="Catalog entries available for learner purchase." />
+              <ListTile title={`${economyAnalytics?.active_capsules ?? summary.liveCapsuleCount} active capsules`} subtitle={`${economyAnalytics?.inactive_capsules ?? adminSignals.inactiveCapsules.length} inactive capsules.`} />
+              <ListTile title={`${economyAnalytics?.starlight_spent_gacha ?? 0} starlight spent in gacha`} subtitle={`${economyAnalytics?.total_gacha_rolls ?? 0} total gacha rolls.`} />
+              <ListTile title={`${economyAnalytics?.marketplace_purchases ?? 0} marketplace purchases`} subtitle={`${economyAnalytics?.marketplace_owners ?? 0} unique cosmetic owners.`} />
+              <ListTile title={`${economyAnalytics?.net_currency_ledger_amount ?? 0} net ledger amount`} subtitle={`${economyAnalytics?.currency_ledger_entries ?? 0} currency ledger entries.`} />
             </div>
           </DashboardCard>
           <DashboardCard className="p-5">
             <p className="text-xs uppercase tracking-[0.16em] text-white/35">Risk signals</p>
             <div className="mt-4 space-y-3">
-              <ActionTile title="Usage analytics" description="342 launches and 189 completions in the last 7 days." tone="warning" />
-              <ActionTile title="Moderation analytics" description="7 open reports, 2 marked high priority." tone="warning" />
-              <ActionTile title="Feedback analytics" description="3 content items show negative feedback spikes." tone="warning" />
-              <ActionTile title="User risk signals" description="3 accounts combine sanctions, status changes, or unusual behavior." />
+              <ActionTile title="Blocked accounts" description={`${adminSignals.blockedUsers.length} suspended or banned account(s) in the loaded user set.`} tone={adminSignals.blockedUsers.length ? "danger" : "neutral"} />
+              <ActionTile title="Content lifecycle" description={`${adminSignals.archivedLabs.length} archived lab(s) and ${adminSignals.archivedStarpaths.length} archived route(s).`} tone={adminSignals.archivedLabs.length + adminSignals.archivedStarpaths.length ? "warning" : "neutral"} />
+              <ActionTile title="Private inventory" description={`${adminSignals.privateLabs.length} private lab(s) and ${adminSignals.privateStarpaths.length} private route(s).`} />
+              <ActionTile title="Economy visibility" description={`${adminSignals.hiddenMarketplaceItems.length} hidden marketplace item(s), ${adminSignals.inactiveCapsules.length} inactive capsule(s), ${adminSignals.inactiveConstellations.length} hidden constellation(s).`} tone={adminSignals.hiddenMarketplaceItems.length + adminSignals.inactiveCapsules.length + adminSignals.inactiveConstellations.length ? "warning" : "neutral"} />
             </div>
           </DashboardCard>
         </div>
@@ -2327,23 +2743,85 @@ export default function AdminDashboard() {
         <PanelTitle
           eyebrow="Settings"
           title="Operational tools"
-          description="Manage rollout controls, maintenance actions, audit exports, and security operations."
+          description="Current operational state and the admin sections that perform each live action."
         />
         <div className="grid gap-4 xl:grid-cols-2">
           <DashboardCard className="p-5">
             <p className="text-sm font-semibold text-white">Operational controls</p>
             <div className="mt-4 space-y-3">
-              <ListTile title="Feature flags" subtitle="3 active flags, 1 scheduled rollout." extra="Stable" />
-              <ListTile title="Maintenance tools" subtitle="Runtime cleanup and stale session review." extra="Ready" />
-              <ListTile title="Audit exports" subtitle="Last export completed today at 09:30." extra="Fresh" />
+              <ListTile title="Account enforcement" subtitle="Warnings, suspensions, bans, and reactivation write to users-ms and affect gateway access." extra={`${adminSignals.blockedUsers.length} blocked`} />
+              <ListTile title="Runtime cleanup" subtitle="Active selected-user runtimes can be stopped through sessions-ms." extra={`${adminSignals.selectedUserActiveRuntimes.length} active`} />
+              <ListTile title="Content maintenance" subtitle="Lab and starpath visibility/archive/delete actions write to their source services." extra={`${adminSignals.archivedLabs.length + adminSignals.archivedStarpaths.length} archived`} />
             </div>
           </DashboardCard>
           <DashboardCard className="p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-white">Global audit</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => exportAudit("json")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/70">
+                  JSON
+                </button>
+                <button type="button" onClick={() => exportAudit("csv")} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/70">
+                  CSV
+                </button>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <input
+                value={auditQuery}
+                onChange={(event) => {
+                  setAuditQuery(event.target.value);
+                  setAuditPage(0);
+                }}
+                placeholder="Search audit action/path"
+                className={INPUT_CLASSNAME}
+              />
+              <input
+                value={auditServiceFilter}
+                onChange={(event) => {
+                  setAuditServiceFilter(event.target.value);
+                  setAuditPage(0);
+                }}
+                placeholder="Service filter"
+                className={INPUT_CLASSNAME}
+              />
+            </div>
+            <div className="mt-4 space-y-3">
+              {auditLoading ? (
+                <p className="text-sm text-white/40">Loading audit events...</p>
+              ) : auditError ? (
+                <p className="text-sm text-rose-200">{auditError}</p>
+              ) : auditEvents.length === 0 ? (
+                <p className="text-sm text-white/40">No audit event found.</p>
+              ) : (
+                auditEvents.slice(0, 8).map((entry) => (
+                  <ListTile
+                    key={entry.audit_id}
+                    title={entry.action}
+                    subtitle={`${entry.service ?? "unknown"} · ${entry.http_method ?? ""} ${entry.http_path ?? ""}`}
+                    extra={entry.status_code ? String(entry.status_code) : new Date(entry.created_at).toLocaleDateString()}
+                  />
+                ))
+              )}
+              {!auditLoading && auditTotal > 50 ? (
+                <div className="flex items-center justify-between pt-2 text-xs text-white/45">
+                  <button type="button" disabled={auditPage === 0} onClick={() => setAuditPage((page) => Math.max(0, page - 1))} className="rounded-xl border border-white/10 px-3 py-2 disabled:opacity-40">
+                    Previous
+                  </button>
+                  <span>Page {auditPage + 1}</span>
+                  <button type="button" disabled={(auditPage + 1) * 50 >= auditTotal} onClick={() => setAuditPage((page) => page + 1)} className="rounded-xl border border-white/10 px-3 py-2 disabled:opacity-40">
+                    Next
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </DashboardCard>
+          <DashboardCard className="p-5 xl:col-span-2">
             <p className="text-sm font-semibold text-white">Security actions</p>
             <div className="mt-4 space-y-3">
-              <ActionTile title="Force account review" description="Queue a suspicious account for manual verification." tone="warning" />
-              <ActionTile title="Revoke active sessions" description="End sessions after account compromise or policy violation." tone="danger" />
-              <ActionTile title="Export audit trail" description="Generate a dated audit bundle for compliance review." />
+              <ActionTile title="Suspend or ban" description="Use Users to apply sanctions with a reason. Suspensions can expire; bans remain until reactivation." tone="warning" />
+              <ActionTile title="Revoke active sessions" description={selectedUserId ? `Use the selected user profile to stop ${adminSignals.selectedUserActiveRuntimes.length} active runtime(s).` : "Select a user to reveal runtime shutdown controls."} tone={adminSignals.selectedUserActiveRuntimes.length ? "danger" : "neutral"} />
+              <ActionTile title="Audit trail" description={selectedUserId ? `${adminSignals.selectedUserActiveSanctions.length} active sanction(s) and ${selectedUserDetail?.audit_logs.length ?? 0} audit event(s) loaded for the selected user.` : "Select a user to inspect sanctions and audit events from users-ms."} />
             </div>
           </DashboardCard>
         </div>
@@ -2420,6 +2898,14 @@ export default function AdminDashboard() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
+              onClick={refreshAdminWorkspace}
+              className="inline-flex items-center gap-2 rounded-2xl border border-sky-300/20 bg-sky-400/10 px-3 py-2 text-xs font-medium text-sky-100 transition hover:border-sky-200/35 hover:bg-sky-400/15"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </button>
+            <button
+              type="button"
               onClick={logout}
               className="inline-flex items-center gap-2 rounded-2xl border border-rose-300/20 bg-rose-400/10 px-3 py-2 text-xs font-medium text-rose-100 transition hover:border-rose-200/35 hover:bg-rose-400/15"
             >
@@ -2442,6 +2928,37 @@ export default function AdminDashboard() {
           </DashboardCard>
         </div>
       </div>
+      {confirmation ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111827] p-5 shadow-2xl">
+            <p className="text-lg font-semibold text-white">{confirmation.title}</p>
+            <p className="mt-3 text-sm leading-6 text-white/55">{confirmation.message}</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={confirmBusy}
+                onClick={() => setConfirmation(null)}
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white/70 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={confirmBusy}
+                onClick={runConfirmation}
+                className={[
+                  "rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-50",
+                  confirmation.tone === "danger"
+                    ? "border-rose-400/30 bg-rose-400/15 text-rose-100"
+                    : "border-orange-400/30 bg-orange-400/15 text-orange-100",
+                ].join(" ")}
+              >
+                {confirmBusy ? "Working..." : confirmation.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -151,6 +151,7 @@ import { getStarpath } from "@/api/starpaths";
 import type { Starpath } from "@/contracts/starpaths";
 import { getStarpathLabs } from "@/api/starpaths";
 import { getLab } from "@/api/labs";
+import ReportButton from "@/components/moderation/ReportButton";
 
 import StarpathWorldCanvas, {
   type StarpathWorldCanvasHandle,
@@ -386,6 +387,14 @@ export default function StarpathView() {
             </div>
 
             <div className="pointer-events-auto flex items-center gap-2">
+              {id ? (
+                <ReportButton
+                  targetType="starpath"
+                  targetId={id}
+                  targetLabel={title}
+                  className="rounded-full"
+                />
+              ) : null}
               <button
                 onClick={() => navigate(-1)}
                 className="rounded-full border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm text-white/80 transition"

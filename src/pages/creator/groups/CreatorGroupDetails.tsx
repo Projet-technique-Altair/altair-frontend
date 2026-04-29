@@ -14,6 +14,7 @@ import { api } from "@/api";
 import { getLab } from "@/api/labs";
 import { getStarpath } from "@/api/starpaths";
 import { getUserPseudo } from "@/api/users";
+import ReportButton from "@/components/moderation/ReportButton";
 
 type EnrichedMember = {
   user_id: string;
@@ -335,6 +336,10 @@ export default function CreatorGroupDetailsPage() {
               <BarChart3 className="h-4 w-4" />
               <span>Analytics</span>
             </button>
+
+            {groupId ? (
+              <ReportButton targetType="group" targetId={groupId} targetLabel={group?.name ?? "Group"} />
+            ) : null}
           </div>
 
           <div className="mt-6 h-px w-full bg-white/10" />

@@ -3,6 +3,7 @@ import { Trash2, ChevronRight, Users } from "lucide-react";
 import { motion } from "framer-motion";
 
 import DashboardCard from "@/components/ui/DashboardCard";
+import ReportButton from "@/components/moderation/ReportButton";
 
 /* =========================
    TYPES
@@ -65,11 +66,11 @@ export default function CreatorGroupCard({
           </div>
 
           {/* ACTION */}
-          {onDelete && (
-            <div
-              className="flex items-center gap-2 shrink-0"
-              onClick={(e) => e.stopPropagation()}
-            >
+          <div
+            className="flex items-center gap-2 shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {onDelete && (
               <button
                 onClick={onDelete}
                 className="
@@ -80,8 +81,14 @@ export default function CreatorGroupCard({
               >
                 <Trash2 className="h-4 w-4 text-red-400" />
               </button>
-            </div>
-          )}
+            )}
+            <ReportButton
+              targetType="group"
+              targetId={group.group_id}
+              targetLabel={group.name}
+              compact
+            />
+          </div>
         </div>
 
         {/* BODY */}

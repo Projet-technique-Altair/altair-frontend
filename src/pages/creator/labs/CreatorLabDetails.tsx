@@ -17,6 +17,7 @@ import {
 import { api } from "@/api";
 import { getEditableSteps } from "@/api/labs";
 import type { LabHint, LabStep } from "@/api/types";
+import ReportButton from "@/components/moderation/ReportButton";
 
 type Hint = LabHint;
 
@@ -352,6 +353,10 @@ export default function CreatorLabDetailsPage() {
               <BarChart3 className="h-4 w-4" />
               <span>Analytics</span>
             </button>
+
+            {id ? (
+              <ReportButton targetType="lab" targetId={id} targetLabel={form.name || "Lab"} />
+            ) : null}
           </div>
 
           <div className="mt-6 h-px w-full bg-white/10" />
