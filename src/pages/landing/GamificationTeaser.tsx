@@ -2,18 +2,62 @@
  * @file GamificationTeaserSection
  *
  * Gamification teaser (showcase) — shows:
- * - 1 constellation (Orion-base.png)
+ * - constellation collection preview
  * - 1 title badge (e.g. "Pathfinder")
  *
  * (Aura removed for now.)
  */
 
 import monoTexture from "@/assets/mono.png";
+import argoNavisBase from "@/assets/Argo-Navis-base.png";
+import cygnusBase from "@/assets/Cygnus-base.png";
+import hydraBase from "@/assets/Hydra-base.png";
+import lyraBase from "@/assets/Lyra-base.png";
 import orionBase from "@/assets/Orion-base.png";
 
 type GamificationTeaserSectionProps = {
   titleName?: string;
 };
+
+const constellations = [
+  {
+    name: "Orion",
+    image: orionBase,
+    tone: "from-sky-300/20 via-violet-300/10 to-transparent",
+    className: "md:absolute md:left-1/2 md:top-1/2 md:z-20 md:h-[360px] md:w-[360px] md:-translate-x-1/2 md:-translate-y-1/2",
+    imageClassName: "h-[122%] w-[122%]",
+    featured: true,
+    preserveImage: true,
+  },
+  {
+    name: "Argo Navis",
+    image: argoNavisBase,
+    tone: "from-cyan-300/20 via-sky-300/10 to-transparent",
+    className: "md:absolute md:left-[7%] md:top-[10%] md:z-30 md:h-[220px] md:w-[220px]",
+    imageClassName: "h-[112%] w-[112%]",
+  },
+  {
+    name: "Cygnus",
+    image: cygnusBase,
+    tone: "from-violet-300/20 via-fuchsia-300/10 to-transparent",
+    className: "md:absolute md:right-[7%] md:top-[16%] md:z-30 md:h-[220px] md:w-[220px]",
+    imageClassName: "h-[114%] w-[114%]",
+  },
+  {
+    name: "Hydra",
+    image: hydraBase,
+    tone: "from-emerald-300/20 via-sky-300/10 to-transparent",
+    className: "md:absolute md:left-[10%] md:bottom-[10%] md:z-30 md:h-[220px] md:w-[220px]",
+    imageClassName: "h-[114%] w-[114%]",
+  },
+  {
+    name: "Lyra",
+    image: lyraBase,
+    tone: "from-orange-300/20 via-amber-200/10 to-transparent",
+    className: "md:absolute md:right-[10%] md:bottom-[8%] md:z-30 md:h-[220px] md:w-[220px]",
+    imageClassName: "h-[112%] w-[112%]",
+  },
+];
 
 export default function GamificationTeaserSection({
   titleName = "Pathfinder",
@@ -53,39 +97,41 @@ export default function GamificationTeaserSection({
           </p>
         </div>
 
-        <div className="mt-14 grid grid-cols-1 gap-10 md:grid-cols-[1fr_0.85fr] md:items-center">
+        <div className="mt-14 grid grid-cols-1 gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
           {/* Showcase */}
           <div className="relative">
-            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8">
+            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-5 md:p-7">
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-0
                            bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.06)_0%,rgba(7,11,24,0)_55%)]"
               />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-10 top-10 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
+              />
 
-              {/* Stage (Orion enlarged a lot) */}
-              <div className="relative mx-auto flex aspect-square w-full max-w-[720px] items-center justify-center">
-                <img
-                  src={orionBase}
-                  alt="Orion constellation"
-                  draggable={false}
-                  className="relative z-10 h-[108%] w-[108%] object-contain drop-shadow-[0_18px_70px_rgba(0,0,0,0.55)]"
-                />
-
-                {/* Anchor ring */}
+              <div className="relative grid grid-cols-1 gap-4 md:block md:min-h-[610px]">
                 <div
                   aria-hidden
-                  className="pointer-events-none absolute inset-3 rounded-full border border-white/10"
+                  className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-white/[0.025] md:block"
                 />
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[430px] w-[430px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.12),transparent_68%)] blur-xl md:block"
+                />
+                {constellations.map((constellation) => (
+                  <ConstellationCard key={constellation.name} {...constellation} />
+                ))}
               </div>
 
-              <div className="mt-8 flex items-center justify-between gap-4 border-t border-white/10 pt-5">
+              <div className="mt-6 flex items-center justify-between gap-4 border-t border-white/10 pt-5">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-white">
-                    Orion — Base
+                    Constellation examples
                   </p>
                   <p className="mt-1 text-sm text-slate-300/80">
-                    Cosmetic only. Earned through activity.
+                    Cosmetic identities earned through activity.
                   </p>
                 </div>
 
@@ -130,6 +176,74 @@ export default function GamificationTeaserSection({
         </div>
       </div>
     </section>
+  );
+}
+
+type ConstellationCardProps = {
+  name: string;
+  image: string;
+  tone: string;
+  className?: string;
+  imageClassName: string;
+  featured?: boolean;
+  preserveImage?: boolean;
+};
+
+function ConstellationCard({
+  name,
+  image,
+  tone,
+  className = "",
+  imageClassName,
+  featured = false,
+  preserveImage = false,
+}: ConstellationCardProps) {
+  return (
+    <article
+      className={[
+        "group relative min-h-[170px] overflow-hidden rounded-full border border-white/10 bg-[#070B18]/15",
+        "transition duration-300 hover:border-white/25 hover:bg-white/[0.07]",
+        featured ? "" : "hover:-translate-y-1",
+        featured ? "min-h-[320px]" : "",
+        className,
+      ].join(" ")}
+    >
+      <div
+        aria-hidden
+        className={[
+          "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-80 transition duration-300 group-hover:opacity-100",
+          tone,
+        ].join(" ")}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-1 rounded-full border border-white/10 opacity-70"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-12 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.10),transparent_58%)] opacity-0 blur-xl transition duration-300 group-hover:opacity-100"
+      />
+
+      <div className="relative flex h-full min-h-[inherit] items-center justify-center p-3">
+        <div className="relative aspect-square w-[92%] overflow-hidden rounded-full">
+          <img
+            src={image}
+            alt={`${name} constellation`}
+            draggable={false}
+            className={[
+              "absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain drop-shadow-[0_18px_55px_rgba(0,0,0,0.60)] transition duration-500",
+              featured ? "" : "group-hover:scale-[1.04]",
+              preserveImage
+                ? ""
+                : "mix-blend-screen brightness-115 contrast-125 saturate-125",
+              imageClassName,
+            ].join(" ")}
+          />
+        </div>
+      </div>
+
+      <span className="sr-only">{name} base constellation</span>
+    </article>
   );
 }
 

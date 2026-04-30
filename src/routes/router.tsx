@@ -3,6 +3,9 @@ import { AuthProvider } from "@/context/AuthContext";
 
 import Landing from "@/pages/landing/Landing";
 import RouteError from "@/pages/RouteError";
+import SupportPage from "@/pages/public/SupportPage";
+import LegalPage from "@/pages/public/LegalPage";
+import SocialPage from "@/pages/public/SocialPage";
 
 import LearnerLayout from "@/layouts/LearnerLayout";
 import CreatorLayout from "@/layouts/CreatorLayout";
@@ -52,6 +55,18 @@ export const router = createBrowserRouter([
       {
         path: "/",
         element: <Landing />,
+      },
+      {
+        path: "/support",
+        element: <SupportPage />,
+      },
+      {
+        path: "/legal",
+        element: <LegalPage />,
+      },
+      {
+        path: "/social",
+        element: <SocialPage />,
       },
       {
         path: "/auth/callback",
